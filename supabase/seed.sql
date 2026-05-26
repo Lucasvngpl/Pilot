@@ -1,0 +1,12 @@
+-- supabase/seed.sql
+--
+-- This file runs automatically after `supabase db reset` (local dev only).
+-- Use it for *static* dev fixtures — e.g., a handful of test users you want
+-- to recreate every reset.
+--
+-- We intentionally do NOT seed `shows_cache` from here. That data comes from
+-- TMDb via `scripts/seed-shows.ts` (one-off bootstrap) and the
+-- `refresh-popular` Edge Function (recurring, Phase C). Keeping the catalog
+-- seed out of SQL avoids hammering TMDb every time we reset the DB.
+
+-- (empty for now — add fixtures when you need them)

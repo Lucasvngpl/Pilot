@@ -1,0 +1,70 @@
+# Supabase local-dev config.
+#
+# What this file is: the settings the Supabase CLI uses when you run
+# `supabase start` (a local Postgres + GoTrue + Edge Functions stack in
+# Docker). It's NOT linked to your remote project — that linkage is created
+# by `supabase link --project-ref <ref>` and stored separately in
+# `supabase/.temp/` (gitignored).
+#
+# What changes here apply to: local dev only. To change remote settings,
+# use the Supabase dashboard or `supabase config push` (newer CLI).
+
+# Used to namespace local dev resources (Docker container names, etc.).
+project_id = "pilot"
+
+
+[api]
+# Local PostgREST port. Hit `http://localhost:54321` to reach the local API.
+port = 54321
+# Schemas exposed via PostgREST. `public` is yours; `graphql_public` is the
+# auto-generated GraphQL view (we won't use it but it's harmless).
+schemas = ["public", "graphql_public"]
+# Schemas added to the search_path for every request.
+extra_search_path = ["public", "extensions"]
+# Hard cap on rows returned per query — protects against accidental SELECT *
+# on a huge table.
+max_rows = 1000
+
+
+[db]
+# Local Postgres port. Connect with: postgres://postgres:postgres@localhost:54322/postgres
+port = 54322
+# Must match your remote project's major version. NULLS NOT DISTINCT
+# (used in 0001_init.sql) requires 15+; PG 17 has it too.
+major_version = 17
+
+
+[studio]
+# Supabase Studio (the dashboard UI) port for local dev.
+port = 54323
+
+
+# Local email testing — Supabase ships an SMTP capture server (Inbucket) so
+# signup/confirmation emails are caught locally instead of actually sent.
+# Open http://localhost:54324 to view them.
+[inbucket]
+port = 54324
+smtp_port = 54325
+pop3_port = 54326
+
+
+[storage]
+file_size_limit = "50MiB"
+
+
+[auth]
+# The base URL users get redirected to from auth emails. For an Expo app
+# this becomes the dev-server URL or your custom scheme. Update when you
+# wire up email confirmation flows.
+site_url = "http://localhost:8081"
+additional_redirect_urls = ["pilot://", "exp://localhost:8081"]
+jwt_expiry = 3600
+enable_signup = true
+
+
+[auth.email]
+enable_signup = true
+# In dev we skip email confirmation to make signup fast. Turn this on
+# before shipping if you want verified emails.
+enable_confirmations = false
+double_confirm_changes = true
