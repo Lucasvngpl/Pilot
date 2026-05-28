@@ -1,0 +1,89 @@
+import { useEffect, useRef, useState } from 'react';
+import { Animated, View, Pressable, StyleSheet, BackHandler } from 'react-native';
+import { colors } from '@/theme';
+
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+  height?: number;
+};
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Bottom sheet built WITHOUT RN Modal — a positioned overlay that animates in.
+//
+// Why not Modal: iOS won't reliably stack one Modal over another, so a Modal
+// sheet can't open a second sheet (e.g. LoginSheet over ShowActionSheet for a
+// per-action auth gate). As plain overlays, sheets stack by render order —
+// LoginSheet (mounted at root in RequireAuthProvider, after the routes) sits
+// above any in-route sheet, and the underlying sheet stays mounted with its
+// state intact through the login round-trip.
+//
+// Scrim + sheet are SIBLINGS: a tap on the sheet never bubbles to the scrim,
+// so no responder hack is needed and child drags (RatingPicker) claim touches
+// normally — fixing the old inner-Pressable interception.
+export function Sheet({ visible, onClose, children, height = 560 }: Props) {
+  const progress = useRef(new Animated.Value(0)).current;
+  // Stay mounted through the close animation, then unmount.
+  const [mounted, setMounted] = useState(visible);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(progress, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    } else {
+      Animated.timing(progress, { toValue: 0, duration: 220, useNativeDriver: true })
+        .start(({ finished }) => { if (finished) setMounted(false); });
+    }
+  }, [visible, progress]);
+
+  // Android hardware back closes the (top-most mounted) sheet.
+  useEffect(() => {
+    if (!mounted) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [mounted, onClose]);
+
+  if (!mounted) return null;
+
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [height, 0],
+  });
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <AnimatedPressable style={[styles.scrim, { opacity: progress }]} onPress={onClose} />
+      <Animated.View style={[styles.sheet, { height, transform: [{ translateY }] }]}>
+        <View style={styles.grabber} />
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrim: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: colors.scrim,
+  },
+  sheet: {
+    position: 'absolute',
+    left: 0, right: 0, bottom: 0,
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+  },
+  grabber: {
+    width: 40, height: 5, borderRadius: 3,
+    backgroundColor: colors.hairline,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+});

@@ -1,4 +1,5 @@
-import { Stack } from 'expo-router';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts, ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
 import {
@@ -9,14 +10,27 @@ import {
 } from '@expo-google-fonts/inter';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '@/lib/queryClient';
+import { AuthProvider, useAuth } from '@/lib/auth';
+import { RequireAuthProvider } from '@/lib/requireAuth';
 
-// Root layout. Three things happen here:
-//   1. Load all design-system fonts before rendering (no flash of fallback text).
-//   2. Wrap the app in QueryClientProvider so any screen can use TanStack hooks.
-//   3. Wrap in SafeAreaProvider so screens can read safe-area insets (notch).
-//
-// The <Stack /> is Expo Router's default navigator — file-based routing means
-// every file under src/app/ becomes a screen automatically.
+// One-way auth gate (Letterboxd-style): anonymous users can browse the catalog
+// freely. We only redirect AWAY from the auth group once a session lands.
+// Per-action gating (write a review, mark watched, follow) goes through
+// useRequireAuth from RequireAuthProvider, not this gate.
+function AuthGate() {
+  const { session, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    const inAuthGroup = segments[0] === '(auth)';
+    if (session && inAuthGroup) router.replace('/');
+  }, [session, loading, segments]);
+
+  return <Slot />;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     ArchivoBlack_400Regular,
@@ -31,7 +45,11 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <AuthProvider>
+          <RequireAuthProvider>
+            <AuthGate />
+          </RequireAuthProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );
