@@ -1,4 +1,4 @@
-import { View, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, TextInput, Pressable, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { SearchIcon, CloseIcon } from '@/components/icons';
 import { colors, fonts, pad } from '@/theme';
 
@@ -8,6 +8,10 @@ type Props = {
   placeholder?: string;
   onFocus?: () => void;
   onBlur?: () => void;
+  // Override the container layout. The default wrap owns `marginHorizontal: pad`
+  // (right for a screen-edge search bar); a parent that already pads its content
+  // passes e.g. `{ marginHorizontal: 0 }` so the field doesn't get inset twice.
+  style?: StyleProp<ViewStyle>;
 };
 
 // Search bar: rounded field with a left search glyph and a clear (×) button that
@@ -19,9 +23,10 @@ export function SearchInput({
   placeholder = 'Search shows and people',
   onFocus,
   onBlur,
+  style,
 }: Props) {
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, style]}>
       <SearchIcon color={colors.faint} size={18} />
       <TextInput
         style={styles.input}

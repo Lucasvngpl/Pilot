@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { ShowCard, TmdbPayload } from '@/types';
+import type { ShowCard, TmdbPayload, GetShowResponse } from '@/types';
 
 /**
  * Look up catalog cards (name + poster) for a set of show ids.
@@ -10,9 +10,11 @@ import type { ShowCard, TmdbPayload } from '@/types';
  * the catalog blobs for the ids we already have and return a lookup map; callers
  * merge in JS — the same explicit-merge discipline get-reviews uses.
  *
- * This reads our OWN cache table (public SELECT) and never calls TMDb, so it
- * stays within the "catalog via Edge Functions" rule — that rule exists to keep
- * the TMDb *key* server-side, which this code never touches.
+ * Fast path reads our OWN cache table (public SELECT). Any id NOT cached yet
+ * (e.g. a show added to a list from live TMDb search, which never writes the
+ * cache) falls back to the `get-show` Edge Function — the only sanctioned catalog
+ * path, so the TMDb *key* stays server-side. That function caches the payload as
+ * a side effect, so the miss self-heals for next time.
  */
 export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCard>> {
   const map = new Map<number, ShowCard>();
@@ -32,5 +34,35 @@ export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCar
       poster_path: payload?.poster_path ?? null,
     });
   }
+
+  // Cache misses → fetch via get-show (caches as a side effect). Parallel; a
+  // failure just leaves that id absent (callers fall back to a poster-less tile),
+  // so one bad id never blocks the rest. Misses are the exception (most shows on
+  // a list / profile are already cached), so the extra round-trips are rare.
+  const missing = ids.filter((id) => !map.has(id));
+  if (missing.length > 0) {
+    const fetched = await Promise.all(
+      missing.map(async (id) => {
+        try {
+          const { data: show } = await supabase.functions.invoke<GetShowResponse>(
+            'get-show',
+            { body: { tmdb_show_id: id } },
+          );
+          return show ? { id, catalog: show.catalog } : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const f of fetched) {
+      if (!f) continue;
+      map.set(f.id, {
+        tmdb_show_id: f.id,
+        name: f.catalog?.name ?? 'Untitled',
+        poster_path: f.catalog?.poster_path ?? null,
+      });
+    }
+  }
+
   return map;
 }

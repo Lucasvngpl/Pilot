@@ -170,6 +170,28 @@ export type PersonResult = {
   avatar_url: string | null;
 };
 
+// ----- Lists ---------------------------------------------------------------
+
+// A list as shown on the profile Lists tab (count + a few poster previews).
+export type ListSummary = {
+  id: string;
+  title: string;
+  description: string | null;
+  itemCount: number;
+  posters: (string | null)[]; // up to 4 poster_paths for the card preview
+};
+
+// A list opened in detail — its shows (ordered) + owner handle.
+export type ListDetail = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  is_ranked: boolean;
+  ownerUsername: string | null;
+  items: ShowCard[];
+};
+
 // Turn a scope into a display line. Whole show → undefined (no line shown).
 export function formatScope(
   season: number | null,

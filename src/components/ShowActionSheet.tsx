@@ -1,6 +1,8 @@
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Sheet } from '@/components/Sheet';
+import { AddToListSheet } from '@/components/AddToListSheet';
 import { StatusPill } from '@/components/StatusPill';
 import { RatingPicker } from '@/components/RatingPicker';
 import {
@@ -29,6 +31,7 @@ export function ShowActionSheet({
   const requireAuth = useRequireAuth();
   const { setStatus } = useSetWatchStatus(tmdbShowId);
   const { rate } = useRate(tmdbShowId);
+  const [addToListOpen, setAddToListOpen] = useState(false);
 
   // "Review or log" → gate, close the sheet, push the composer route.
   const onReviewOrLog = async () => {
@@ -38,38 +41,48 @@ export function ShowActionSheet({
     router.push(`/show/${tmdbShowId}/review`);
   };
 
-  const onComingSoon = async (label: string) => {
+  // "Add to lists…" → gate, then open the add-to-list sheet OVER this one.
+  const onAddToList = async () => {
     const allowed = await requireAuth();
     if (!allowed) return;
-    Alert.alert('Coming soon', `${label} isn't wired up yet.`);
+    setAddToListOpen(true);
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} height={560}>
-      <View style={styles.pillsRow}>
-        <StatusPill Icon={CheckIcon} label="Watched"
-          active={currentStatus === 'watched'} onPress={() => setStatus('watched')} />
-        <StatusPill Icon={PlayIcon} label="Watching"
-          active={currentStatus === 'watching'} onPress={() => setStatus('watching')} />
-        <StatusPill Icon={ClockIcon} label="Watchlist"
-          active={currentStatus === 'watchlist'} onPress={() => setStatus('watchlist')} />
-      </View>
+    <>
+      <Sheet visible={visible} onClose={onClose} height={560}>
+        <View style={styles.pillsRow}>
+          <StatusPill Icon={CheckIcon} label="Watched"
+            active={currentStatus === 'watched'} onPress={() => setStatus('watched')} />
+          <StatusPill Icon={PlayIcon} label="Watching"
+            active={currentStatus === 'watching'} onPress={() => setStatus('watching')} />
+          <StatusPill Icon={ClockIcon} label="Watchlist"
+            active={currentStatus === 'watchlist'} onPress={() => setStatus('watchlist')} />
+        </View>
 
-      <View style={styles.hairline} />
+        <View style={styles.hairline} />
 
-      <RatingPicker value={currentRating} onChange={(score) => rate(score)} />
+        <RatingPicker value={currentRating} onChange={(score) => rate(score)} />
 
-      <View style={styles.hairline} />
+        <View style={styles.hairline} />
 
-      <ActionRow Icon={PencilSquareIcon} label="Review or log..." onPress={onReviewOrLog} />
-      <ActionRow Icon={ListPlusIcon} label="Add to lists..." onPress={() => onComingSoon('Add to lists')} />
+        <ActionRow Icon={PencilSquareIcon} label="Review or log..." onPress={onReviewOrLog} />
+        <ActionRow Icon={ListPlusIcon} label="Add to lists..." onPress={onAddToList} />
 
-      <View style={styles.hairline} />
+        <View style={styles.hairline} />
 
-      <Pressable style={styles.close} onPress={onClose}>
-        <Text style={styles.closeText}>Close</Text>
-      </Pressable>
-    </Sheet>
+        <Pressable style={styles.close} onPress={onClose}>
+          <Text style={styles.closeText}>Close</Text>
+        </Pressable>
+      </Sheet>
+
+      {/* Sibling sheet — stacks above the action sheet by render order. */}
+      <AddToListSheet
+        visible={addToListOpen}
+        onClose={() => setAddToListOpen(false)}
+        tmdbShowId={tmdbShowId}
+      />
+    </>
   );
 }
 

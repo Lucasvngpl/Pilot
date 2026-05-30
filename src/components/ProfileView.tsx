@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ScrollView, View, Text, Pressable, StyleSheet, useWindowDimensions,
+  ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -10,10 +10,12 @@ import { useProfile } from '@/api/useProfile';
 import { useCurrentlyWatching } from '@/api/useCurrentlyWatching';
 import { useWatchedShows } from '@/api/useWatchedShows';
 import { useWatchlist } from '@/api/useWatchlist';
+import { useMyLists } from '@/api/useLists';
 import { Poster } from '@/components/Poster';
 import { BottomNav } from '@/components/BottomNav';
 import { FollowButton } from '@/components/FollowButton';
 import { AvatarViewer } from '@/components/AvatarViewer';
+import { ListCard } from '@/components/ListCard';
 import { ProfileTabs, type ProfileTabKey } from '@/components/ProfileTabs';
 import { PosterGrid } from '@/components/PosterGrid';
 import { DashedSlot } from '@/components/DashedSlot';
@@ -143,7 +145,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 
         {tab === 'profile' && <ProfileBody watching={watching ?? []} showDiary={isOwn} />}
         {tab === 'shows' && <PosterGrid items={watched ?? []} emptyText="No watched shows yet." />}
-        {tab === 'lists' && <Text style={styles.comingSoon}>Lists are coming soon.</Text>}
+        {tab === 'lists' && <ListsBody userId={userId} isOwn={isOwn} />}
         {tab === 'watchlist' && (
           <PosterGrid items={watchlist ?? []} emptyText="Nothing on the watchlist yet." />
         )}
@@ -239,6 +241,27 @@ function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
   );
 }
 
+function ListsBody({ userId, isOwn }: { userId: string; isOwn: boolean }) {
+  const { data: lists, isLoading } = useMyLists(userId);
+  const items = lists ?? [];
+  return (
+    <View style={{ paddingTop: 4 }}>
+      {isOwn && (
+        <Pressable style={styles.newListRow} onPress={() => router.push('/list/new' as any)}>
+          <Text style={[type.reviewTitle, { color: colors.purple }]}>+ New list</Text>
+        </Pressable>
+      )}
+      {isLoading ? (
+        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+      ) : items.length === 0 ? (
+        <Text style={styles.emptyInline}>{isOwn ? 'No lists yet.' : 'No lists.'}</Text>
+      ) : (
+        items.map((l) => <ListCard key={l.id} list={l} />)
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
 
@@ -319,4 +342,10 @@ const styles = StyleSheet.create({
 
   sheetBody: { paddingHorizontal: pad },
   centerBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: pad },
+  newListRow: {
+    paddingHorizontal: pad,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
 });
