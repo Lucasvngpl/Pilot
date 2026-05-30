@@ -137,6 +137,28 @@ export type GetReviewsResponse = {
   reviews: ReviewWithMeta[];
 };
 
+// ----- Search --------------------------------------------------------------
+
+// Slim show result from the search-shows Edge Function (TMDb /search/tv proxy).
+export type SearchShowResult = {
+  tmdb_show_id: number;
+  name: string;
+  poster_path: string | null;
+  first_air_date: string | null;
+};
+
+export type SearchShowsResponse = {
+  results: SearchShowResult[];
+};
+
+// A person match from the direct `profiles` search (username ilike).
+export type PersonResult = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
 // Turn a scope into a display line. Whole show → undefined (no line shown).
 export function formatScope(
   season: number | null,

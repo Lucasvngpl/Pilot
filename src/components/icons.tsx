@@ -287,3 +287,12 @@ export function ReviewBadgeIcon({ color = '#000', size = 12 }: Props) {
     </Svg>
   );
 }
+
+// Clear (×) — for the search input's clear button.
+export function CloseIcon({ color = '#000', size = 16 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 6 L18 18 M18 6 L6 18" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}

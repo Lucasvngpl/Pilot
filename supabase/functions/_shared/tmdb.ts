@@ -67,6 +67,26 @@ export async function fetchShowDetail(id: number) {
   return { ...show, seasons };
 }
 
+/**
+ * Search TV shows by name (TMDb /search/tv). A single request — unlike
+ * fetchShowDetail there's no per-season fan-out, search hits are slim.
+ */
+export async function searchTv(query: string) {
+  type SearchTvResponse = {
+    page: number;
+    results: Array<{
+      id: number;
+      name: string;
+      poster_path: string | null;
+      first_air_date?: string;
+      overview?: string;
+      vote_average?: number;
+    }>;
+    total_results: number;
+  };
+  return tmdbGet<SearchTvResponse>('/search/tv', { query });
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }

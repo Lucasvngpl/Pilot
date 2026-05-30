@@ -11,6 +11,7 @@ _Snapshot as of 2026-05-29. **Current state only** — durable architecture rule
 - **Review composer** (`show/[id]/review.tsx`) — scope selector (show / season / episode) + drag rating + body + spoiler toggle. "Review or log".
 - **Auth** — landing (`(auth)/index.tsx`), signup (`(auth)/signup.tsx`), and a global login sheet.
 - **Profile** (`profile/index.tsx`) — identity (username + follower/following counts + avatar) + 4 in-place sub-tabs (**Profile · Shows · Lists · Watchlist**). Profile tab: Top-4 dashed slots, Currently-watching shelf, Diary/Following/Followers sub-page links. **Shows** = grid of watched shows (gold rating overlay + review badge); **Watchlist** = grid; **Lists** = Coming Soon. Gear → Sign-out sheet. Reads via direct client queries (`useProfile`, `useCurrentlyWatching`, `useWatchedShows`, `useWatchlist`) — no Edge Function (Profile never touches TMDb).
+- **Search** (`search.tsx`) — search bar + sub-tabs (Shows · People · Lists). Empty query → Trending (`usePopular`/`get-popular`). Debounced (300ms) live search: Shows via `search-shows` (TMDb `/search/tv` proxy), People via direct `profiles` ilike. Tap a show → `/show/[id]` (uncached shows lazily cache via `get-show`). People rows **non-tappable** for now (other-user profile pending). Lists tab = Coming Soon. Anonymous-safe.
 
 **Mutations** (`src/api/`) — all follow the canonical pattern in CLAUDE.md
 - `useToggleEpisodeWatched` — episode watched on/off (Seasons screen).
@@ -18,13 +19,13 @@ _Snapshot as of 2026-05-29. **Current state only** — durable architecture rule
 - `useRate` — **scoped** rating (show / season / episode) via the drag picker, half-stars.
 - `usePostReview` — review INSERT (text only; the rating goes through `useRate`).
 
-**Edge Functions** (`supabase/functions/`) — `get-show`, `get-popular`, `refresh-popular`, `get-reviews`.
+**Edge Functions** (`supabase/functions/`) — `get-show`, `get-popular`, `refresh-popular`, `get-reviews`, `search-shows`.
 
 **Core flows that work**: browse anonymously → show detail → action sheet (status pills + drag-to-rate) → review composer; episode watched toggles persist; per-action login gate (browse free, login prompted on first write); ratings + reviews round-trip and survive sign-out/sign-in.
 
 ## Deploy status
 
-All four Edge Functions are deployed. `get-reviews` was deployed 2026-05-28 and verified live (show 66732 returns its review enriched with profile + rating; empty shows return `{reviews: []}`).
+All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (2026-05-30) verified live — `search-shows?query=stranger` returns mapped results; the uncached-show path is confirmed (tapping a search result for a never-cached show, e.g. 224263, triggers `get-show` to fetch + cache it with `is_popular=false`).
 
 > Fixed on deploy: the embed `profiles(...)` was ambiguous (PGRST201) because `review_likes.user_id` adds a second reviews→profiles path. Pinned to the author with `profiles!reviews_user_id_fkey`. Also fixed the catch block that reported `"unknown"` for PostgREST errors (plain objects, not `Error` instances) — it now surfaces `.message`.
 
@@ -37,13 +38,13 @@ All four Edge Functions are deployed. `get-reviews` was deployed 2026-05-28 and 
   _(Spoiler enforcement is **done** — `ReviewRow` now hides a spoiler-tagged body behind a tap-to-reveal; no longer just stored-and-ignored.)_
 
 ## Routes that 404 if tapped
-- Bottom nav: **Activity, Log, Search**.
+- Bottom nav: **Activity, Log**.
 - Show Detail tabs: **Overview, Lists**.
 
 ## What's next (priority order)
-1. **Search** — find shows beyond the curated ~200 (needs a TMDb-search Edge Function path). Also unblocks the Profile Top-4 favorites picker.
-2. **`useFollow` / `useUnfollow`** + the other-user profile view (asymmetric model; the `follows` table already exists). Unblocks the Following/Followers sub-pages.
-3. **Lists** — create + add-to (`lists` / `list_items` tables exist; no UI yet). Unblocks the Profile Lists tab.
+1. **`useFollow` / `useUnfollow`** + the **other-user profile view** (`/user/[id]`) — makes People search results tappable and unblocks the Following/Followers sub-pages. Asymmetric model; the `follows` table already exists. (People search already produces follow targets.)
+2. **Lists** — create + add-to (`lists` / `list_items` tables exist; no UI yet). Unblocks the Profile Lists tab + Search's Lists tab.
+3. **Top-4 favorites picker** — now unblocked by Search (reuse the show-search surface as the picker).
 
 ## Reviews — deferred follow-ups
 - **Edit / delete your own review** — the `⋯` menu on `ReviewRow` is inert. Reviews are INSERT (multiple per scope, by design), so without delete a typo is permanent and dupes accumulate. Small build: dots → action sheet (Edit / Delete on your own rows, Report on others). _Deliberately deferred so Profile isn't delayed — it guards against typos no real user has made yet._
@@ -63,3 +64,4 @@ All four Edge Functions are deployed. `get-reviews` was deployed 2026-05-28 and 
 - **`src/app/show/[id]/seasons.tsx:79`** hardcodes `reviews: 248` for the tab chip (Show Detail uses the real count; Seasons doesn't — they disagree).
 - **Home hamburger** (`src/app/index.tsx`) has no `onPress` — tappable but inert.
 - **No NaN guard on `tmdbShowId`** in `/show/[id]` routes — a bad deep link makes `Number(id)` NaN and the queryKey / writes go sideways.
+- **`get-popular` returns the FULL payload blob per show** — ~16MB for 20 shows, and HTTP 500 at `limit=50`. Home tolerates it (`usePopular(20)`), but it's a real perf cost (16MB per Home visit). Search trending sidesteps it with a slim direct `shows_cache` query selecting only `payload->>name/poster_path` (`useTrendingShows`, ~2.5KB). Follow-up: slim down `get-popular` (or move Home to the same slim query).
