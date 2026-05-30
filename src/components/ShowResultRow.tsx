@@ -10,10 +10,22 @@ import type { SearchShowResult } from '@/types';
 //
 // Tapping → /show/[id]. If the show isn't cached yet (common for search hits
 // beyond the seeded set), get-show fetches + caches it on that first view.
-export function ShowResultRow({ item }: { item: SearchShowResult }) {
+export function ShowResultRow({
+  item,
+  onActivate,
+}: {
+  item: SearchShowResult;
+  onActivate?: () => void; // fired before navigation — used to record a recent search
+}) {
   const year = item.first_air_date ? item.first_air_date.slice(0, 4) : null;
   return (
-    <Pressable style={styles.row} onPress={() => router.push(`/show/${item.tmdb_show_id}`)}>
+    <Pressable
+      style={styles.row}
+      onPress={() => {
+        onActivate?.();
+        router.push(`/show/${item.tmdb_show_id}`);
+      }}
+    >
       <Poster
         tmdbShowId={item.tmdb_show_id}
         posterPath={item.poster_path}

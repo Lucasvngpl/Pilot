@@ -6,12 +6,20 @@ type Props = {
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
 };
 
 // Search bar: rounded field with a left search glyph and a clear (×) button that
 // appears once there's text. Not TextField — that's a labeled form input with no
 // left-icon slot.
-export function SearchInput({ value, onChangeText, placeholder = 'Search shows and people' }: Props) {
+export function SearchInput({
+  value,
+  onChangeText,
+  placeholder = 'Search shows and people',
+  onFocus,
+  onBlur,
+}: Props) {
   return (
     <View style={styles.wrap}>
       <SearchIcon color={colors.faint} size={18} />
@@ -24,6 +32,8 @@ export function SearchInput({ value, onChangeText, placeholder = 'Search shows a
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
+        onFocus={onFocus}
+        onBlur={onBlur}
       />
       {value.length > 0 && (
         <Pressable onPress={() => onChangeText('')} hitSlop={8}>

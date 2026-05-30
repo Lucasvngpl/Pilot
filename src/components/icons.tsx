@@ -76,8 +76,14 @@ export function StarIcon({ color = '#000', size = 16 }: Props) {
 export function TrendUpIcon({ color = '#000', size = 14 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Trending-up chart arrow (📈): a rising zig-zag line into a corner
+          arrowhead at the top-right — the popularity glyph, not a plain up-arrow. */}
       <Path
-        d="M12 19 V5 M5 12 L12 5 L19 12"
+        d="M3 17 L9 11 L13 15 L21 7"
+        stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M15 7 L21 7 L21 13"
         stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"
       />
     </Svg>
