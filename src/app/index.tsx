@@ -1,12 +1,12 @@
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { usePopular } from '@/api/usePopular';
+import { useTrendingShows } from '@/api/useTrendingShows';
 import { Poster } from '@/components/Poster';
 import { BottomNav } from '@/components/BottomNav';
 import { FAB } from '@/components/FAB';
 import { HamburgerIcon, StarIcon } from '@/components/icons';
 import { colors, type, pad, fonts } from '@/theme';
-import type { TmdbPayload } from '@/types';
+import type { SearchShowResult } from '@/types';
 
 // TODO(phase-future): real feed of friend activity. Mocked so the layout
 // reads correctly while we ship the catalog flow.
@@ -17,7 +17,9 @@ const MOCK_FRIENDS = [
 ];
 
 export default function Home() {
-  const { data, isLoading, error } = usePopular(20);
+  // Slim trending (name + poster only) — NOT get-popular, which ships the full
+  // ~16MB payload blob per shelf load. Shared with Search's trending state.
+  const { data, isLoading, error } = useTrendingShows(20);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -34,12 +36,12 @@ export default function Home() {
       {data && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 140 }}>
           <Section title="Popular Shows This Week">
-            <PosterRow shows={data.shows.slice(0, 5)} />
+            <PosterRow shows={data.slice(0, 5)} />
           </Section>
 
           <Section title="New From Friends">
             <PosterRow
-              shows={data.shows.slice(5, 8)}
+              shows={data.slice(5, 8)}
               renderBelow={(_, i) => (
                 <FriendInfo
                   username={MOCK_FRIENDS[i]?.username ?? '—'}
@@ -73,8 +75,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function PosterRow({
   shows, renderBelow,
 }: {
-  shows: Array<{ tmdb_show_id: number; payload: TmdbPayload }>;
-  renderBelow?: (show: { tmdb_show_id: number; payload: TmdbPayload }, i: number) => React.ReactNode;
+  shows: SearchShowResult[];
+  renderBelow?: (show: SearchShowResult, i: number) => React.ReactNode;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
@@ -82,8 +84,8 @@ function PosterRow({
         <View key={s.tmdb_show_id} style={{ width: 118 }}>
           <Poster
             tmdbShowId={s.tmdb_show_id}
-            posterPath={s.payload.poster_path}
-            name={s.payload.name}
+            posterPath={s.poster_path}
+            name={s.name}
             width={118}
           />
           {renderBelow?.(s, i)}

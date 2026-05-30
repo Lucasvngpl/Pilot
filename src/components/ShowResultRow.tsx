@@ -4,9 +4,9 @@ import { Poster } from '@/components/Poster';
 import { colors, type, pad } from '@/theme';
 import type { SearchShowResult } from '@/types';
 
-// One row in a show list — used for BOTH Trending and search results. The caller
-// normalizes its data to SearchShowResult (Trending maps usePopular's full
-// payload; search passes its slim result as-is), so the two render identically.
+// One row in a show list — used for BOTH Trending and search results. Both
+// sources hand it a SearchShowResult (useTrendingShows and search-shows each
+// return that slim shape), so trending and search rows render identically.
 //
 // Tapping → /show/[id]. If the show isn't cached yet (common for search hits
 // beyond the seeded set), get-show fetches + caches it on that first view.
