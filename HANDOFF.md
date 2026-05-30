@@ -57,6 +57,9 @@ All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (
 - **Lists tab** — Coming Soon until list create / add-to UI exists.
 - **"Watched show" definition — resolved (broad).** The Shows grid includes a show if it has a show-scope `watched` status **OR** a show-scope rating **OR** any watched episode (trust the user to curate). The gold star overlay comes only from a show-scope rating — episode ratings are NOT aggregated into a show rating. Currently-watching stays strict (show-scope `watching` only). Principle recorded in `CLAUDE.md` → "Aggregation: episode-aware schema, show-level UI".
 
+## Trending ranking — future direction
+- **Trending is currently TMDb `is_popular`** (`useTrendingShows` → `shows_cache`). Eventually switch to **app-activity ranking** — recent ratings / reviews / watchlist-adds, recency-decayed — while keeping `useTrendingShows` as the stable interface so callers (Home + Search) don't change. Blend with TMDb-popularity as backfill. **Trigger:** enough active users that aggregate activity is real signal — not before.
+
 ## Known issues (deferred LOW from the code review — also in `tasks/lessons.md`)
 - **Debug logs left in**: `src/components/ShowNavRow.tsx:32`, `src/app/show/[id]/seasons.tsx:56`. (The `console.error` in mutation hooks are intentional error logging — keep those.)
 - **`pointerEvents` as a prop** (deprecated RN form): `src/components/Stars.tsx:64`, `src/components/FAB.tsx:11`.
