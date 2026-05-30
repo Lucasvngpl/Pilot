@@ -79,6 +79,15 @@ export function useSetWatchStatus(tmdbShowId: number) {
 
     onSettled: () => {
       qc.refetchQueries({ queryKey });
+      // A status write moves the show between the Profile buckets (watched /
+      // watching / watchlist). Those queries aren't mounted from the show screen,
+      // so we INVALIDATE (mark stale) rather than refetch — they refetch when the
+      // Profile tab next opens. Without this, adding to the watchlist here wouldn't
+      // appear on Profile until the 5-min staleTime lapsed. Prefix keys match every
+      // user's variant (['watchlist', userId] …); only our own rows are in cache.
+      qc.invalidateQueries({ queryKey: ['watchlist'] });
+      qc.invalidateQueries({ queryKey: ['watched'] });
+      qc.invalidateQueries({ queryKey: ['watching'] });
     },
   });
 

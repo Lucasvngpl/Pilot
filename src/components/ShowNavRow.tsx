@@ -1,20 +1,31 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, type, pad } from '@/theme';
-import { ChevronLeftIcon, CheckIcon, DotsIcon } from '@/components/icons';
+import { colors, pad } from '@/theme';
+import { ChevronLeftIcon, CheckIcon, PlayIcon, ClockIcon, DotsIcon } from '@/components/icons';
+import type { WatchStatus } from '@/types';
 
-// Shared nav row used at the top of every show-scoped screen (Show Detail,
-// Seasons, eventually Overview / Lists). The check-icon bubble opens the
-// ShowActionSheet on tap. `engaged` is the visual-state flag — purple when
-// the user has any interaction with this show (status today, rating today,
-// reviews later). Tapping always opens the sheet regardless of state.
+// Shared nav row at the top of every show-scoped screen (Show Detail, Seasons).
+// The bubble opens the ShowActionSheet AND mirrors the show-scope status: a
+// checkmark ONLY means "watched" — "watching" shows a play glyph, "watchlist" a
+// clock — so the icon never claims you watched something you merely saved for
+// later. The bubble is purple whenever a status is set; tapping always opens the
+// sheet regardless of state.
+const STATUS_ICON: Record<WatchStatus, React.ComponentType<{ color?: string; size?: number }>> = {
+  watched: CheckIcon,
+  watching: PlayIcon,
+  watchlist: ClockIcon,
+};
+
 export function ShowNavRow({
-  watchedPct, engaged, onCheckPress,
+  status, onCheckPress,
 }: {
-  watchedPct: number;
-  engaged: boolean;
+  status: WatchStatus | null;
   onCheckPress: () => void;
 }) {
+  const active = status !== null;
+  // No status yet → a neutral check outline as the "set a status" affordance.
+  const Icon = status ? STATUS_ICON[status] : CheckIcon;
+
   return (
     <View style={styles.row}>
       <Pressable onPress={() => router.back()} hitSlop={8}>
@@ -23,19 +34,12 @@ export function ShowNavRow({
 
       <View style={{ flex: 1 }} />
 
-      <Text style={[type.filter, { color: colors.faint, marginRight: 12 }]}>
-        {watchedPct}% watched
-      </Text>
-
       <Pressable
-        onPress={() => {
-          console.log('[ShowNavRow] check tapped, engaged:', engaged);
-          onCheckPress();
-        }}
+        onPress={onCheckPress}
         hitSlop={8}
-        style={[styles.bubble, engaged ? styles.bubbleActive : styles.bubbleInactive]}
+        style={[styles.bubble, active ? styles.bubbleActive : styles.bubbleInactive]}
       >
-        <CheckIcon color={engaged ? colors.white : colors.ink} size={14} />
+        <Icon color={active ? colors.white : colors.ink} size={14} />
       </Pressable>
 
       <View style={{ width: 12 }} />

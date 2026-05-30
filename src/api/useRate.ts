@@ -113,6 +113,10 @@ export function useRate(tmdbShowId: number) {
 
     onSettled: () => {
       qc.refetchQueries({ queryKey });
+      // A show-scope rating both includes the show in the Profile "Shows" grid and
+      // paints its gold star, so that grid must refetch on next open. (Season/episode
+      // ratings don't change the grid — invalidating then is a harmless no-op.)
+      qc.invalidateQueries({ queryKey: ['watched'] });
     },
   });
 

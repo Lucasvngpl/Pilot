@@ -45,17 +45,12 @@ export default function Seasons() {
   const showScopeRating = data?.mySocial.ratings.find(
     (r) => r.season_number === null && r.episode_number === null,
   )?.score ?? null;
-  const engaged = showScopeStatus !== null || showScopeRating !== null;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ShowNavRow
-        watchedPct={0}
-        engaged={engaged}
-        onCheckPress={() => {
-          console.log('[Seasons] opening action sheet');
-          setSheetOpen(true);
-        }}
+        status={showScopeStatus}
+        onCheckPress={() => setSheetOpen(true)}
       />
 
       {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}

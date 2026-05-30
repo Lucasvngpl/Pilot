@@ -101,6 +101,11 @@ export function useToggleEpisodeWatched(tmdbShowId: number) {
 
     onSettled: () => {
       qc.refetchQueries({ queryKey });
+      // Any watched episode includes the show in the Profile "Shows" grid, and the
+      // currently-watching tile aggregates the latest watched episode into its
+      // "S2 E5" line — so both Profile queries must refetch on next open.
+      qc.invalidateQueries({ queryKey: ['watched'] });
+      qc.invalidateQueries({ queryKey: ['watching'] });
     },
   });
 

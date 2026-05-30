@@ -32,13 +32,10 @@ export default function ShowDetail() {
     (r) => r.season_number === null && r.episode_number === null,
   )?.score ?? null;
 
-  const engaged = showScopeStatus !== null || showScopeRating !== null;
-
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ShowNavRow
-        watchedPct={0}
-        engaged={engaged}
+        status={showScopeStatus}
         onCheckPress={() => setSheetOpen(true)}
       />
 

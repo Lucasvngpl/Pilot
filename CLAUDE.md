@@ -42,7 +42,7 @@ The schema records the finest grain the user gave us (episode / season / show). 
 The recurring fork is **inclusion** (which signals put a show in a list) vs **display** (what you aggregate onto the tile) — decide them separately, per view:
 
 - **Profile "Shows" grid** — inclusion is broad: show-scope `watched` **OR** show-scope rating **OR** any watched episode (trust the user to curate). Display: show the star **only** from a show-scope rating; never average episode ratings into a show rating (that's a separate product decision) — tile is poster-only if only episodes were rated.
-- **Currently watching** — inclusion is deliberately strict (show-scope `watching` only, so a show finished last month doesn't linger), but the "S2 E5" line *aggregates* the latest watched episode up to the tile.
+- **Currently watching** — inclusion is deliberately strict (show-scope `watching` only, so a show finished last month doesn't linger), but the "S2 E5" line _aggregates_ the latest watched episode up to the tile.
 
 Same fork will recur on Diary, Currently watching, and the future activity feed — state the inclusion rule and the aggregation rule explicitly each time.
 
@@ -125,7 +125,8 @@ Every mutation hook (`useToggleEpisodeWatched`, `useSetWatchStatus`, `useRate`, 
 - `await requireAuth()` first — return early if it resolves false (user dismissed login).
 - A module-scope **in-flight `Set`** keyed `${showId}:${season}:${episode}` to dedupe rapid taps and double-fires. Per-scope so different rows mutate concurrently.
 - Optimistic update in `onMutate` that snapshots **only the slice it owns** (`mySocial.ratings` OR `mySocial.watch_statuses`), and restores just that slice in `onError`. Never snapshot/restore the whole query object — `useRate` and `useSetWatchStatus` share the `['show', id]` key and would clobber each other's in-flight optimistic state.
-- `refetchQueries` (not `invalidateQueries`) in `onSettled` — `useShow` has a 5-min `staleTime`, so invalidation alone won't refetch a still-fresh query.
+- `refetchQueries` (not `invalidateQueries`) for the **mounted** `['show', id]` query in `onSettled` — `useShow` has a 5-min `staleTime`, so invalidation alone won't refetch a still-fresh query.
+- **Also invalidate the Profile aggregation queries the write feeds** — `['watched']` (Shows grid), `['watching']` (currently-watching), `['watchlist']`. These aren't mounted from the show screen, so `invalidateQueries` (mark stale → refetch on next Profile open) is correct, not `refetchQueries`. Map by effect: status write → all three; show-scope rating / any review / any watched episode → `['watched']`; watched episode also → `['watching']`. **Skipping this is a silent bug** — the write persists but the Profile tab shows stale data until `staleTime` lapses (this is exactly how "added to watchlist but it's not on my profile" happened).
 - `if (!user) throw` at the top of `mutationFn` — the session can drop between the gate resolving and the write running; fail loud, not on `user!.id`.
 
 **Table semantics:** `ratings` and `watch_status` are **UPSERT** (idempotent, one row per `(user, scope)`); `reviews` is **INSERT** (multiple reviews per scope allowed; a blank body writes no row — that's a rating-only "log").
@@ -143,6 +144,19 @@ Anonymous users browse the entire catalog. Login is prompted **per action**, not
 ## Current state
 
 The live snapshot — what's built, what's mocked, what's next, and known issues — lives in `HANDOFF.md` at the repo root. Read it at the start of a session. (Current-state stays there, not here, so the two don't drift.)
+
+## Down the road (deferred features)
+
+Features parked **deliberately** so essentials ship first — not bugs, not oversights. Decisions/tradeoffs already made; pick up when the core loop is solid. This is the durable index (one line each); the volatile implementation notes live in `HANDOFF.md`'s per-area "deferred" sections. When one ships, delete it here **and** in HANDOFF.
+
+- **Episode/season-scoped list items** — lists hold whole shows only today. To hold seasons/episodes, `list_items` needs the polymorphic scope the other social tables use (nullable `season_number`/`episode_number` + `UNIQUE NULLS NOT DISTINCT`), plus picker drill-down + episode/season render variants. Migration + UI.
+- **Lists polish** — rename/edit a list after creation; reorder + ranked lists (`is_ranked` column exists, unused); public/private (Pilot's first private data → a column + read-scoping RLS); tags; the Search screen's Lists sub-tab (list _search_). And be able to edit it.
+- **Reviews** — edit/delete your own review (the `⋯` menu is inert); likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`.
+- **Profile** — Top-4 favorites picker (reuse the show-search surface); Diary (date-grouped watch log from `watch_status.updated_at`, no schema change).
+- **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
+- **Activity feed** — the bottom-nav Activity tab 404s; the social/feed surface is unbuilt.
+- **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
+- episode/season-scoped list items
 
 ## Workflow Orchestration
 
@@ -195,6 +209,7 @@ checked the happy case.
 - don't over-engineer
 - Challenge your own work before presenting
 - Write comments so reader or other agent understands. Concise, only when neccesary.
+- Avoid duplicate code
 
 ## Secrets & Keys
 

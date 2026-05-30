@@ -71,7 +71,7 @@ All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (
 - **Trending is currently TMDb `is_popular`** (`useTrendingShows` → `shows_cache`). Eventually switch to **app-activity ranking** — recent ratings / reviews / watchlist-adds, recency-decayed — while keeping `useTrendingShows` as the stable interface so callers (Home + Search) don't change. Blend with TMDb-popularity as backfill. **Trigger:** enough active users that aggregate activity is real signal — not before.
 
 ## Known issues (deferred LOW from the code review — also in `tasks/lessons.md`)
-- **Debug logs left in**: `src/components/ShowNavRow.tsx:32`, `src/app/show/[id]/seasons.tsx:56`. (The `console.error` in mutation hooks are intentional error logging — keep those.)
+- _(Resolved: the stray `console.log`s in `ShowNavRow` + `seasons.tsx` were removed while fixing the nav-bubble bug. The `console.error` in mutation hooks are intentional error logging — keep those.)_
 - **`pointerEvents` as a prop** (deprecated RN form): `src/components/Stars.tsx:64`, `src/components/FAB.tsx:11`.
 - **`LoginSheet` lacks `KeyboardAvoidingView`** → on Android the soft keyboard covers the Log in button.
 - **`src/app/show/[id]/seasons.tsx:79`** hardcodes `reviews: 248` for the tab chip (Show Detail uses the real count; Seasons doesn't — they disagree).

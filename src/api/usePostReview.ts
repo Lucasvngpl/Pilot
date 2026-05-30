@@ -47,6 +47,8 @@ export function usePostReview(tmdbShowId: number) {
       // Reviews list + show query (which carries the user's own reviews/ratings).
       qc.invalidateQueries({ queryKey: ['reviews', tmdbShowId] });
       qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
+      // A review paints the review badge on the Profile "Shows" tile → refetch it.
+      qc.invalidateQueries({ queryKey: ['watched'] });
     },
   });
 
