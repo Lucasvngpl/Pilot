@@ -10,14 +10,16 @@ _Snapshot as of 2026-05-29. **Current state only** — durable architecture rule
 - **Seasons** (`show/[id]/seasons.tsx`) — season pills + episode list with working watched toggles.
 - **Review composer** (`show/[id]/review.tsx`) — scope selector (show / season / episode) + drag rating + body + spoiler toggle. "Review or log".
 - **Auth** — landing (`(auth)/index.tsx`), signup (`(auth)/signup.tsx`), and a global login sheet.
-- **Profile** (`profile/index.tsx`) — identity (username + follower/following counts + avatar) + 4 in-place sub-tabs (**Profile · Shows · Lists · Watchlist**). Profile tab: Top-4 dashed slots, Currently-watching shelf, Diary/Following/Followers sub-page links. **Shows** = grid of watched shows (gold rating overlay + review badge); **Watchlist** = grid; **Lists** = Coming Soon. Gear → Sign-out sheet. Reads via direct client queries (`useProfile`, `useCurrentlyWatching`, `useWatchedShows`, `useWatchlist`) — no Edge Function (Profile never touches TMDb).
-- **Search** (`search.tsx`) — search bar + sub-tabs (Shows · People · Lists). Empty query → Trending (`usePopular`/`get-popular`). Debounced (300ms) live search: Shows via `search-shows` (TMDb `/search/tv` proxy), People via direct `profiles` ilike. Tap a show → `/show/[id]` (uncached shows lazily cache via `get-show`). People rows **non-tappable** for now (other-user profile pending). Lists tab = Coming Soon. Anonymous-safe.
+- **Profile** (`profile/index.tsx`) — identity (username + follower/following counts + avatar) + 4 in-place sub-tabs (**Profile · Shows · Lists · Watchlist**). Profile tab: Top-4 dashed slots, Currently-watching shelf, tappable Following/Followers counts (→ list pages) + a Diary link (stub). **Shows** = grid of watched shows (gold rating overlay + review badge); **Watchlist** = grid; **Lists** = Coming Soon. Gear → Sign-out sheet. Renders the shared **`ProfileView`** (also powers `/user/[id]`). Reads via direct client queries (`useProfile`, `useCurrentlyWatching`, `useWatchedShows`, `useWatchlist`) — no Edge Function (Profile never touches TMDb).
+- **User profile** (`user/[id]/index.tsx`) — public view of another user via the shared `ProfileView` (identity, counts, their Shows/Watchlist + currently-watching). **Follow/Following** button (optimistic, gated on login). `/user/[id]/following` + `/user/[id]/followers` list pages. Anonymous-viewable; a Follow tap prompts login.
+- **Search** (`search.tsx`) — search bar + sub-tabs (Shows · People · Lists). Empty query → Trending (`usePopular`/`get-popular`). Debounced (300ms) live search: Shows via `search-shows` (TMDb `/search/tv` proxy), People via direct `profiles` ilike. Tap a show → `/show/[id]` (uncached shows lazily cache via `get-show`). People rows tap → `/user/[id]`. Lists tab = Coming Soon. Anonymous-safe.
 
 **Mutations** (`src/api/`) — all follow the canonical pattern in CLAUDE.md
 - `useToggleEpisodeWatched` — episode watched on/off (Seasons screen).
 - `useSetWatchStatus` — show-scope watched / watching / watchlist (action sheet pills).
 - `useRate` — **scoped** rating (show / season / episode) via the drag picker, half-stars.
 - `usePostReview` — review INSERT (text only; the rating goes through `useRate`).
+- `useFollow` — asymmetric follow/unfollow toggle + follow-state; optimistic (flips follow-state + the followee's follower count + my following count).
 
 **Edge Functions** (`supabase/functions/`) — `get-show`, `get-popular`, `refresh-popular`, `get-reviews`, `search-shows`.
 
@@ -31,7 +33,7 @@ All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (
 
 ## Mocked / stubbed
 - `MOCK_FRIENDS` — Home's "New From Friends" row (`src/app/index.tsx`).
-- Profile **Top-4** slots are display-only (no edit picker yet); the **Lists** tab + **Diary / Following / Followers** sub-pages are Coming Soon screens.
+- Profile **Top-4** slots are display-only (no edit picker yet); the **Lists** tab is Coming Soon; **Diary** is a Coming Soon stub. (Following/Followers are now real list pages.)
 - "Add to lists…" in the action sheet → `Alert('Coming soon')`.
 - Review **likes & comments** — `ReviewRow` shows a passive like count only; no like toggle or comment system yet (the `review_likes` table exists, unused by UI). The fake "Comment" button was removed.
 
@@ -42,9 +44,8 @@ All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (
 - Show Detail tabs: **Overview, Lists**.
 
 ## What's next (priority order)
-1. **`useFollow` / `useUnfollow`** + the **other-user profile view** (`/user/[id]`) — makes People search results tappable and unblocks the Following/Followers sub-pages. Asymmetric model; the `follows` table already exists. (People search already produces follow targets.)
-2. **Lists** — create + add-to (`lists` / `list_items` tables exist; no UI yet). Unblocks the Profile Lists tab + Search's Lists tab.
-3. **Top-4 favorites picker** — now unblocked by Search (reuse the show-search surface as the picker).
+1. **Lists** — create + add-to (`lists` / `list_items` tables exist; no UI yet). Unblocks the Profile Lists tab + Search's Lists tab.
+2. **Top-4 favorites picker** — unblocked by Search (reuse the show-search surface as the picker).
 
 ## Reviews — deferred follow-ups
 - **Edit / delete your own review** — the `⋯` menu on `ReviewRow` is inert. Reviews are INSERT (multiple per scope, by design), so without delete a typo is permanent and dupes accumulate. Small build: dots → action sheet (Edit / Delete on your own rows, Report on others). _Deliberately deferred so Profile isn't delayed — it guards against typos no real user has made yet._
@@ -53,7 +54,7 @@ All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (
 
 ## Profile — deferred follow-ups
 - **Top-4 favorites picker** — slots render empty; selecting/reordering shows needs Search (the show picker). No "Edit" link shown until then (avoids a dead control).
-- **Diary / Following / Followers** — Coming Soon stub screens. Diary = chronological, date-grouped watch log (`watch_status` by `updated_at`, no schema change). Following/Followers lists + tapping into another user's profile come with the Follow milestone.
+- **Diary** — still a Coming Soon stub: chronological, date-grouped watch log (`watch_status` by `updated_at`, no schema change). _(Following/Followers list pages, the `/user/[id]` profile, and Follow are now built.)_
 - **Lists tab** — Coming Soon until list create / add-to UI exists.
 - **"Watched show" definition — resolved (broad).** The Shows grid includes a show if it has a show-scope `watched` status **OR** a show-scope rating **OR** any watched episode (trust the user to curate). The gold star overlay comes only from a show-scope rating — episode ratings are NOT aggregated into a show rating. Currently-watching stays strict (show-scope `watching` only). Principle recorded in `CLAUDE.md` → "Aggregation: episode-aware schema, show-level UI".
 
