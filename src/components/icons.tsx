@@ -209,3 +209,81 @@ export function ListPlusIcon({ color = '#000', size = 22 }: Props) {
     </Svg>
   );
 }
+
+// ----- Profile (Screen 5) ---------------------------------------------------
+
+// iOS-style share: a tray with an arrow lifting out of it. Stroke 1.8 per spec.
+export function ShareIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3 L12 14 M8.5 6.5 L12 3 L15.5 6.5"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M7 10 H5 V20 H19 V10 H17"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// Build an 8-tooth cog outline so it reads as a GEAR, not a sunburst. The
+// difference is chunky trapezoidal teeth on a ring (+ a center hole), vs the
+// thin radial rays that made the old version look like a brightness icon.
+// Computed once at module load rather than hand-plotting 32 vertices.
+function gearPath(): string {
+  const cx = 12, cy = 12;
+  const teeth = 8;
+  const rTip = 10.5;   // tooth tip radius
+  const rBase = 7.6;   // valley / ring radius
+  const tipHalf = (9 * Math.PI) / 180;   // tooth tip half-angle (narrow)
+  const baseHalf = (18 * Math.PI) / 180; // tooth base half-angle (wide → trapezoid)
+  const step = (2 * Math.PI) / teeth;
+  const pt = (ang: number, r: number) =>
+    `${(cx + r * Math.cos(ang)).toFixed(2)} ${(cy + r * Math.sin(ang)).toFixed(2)}`;
+
+  let d = '';
+  for (let i = 0; i < teeth; i++) {
+    const c = i * step;
+    const corners = [
+      pt(c - baseHalf, rBase), // rising edge bottom
+      pt(c - tipHalf, rTip),   // tip left
+      pt(c + tipHalf, rTip),   // tip right
+      pt(c + baseHalf, rBase), // falling edge bottom
+    ];
+    d += `${i === 0 ? 'M' : 'L'} ${corners[0]} L ${corners[1]} L ${corners[2]} L ${corners[3]}`;
+  }
+  return `${d} Z`;
+}
+const GEAR_D = gearPath();
+
+// Settings gear — cog outline (teeth) + center hole.
+export function GearIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d={GEAR_D} stroke={color} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={1.6} />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon({ color = '#000', size = 24 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 6 L15 12 L9 18"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// "Has a review" marker — short stacked lines (≡), Letterboxd-style.
+export function ReviewBadgeIcon({ color = '#000', size = 12 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 7 H20 M4 12 H20 M4 17 H14" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}

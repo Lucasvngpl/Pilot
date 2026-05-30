@@ -11,11 +11,13 @@ type Props = {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   // Optional accessory rendered to the right of the label (e.g. "Forgot password?").
   rightAccessory?: React.ReactNode;
+  // Multiline grows the input into a text area (review body etc.).
+  multiline?: boolean;
 };
 
 export function TextField({
   label, value, onChangeText, placeholder,
-  secureTextEntry, keyboardType, autoCapitalize, rightAccessory,
+  secureTextEntry, keyboardType, autoCapitalize, rightAccessory, multiline,
 }: Props) {
   return (
     <View style={styles.wrap}>
@@ -24,7 +26,7 @@ export function TextField({
         {rightAccessory}
       </View>
       <TextInput
-        style={styles.input}
+        style={[styles.input, multiline && styles.inputMultiline]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -32,7 +34,10 @@ export function TextField({
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
-        autoCorrect={false}
+        autoCorrect={!secureTextEntry}
+        multiline={multiline}
+        scrollEnabled={multiline}
+        textAlignVertical={multiline ? 'top' : 'center'}
       />
     </View>
   );
@@ -55,5 +60,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.ink,
+  },
+  // Grows the field into a text area; drops the fixed height.
+  inputMultiline: {
+    height: undefined,
+    minHeight: 120,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
 });

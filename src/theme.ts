@@ -66,4 +66,8 @@ export const type = {
   friendName:   { fontFamily: fonts.semibold, fontSize: 12 },
   navActive:    { fontFamily: fonts.semibold, fontSize: 11 },
   navMuted:     { fontFamily: fonts.medium,   fontSize: 11 },
+  // Profile (Screen 5)
+  profileSection: { fontFamily: fonts.display,  fontSize: 20 }, // "Your Top 4" / "Currently watching"
+  countValue:     { fontFamily: fonts.bold,     fontSize: 14 }, // follower / following numbers
+  countLabel:     { fontFamily: fonts.regular,  fontSize: 14 }, // "Following" / "Followers"
 } as const;

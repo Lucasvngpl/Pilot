@@ -90,6 +90,63 @@ export type GetShowResponse = {
   };
 };
 
+// ----- Profile (Screen 5) --------------------------------------------------
+
+export type ProfileRow = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+};
+
+// A show "card" for grids/shelves — the minimal catalog fields we read from
+// shows_cache, optionally decorated with per-user overlays below.
+export type ShowCard = {
+  tmdb_show_id: number;
+  name: string;
+  poster_path: string | null;
+};
+
+export type WatchedCard = ShowCard & {
+  rating: number | null; // show-scope rating, if the user rated it
+  hasReview: boolean;    // the user has any review for this show
+};
+
+export type CurrentlyWatchingCard = ShowCard & {
+  episodeLine: string | null; // "S2 E5" from latest watched episode, else null
+};
+
+// A review enriched server-side (get-reviews) with reviewer identity, like
+// count, and the reviewer's rating for the same scope.
+export type ReviewWithMeta = {
+  id: string;
+  user_id: string;
+  season_number: number | null;
+  episode_number: number | null;
+  body: string;
+  contains_spoilers: boolean;
+  created_at: string;
+  username: string;
+  avatar_url: string | null;
+  likes: number;
+  rating: number | null;
+};
+
+export type GetReviewsResponse = {
+  reviews: ReviewWithMeta[];
+};
+
+// Turn a scope into a display line. Whole show → undefined (no line shown).
+export function formatScope(
+  season: number | null,
+  episode: number | null,
+): string | undefined {
+  if (season === null) return undefined;
+  if (episode === null) return `Season ${season}`;
+  return `Season ${season} · E${episode}`;
+}
+
 // ----- TMDb image URL helper -----------------------------------------------
 // TMDb returns paths like "/abc.jpg" — the real URL needs a base + size.
 // w342 fits shelf posters; w500/w780 for the detail hero; original for zooms.

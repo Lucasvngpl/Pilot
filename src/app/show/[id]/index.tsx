@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useShow } from '@/api/useShow';
+import { usePopularReviews } from '@/api/usePopularReviews';
 import { Poster } from '@/components/Poster';
 import { StatRow } from '@/components/StatRow';
 import { Tabs } from '@/components/Tabs';
@@ -12,32 +13,16 @@ import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { UserRatingCard } from '@/components/UserRatingCard';
 import { colors, type, pad, fonts } from '@/theme';
-
-// TODO(phase-future): replace with a `usePopularReviews(showId)` hook.
-const MOCK_REVIEWS = [
-  {
-    username: 'maya',
-    showTitle: 'The Bear',
-    seasonLine: 'Season 2 · Forks',
-    rating: 4.5,
-    body: 'episode 7 is one of the best things ive ever seen on tv. just perfect.',
-    likes: 127,
-  },
-  {
-    username: 'jordan',
-    showTitle: 'The Bear',
-    seasonLine: 'Season 1',
-    rating: 4.0,
-    body: 'the kitchen feels real. carmy is a mess in the best way.',
-    likes: 84,
-  },
-];
+import { formatScope } from '@/types';
 
 export default function ShowDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
+  const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  const reviews = reviewsData?.reviews ?? [];
 
   // Show-scope status + rating (both nullable). Drive nav-row state, card, sheet.
   const showScopeStatus = data?.mySocial.watch_statuses.find(
@@ -47,7 +32,6 @@ export default function ShowDetail() {
     (r) => r.season_number === null && r.episode_number === null,
   )?.score ?? null;
 
-  // "Has any user interaction" — purple bubble lights up for either signal.
   const engaged = showScopeStatus !== null || showScopeRating !== null;
 
   return (
@@ -55,10 +39,7 @@ export default function ShowDetail() {
       <ShowNavRow
         watchedPct={0}
         engaged={engaged}
-        onCheckPress={() => {
-          console.log('[ShowDetail] opening action sheet');
-          setSheetOpen(true);
-        }}
+        onCheckPress={() => setSheetOpen(true)}
       />
 
       {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}
@@ -110,35 +91,46 @@ export default function ShowDetail() {
             />
           </View>
 
-          {/* Letterboxd-style personal-rating card. Self-hides when rating is 0/null. */}
-          <UserRatingCard
-            rating={showScopeRating ?? 0}
-            onPress={() => setSheetOpen(true)}
-          />
+          <UserRatingCard rating={showScopeRating ?? 0} onPress={() => setSheetOpen(true)} />
 
           <Tabs
             showId={tmdbShowId}
             active="reviews"
             counts={{
-              reviews: MOCK_REVIEWS.length,
+              reviews: reviews.length,
               seasons: data.catalog.seasons?.length,
               lists: 0,
             }}
           />
 
           <View style={styles.subhead}>
-            <Text style={[type.subhead, { color: colors.ink }]}>Popular Reviews ›</Text>
-            <Text style={[type.filter, { color: colors.muted }]}>Everyone ⌄</Text>
+            {/* Honest label: this is every review, newest first — not a ranked
+                "popular" set, and there's no see-all route or filter yet. Drop
+                the › / ⌄ affordances rather than fake interactivity. */}
+            <Text style={[type.subhead, { color: colors.ink }]}>Reviews</Text>
           </View>
 
-          {MOCK_REVIEWS.map((r, i) => (
-            <ReviewRow
-              key={i}
-              {...r}
-              tmdbShowId={tmdbShowId}
-              posterPath={data.catalog.poster_path}
-            />
-          ))}
+          {reviews.length === 0 ? (
+            <Text style={[styles.muted, { paddingHorizontal: pad, paddingVertical: 8 }]}>
+              No reviews yet.
+            </Text>
+          ) : (
+            reviews.map((r) => (
+              <ReviewRow
+                key={r.id}
+                username={r.username}
+                avatarUri={r.avatar_url ?? undefined}
+                showTitle={data.catalog.name}
+                seasonLine={formatScope(r.season_number, r.episode_number)}
+                rating={r.rating ?? 0}
+                body={r.body}
+                containsSpoilers={r.contains_spoilers}
+                likes={r.likes}
+                tmdbShowId={tmdbShowId}
+                posterPath={data.catalog.poster_path}
+              />
+            ))
+          )}
         </ScrollView>
       )}
 
