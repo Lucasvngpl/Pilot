@@ -62,7 +62,12 @@ Deno.serve(async (req) => {
       ? await fetchUserSocial(user, tmdb_show_id, authUser.id)
       : EMPTY_SOCIAL;
 
-    return json({ catalog, mySocial });
+    // 3. Community stats for the stat row — public aggregates over everyone's
+    //    rows (RLS SELECT is public), so these run regardless of auth. The
+    //    viewer avatars need the caller's id (only faces they follow are shown).
+    const stats = await computeStats(user, tmdb_show_id, authUser?.id ?? null);
+
+    return json({ catalog, mySocial, stats });
   } catch (err) {
     console.error('get-show error:', err);
     return json({ error: err instanceof Error ? err.message : 'unknown' }, 500);
@@ -152,6 +157,67 @@ async function fetchUserSocial(
     ratings: ratings.data ?? [],
     reviews: reviews.data ?? [],
   };
+}
+
+type ViewerAvatar = { id: string; username: string; avatar_url: string | null };
+
+/**
+ * Community stats for the stat row (NOT the caller's — everyone's rows):
+ *  - avgRating: Pilot average of SHOW-SCOPE ratings (out of 5), null if none.
+ *  - viewers:   distinct users who watched or are watching (any scope).
+ *  - viewerAvatars: up to 3 profiles of viewers the CALLER follows — NEVER
+ *    strangers. Empty when the caller follows none of them (or is anonymous);
+ *    the UI then shows gray placeholders. Honest count + anonymous circles beats
+ *    fake social proof from strangers.
+ *  - popularity stays TMDb (from the catalog payload, client-side).
+ * RLS SELECT is public, so the user client sees all rows here.
+ */
+async function computeStats(
+  client: ReturnType<typeof userClient>,
+  tmdb_show_id: number,
+  authUserId: string | null,
+) {
+  const [ratingsRes, watchersRes] = await Promise.all([
+    client
+      .from('ratings')
+      .select('score')
+      .eq('tmdb_show_id', tmdb_show_id)
+      .is('season_number', null)
+      .is('episode_number', null),
+    client
+      .from('watch_status')
+      .select('user_id')
+      .eq('tmdb_show_id', tmdb_show_id)
+      .in('status', ['watched', 'watching']),
+  ]);
+
+  const scores = (ratingsRes.data ?? []).map((r) => r.score as number);
+  const avgRating = scores.length
+    ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
+    : null;
+
+  const viewerIds = [...new Set((watchersRes.data ?? []).map((w) => w.user_id as string))];
+  const viewers = viewerIds.length;
+
+  // Faces: only viewers the caller follows (never strangers).
+  let viewerAvatars: ViewerAvatar[] = [];
+  if (authUserId && viewerIds.length > 0) {
+    const { data: follows } = await client
+      .from('follows')
+      .select('followee_id')
+      .eq('follower_id', authUserId)
+      .in('followee_id', viewerIds);
+    const followedIds = (follows ?? []).map((f) => f.followee_id as string).slice(0, 3);
+    if (followedIds.length > 0) {
+      const { data: profiles } = await client
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', followedIds);
+      viewerAvatars = (profiles ?? []) as ViewerAvatar[];
+    }
+  }
+
+  return { avgRating, ratingCount: scores.length, viewers, viewerAvatars };
 }
 
 function json(body: unknown, status = 200): Response {

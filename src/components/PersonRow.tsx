@@ -1,19 +1,24 @@
 import { Pressable, View, Text, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useAuth } from '@/lib/auth';
+import { FollowButton } from '@/components/FollowButton';
 import { colors, type, pad } from '@/theme';
 import type { PersonResult } from '@/types';
 
-// A person row — used in People search and the Following/Followers lists. Taps
-// through to that user's profile. (`as any`: the /user/[id] route exists but the
-// typed-route union only regenerates when Metro runs.)
+// A person row — People search, Following/Followers, and the show Viewers list.
+// Taps through to that user's profile. With `showFollow`, a trailing Follow pill
+// makes the list a follow-discovery surface (hidden on your own row).
 export function PersonRow({
   person,
   onActivate,
+  showFollow,
 }: {
   person: PersonResult;
   onActivate?: () => void; // fired before navigation — used to record a recent search
+  showFollow?: boolean;
 }) {
+  const { user } = useAuth();
   return (
     <Pressable
       style={styles.row}
@@ -37,6 +42,9 @@ export function PersonRow({
           </Text>
         )}
       </View>
+      {/* FollowButton is a nested Pressable — it captures its own taps, while the
+          rest of the row still navigates to the profile. Hidden on your own row. */}
+      {showFollow && user?.id !== person.id && <FollowButton followeeId={person.id} />}
     </Pressable>
   );
 }

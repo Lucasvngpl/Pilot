@@ -1,6 +1,6 @@
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useShow } from '@/api/useShow';
 import { usePopularReviews } from '@/api/usePopularReviews';
@@ -84,9 +84,14 @@ export default function ShowDetail() {
           )}
 
           <View style={styles.statWrap}>
+            {/* `?.`: a cached get-show response can predate the `stats` field
+                (dev fast-refresh, or an OTA update over a warm cache) — render
+                "—" until it refetches rather than crashing. */}
             <StatRow
-              rating={data.catalog.vote_average}
-              viewers={data.catalog.vote_count}
+              rating={data.stats?.avgRating ?? null}
+              viewers={data.stats?.viewers ?? 0}
+              viewerAvatars={(data.stats?.viewerAvatars ?? []).map((v) => v.avatar_url)}
+              onViewersPress={() => router.push(`/show/${tmdbShowId}/viewers` as any)}
               popularity={Math.round((data.catalog as { popularity?: number }).popularity ?? 0)}
             />
           </View>

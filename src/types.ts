@@ -81,12 +81,22 @@ export type GetPopularResponse = {
   shows: Array<{ tmdb_show_id: number; payload: TmdbPayload }>;
 };
 
+// Up to 3 viewer faces on the stat row — only people the caller follows.
+export type ViewerAvatar = { id: string; username: string; avatar_url: string | null };
+
 export type GetShowResponse = {
   catalog: TmdbPayload;
   mySocial: {
     watch_statuses: WatchStatusRow[];
     ratings: RatingRow[];
     reviews: ReviewRow[];
+  };
+  // Community stats for the stat row (everyone's rows, not just the caller's).
+  stats: {
+    avgRating: number | null; // Pilot show-scope average (out of 5); null = no ratings
+    ratingCount: number;
+    viewers: number; // distinct users who watched or are watching
+    viewerAvatars: ViewerAvatar[]; // up to 3, only viewers the caller follows
   };
 };
 
@@ -97,6 +107,7 @@ export type ProfileRow = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  bio: string | null;
   created_at: string;
 };
 

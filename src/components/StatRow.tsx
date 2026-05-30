@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, type } from '@/theme';
 import { StarIcon, TrendUpIcon } from '@/components/icons';
 import { AvatarCluster } from '@/components/AvatarCluster';
@@ -6,12 +6,24 @@ import { AvatarCluster } from '@/components/AvatarCluster';
 type Props = {
   rating?: number | null;
   viewers?: number;
+  viewerAvatars?: (string | null)[]; // faces of viewers the caller follows (else gray)
+  onViewersPress?: () => void;
   popularity?: number;
 };
 
-// Letterboxd-style social compact: rating · viewers · popularity.
-// 34px gap between cells per spec.
-export function StatRow({ rating, viewers, popularity }: Props) {
+// Letterboxd-style social compact: rating · viewers · popularity. 34px gap.
+export function StatRow({ rating, viewers, viewerAvatars = [], onViewersPress, popularity }: Props) {
+  const viewerCount = viewers ?? 0;
+  // Render min(3, viewers) circles; the first ones are followed-viewer faces
+  // (from viewerAvatars), the rest fall back to gray placeholders.
+  const viewersStat = (
+    <Stat
+      value={viewerCount ? formatK(viewerCount) : '—'}
+      label="VIEWERS"
+      icon={<AvatarCluster uris={viewerAvatars} count={Math.min(3, viewerCount)} />}
+    />
+  );
+
   return (
     <View style={styles.row}>
       <Stat
@@ -19,11 +31,13 @@ export function StatRow({ rating, viewers, popularity }: Props) {
         label="AVG RATING"
         icon={<StarIcon color={colors.gold} size={16} />}
       />
-      <Stat
-        value={viewers ? formatK(viewers) : '—'}
-        label="VIEWERS"
-        icon={<AvatarCluster count={4} />}
-      />
+      {onViewersPress ? (
+        <Pressable onPress={onViewersPress} hitSlop={6}>
+          {viewersStat}
+        </Pressable>
+      ) : (
+        viewersStat
+      )}
       <Stat
         value={popularity != null ? String(popularity) : '—'}
         label="POPULARITY"
