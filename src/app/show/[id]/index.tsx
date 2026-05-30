@@ -1,28 +1,54 @@
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useShow } from '@/api/useShow';
 import { usePopularReviews } from '@/api/usePopularReviews';
+import { useDeleteReview } from '@/api/useReviewMutations';
+import { useAuth } from '@/lib/auth';
 import { Poster } from '@/components/Poster';
 import { StatRow } from '@/components/StatRow';
 import { Tabs } from '@/components/Tabs';
 import { ReviewRow } from '@/components/ReviewRow';
+import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { UserRatingCard } from '@/components/UserRatingCard';
 import { colors, type, pad, fonts } from '@/theme';
-import { formatScope } from '@/types';
+import { formatScope, type GetReviewsResponse } from '@/types';
+
+type ReviewItem = GetReviewsResponse['reviews'][number];
 
 export default function ShowDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
+  const { user } = useAuth();
+  const { remove } = useDeleteReview(tmdbShowId);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The own-review whose ⋯ menu is open (null = closed).
+  const [menuReview, setMenuReview] = useState<ReviewItem | null>(null);
 
   const reviews = reviewsData?.reviews ?? [];
+
+  const confirmDeleteReview = (reviewId: string) => {
+    Alert.alert('Delete review?', 'This permanently deletes your review.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await remove(reviewId);
+          } catch (e) {
+            Alert.alert("Couldn't delete", e instanceof Error ? e.message : 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   // Show-scope status + rating (both nullable). Drive nav-row state, card, sheet.
   const showScopeStatus = data?.mySocial.watch_statuses.find(
@@ -130,6 +156,7 @@ export default function ShowDetail() {
                 likes={r.likes}
                 tmdbShowId={tmdbShowId}
                 posterPath={data.catalog.poster_path}
+                onMenu={user && r.user_id === user.id ? () => setMenuReview(r) : undefined}
               />
             ))
           )}
@@ -144,6 +171,28 @@ export default function ShowDetail() {
         tmdbShowId={tmdbShowId}
         currentStatus={showScopeStatus}
         currentRating={showScopeRating}
+      />
+
+      {/* Owner-only Edit/Delete menu for the tapped review. */}
+      <ActionMenuSheet
+        visible={!!menuReview}
+        onClose={() => setMenuReview(null)}
+        actions={
+          menuReview
+            ? [
+                {
+                  label: 'Edit review',
+                  onPress: () =>
+                    router.push(`/show/${tmdbShowId}/review?reviewId=${menuReview.id}` as any),
+                },
+                {
+                  label: 'Delete review',
+                  destructive: true,
+                  onPress: () => confirmDeleteReview(menuReview.id),
+                },
+              ]
+            : []
+        }
       />
     </SafeAreaView>
   );

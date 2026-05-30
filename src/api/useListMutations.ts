@@ -59,6 +59,40 @@ export function useDeleteList() {
   return { remove: mutation.mutateAsync, isPending: mutation.isPending };
 }
 
+type UpdateArgs = { title: string; description: string | null };
+
+/** Update a list's title/description. Items are reconciled separately via useListItemMutations. */
+export function useUpdateList() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const requireAuth = useRequireAuth();
+
+  const mutation = useMutation({
+    mutationFn: async ({ listId, title, description }: UpdateArgs & { listId: string }) => {
+      if (!user) throw new Error('useUpdateList: no authenticated user');
+      const { error } = await supabase
+        .from('lists')
+        .update({ title, description })
+        .eq('id', listId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, { listId }) => {
+      qc.invalidateQueries({ queryKey: ['list', listId] });
+      if (user) qc.invalidateQueries({ queryKey: ['lists', user.id] });
+    },
+  });
+
+  // Returns true if saved, false if login was dismissed.
+  const update = async (listId: string, args: UpdateArgs): Promise<boolean> => {
+    const allowed = await requireAuth();
+    if (!allowed) return false;
+    await mutation.mutateAsync({ listId, ...args });
+    return true;
+  };
+
+  return { update, isPending: mutation.isPending };
+}
+
 /**
  * Add/remove a show in a list (for AddToListSheet). The optimistic check lives in
  * the sheet (it owns the membership UI); these just write + invalidate the list

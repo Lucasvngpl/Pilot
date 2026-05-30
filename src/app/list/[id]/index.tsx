@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -5,7 +6,8 @@ import { useAuth } from '@/lib/auth';
 import { useList } from '@/api/useLists';
 import { useDeleteList } from '@/api/useListMutations';
 import { PosterGrid } from '@/components/PosterGrid';
-import { ChevronLeftIcon } from '@/components/icons';
+import { ActionMenuSheet } from '@/components/ActionMenuSheet';
+import { ChevronLeftIcon, DotsIcon } from '@/components/icons';
 import { colors, type, pad } from '@/theme';
 
 export default function ListDetail() {
@@ -13,6 +15,7 @@ export default function ListDetail() {
   const { user } = useAuth();
   const { data: list, isLoading, isError } = useList(id);
   const { remove, isPending } = useDeleteList();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const isOwner = !!user && !!list && list.user_id === user.id;
 
@@ -43,8 +46,8 @@ export default function ListDetail() {
         </Pressable>
         <View style={{ flex: 1 }} />
         {isOwner && (
-          <Pressable onPress={onDelete} hitSlop={8} disabled={isPending}>
-            <Text style={styles.delete}>Delete</Text>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} disabled={isPending}>
+            <DotsIcon color={colors.ink} size={20} />
           </Pressable>
         )}
       </View>
@@ -72,6 +75,16 @@ export default function ListDetail() {
           )}
         </ScrollView>
       )}
+
+      {/* Owner-only Edit/Delete menu. */}
+      <ActionMenuSheet
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        actions={[
+          { label: 'Edit list', onPress: () => router.push(`/list/new?edit=${id}` as any) },
+          { label: 'Delete list', destructive: true, onPress: onDelete },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -84,7 +97,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: pad,
     paddingVertical: 8,
   },
-  delete: { fontFamily: type.reviewUser.fontFamily, fontSize: 14, color: colors.red },
   header: { paddingHorizontal: pad, paddingTop: 8, paddingBottom: 4 },
   desc: {
     fontFamily: type.reviewBody.fontFamily,

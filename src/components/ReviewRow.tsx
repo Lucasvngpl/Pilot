@@ -27,6 +27,9 @@ type Props = {
   likes: number;
   tmdbShowId: number;
   posterPath?: string | null;
+  // Provided ONLY for the current user's own reviews → shows the ⋯ menu. Omitted
+  // for everyone else's, so the ⋯ isn't a dead control on reviews you can't act on.
+  onMenu?: () => void;
 };
 
 export function ReviewRow(p: Props) {
@@ -57,7 +60,11 @@ export function ReviewRow(p: Props) {
         <Text style={[type.reviewUser, { color: colors.ink, flex: 1, marginLeft: 8 }]}>
           {p.username}
         </Text>
-        <DotsIcon color={colors.faint} size={16} />
+        {p.onMenu && (
+          <Pressable onPress={p.onMenu} hitSlop={8}>
+            <DotsIcon color={colors.faint} size={16} />
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.body}>
