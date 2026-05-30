@@ -10,9 +10,10 @@ _Snapshot as of 2026-05-29. **Current state only** — durable architecture rule
 - **Seasons** (`show/[id]/seasons.tsx`) — season pills + episode list with working watched toggles.
 - **Review composer** (`show/[id]/review.tsx`) — scope selector (show / season / episode) + drag rating + body + spoiler toggle. "Review or log".
 - **Auth** — landing (`(auth)/index.tsx`), signup (`(auth)/signup.tsx`), and a global login sheet.
-- **Profile** (`profile/index.tsx`) — identity (username + follower/following counts + avatar) + 4 in-place sub-tabs (**Profile · Shows · Lists · Watchlist**). Profile tab: Top-4 dashed slots, Currently-watching shelf, tappable Following/Followers counts (→ list pages) + a Diary link (stub). **Shows** = grid of watched shows (gold rating overlay + review badge); **Watchlist** = grid; **Lists** = Coming Soon. Gear → Sign-out sheet. Renders the shared **`ProfileView`** (also powers `/user/[id]`). Reads via direct client queries (`useProfile`, `useCurrentlyWatching`, `useWatchedShows`, `useWatchlist`) — no Edge Function (Profile never touches TMDb).
+- **Profile** (`profile/index.tsx`) — identity (username + follower/following counts + avatar) + 4 in-place sub-tabs (**Profile · Shows · Lists · Watchlist**). Profile tab: Top-4 dashed slots, Currently-watching shelf, tappable Following/Followers counts (→ list pages) + a Diary link (stub). **Shows** = grid of watched shows (gold rating overlay + review badge); **Watchlist** = grid; **Lists** = Coming Soon. Gear → **Edit Profile** (`/settings`). Renders the shared **`ProfileView`** (also powers `/user/[id]`). Reads via direct client queries (`useProfile`, `useCurrentlyWatching`, `useWatchedShows`, `useWatchlist`) — no Edge Function (Profile never touches TMDb).
 - **User profile** (`user/[id]/index.tsx`) — public view of another user via the shared `ProfileView` (identity, counts, their Shows/Watchlist + currently-watching). **Follow/Following** button (optimistic, gated on login). `/user/[id]/following` + `/user/[id]/followers` list pages. Anonymous-viewable; a Follow tap prompts login.
 - **Search** (`search.tsx`) — search bar + sub-tabs (Shows · People · Lists). Empty query → Trending (`usePopular`/`get-popular`). Debounced (300ms) live search: Shows via `search-shows` (TMDb `/search/tv` proxy), People via direct `profiles` ilike. Tap a show → `/show/[id]` (uncached shows lazily cache via `get-show`). People rows tap → `/user/[id]`. Lists tab = Coming Soon. Anonymous-safe.
+- **Settings / Edit Profile** (`settings.tsx`) — tappable avatar (image picker → Supabase Storage, optimistic + rollback), **disabled** username, editable display name + bio (160-char cap + counter), "Update profile" (dirty-check), and **Sign out** (moved here from the Profile gear sheet). Reached via the Profile gear.
 
 **Mutations** (`src/api/`) — all follow the canonical pattern in CLAUDE.md
 - `useToggleEpisodeWatched` — episode watched on/off (Seasons screen).
@@ -20,14 +21,19 @@ _Snapshot as of 2026-05-29. **Current state only** — durable architecture rule
 - `useRate` — **scoped** rating (show / season / episode) via the drag picker, half-stars.
 - `usePostReview` — review INSERT (text only; the rating goes through `useRate`).
 - `useFollow` — asymmetric follow/unfollow toggle + follow-state; optimistic (flips follow-state + the followee's follower count + my following count).
+- `useUpdateProfile` — own `display_name` / `bio` / `avatar_url`; optimistic + **broad** invalidation (avatar + name render under many keys: `['profile']`, `['reviews']`, `['searchPeople']`, `['followList']`, `['showViewers']`, `['show']`). Avatar bytes via `lib/uploadAvatar` (base64 → ArrayBuffer → Storage upsert, cache-busted URL, no orphans).
 
 **Edge Functions** (`supabase/functions/`) — `get-show`, `get-popular`, `refresh-popular`, `get-reviews`, `search-shows`.
+
+**Supabase Storage** — `avatars` bucket (public read; write only your own `{user_id}/…` folder, RLS-verified). Profile avatars live here; `profiles.avatar_url` stores the cache-busted public URL.
 
 **Core flows that work**: browse anonymously → show detail → action sheet (status pills + drag-to-rate) → review composer; episode watched toggles persist; per-action login gate (browse free, login prompted on first write); ratings + reviews round-trip and survive sign-out/sign-in.
 
 ## Deploy status
 
 All Edge Functions are deployed. `get-reviews` (2026-05-28) and `search-shows` (2026-05-30) verified live — `search-shows?query=stranger` returns mapped results; the uncached-show path is confirmed (tapping a search result for a never-cached show, e.g. 224263, triggers `get-show` to fetch + cache it with `is_popular=false`).
+
+**⚠️ Migrations are applied MANUALLY** via the Supabase SQL editor — NOT `supabase db push` (0001 was applied out-of-band, so push would try to re-run it and fail). New migration files are version-control + paste-into-the-editor. Latest applied: `0002_profile_bio_and_avatars.sql` (`profiles.bio` with a ≤160 check + the `avatars` bucket & RLS policies).
 
 > Fixed on deploy: the embed `profiles(...)` was ambiguous (PGRST201) because `review_likes.user_id` adds a second reviews→profiles path. Pinned to the author with `profiles!reviews_user_id_fkey`. Also fixed the catch block that reported `"unknown"` for PostgREST errors (plain objects, not `Error` instances) — it now surfaces `.message`.
 

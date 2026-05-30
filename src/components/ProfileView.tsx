@@ -11,10 +11,9 @@ import { useCurrentlyWatching } from '@/api/useCurrentlyWatching';
 import { useWatchedShows } from '@/api/useWatchedShows';
 import { useWatchlist } from '@/api/useWatchlist';
 import { Poster } from '@/components/Poster';
-import { Sheet } from '@/components/Sheet';
-import { Button } from '@/components/Button';
 import { BottomNav } from '@/components/BottomNav';
 import { FollowButton } from '@/components/FollowButton';
+import { AvatarViewer } from '@/components/AvatarViewer';
 import { ProfileTabs, type ProfileTabKey } from '@/components/ProfileTabs';
 import { PosterGrid } from '@/components/PosterGrid';
 import { DashedSlot } from '@/components/DashedSlot';
@@ -36,17 +35,18 @@ type Variant = 'own' | 'other';
  *  - other: back button, Follow button (when not yourself), no sheet/nav/Diary.
  */
 export function ProfileView({ userId, variant }: { userId: string; variant: Variant }) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const myId = user?.id;
   const isOwn = variant === 'own';
 
   const [tab, setTab] = useState<ProfileTabKey>('profile');
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const { data: profileData } = useProfile(userId);
   const { data: watching } = useCurrentlyWatching(userId);
-  // Lazy: each grid only fetches once its tab has been opened (enabled flag).
-  const { data: watched } = useWatchedShows(userId, tab === 'shows');
+  // Shows is prefetched on mount (no tab gate) so switching to it is instant —
+  // it's the primary "what I've watched" grid. Watchlist stays lazy.
+  const { data: watched } = useWatchedShows(userId);
   const { data: watchlist } = useWatchlist(userId, tab === 'watchlist');
 
   // Other-user profile that doesn't exist → friendly not-found (back only).
@@ -82,7 +82,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
               <Pressable hitSlop={8}>
                 <ShareIcon color={colors.ink} size={22} />
               </Pressable>
-              <Pressable hitSlop={8} onPress={() => setSettingsOpen(true)}>
+              <Pressable hitSlop={8} onPress={() => router.push('/settings' as any)}>
                 <GearIcon color={colors.ink} size={22} />
               </Pressable>
             </>
@@ -123,11 +123,17 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
             </View>
           </View>
           {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            <Pressable onPress={() => setAvatarOpen(true)}>
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            </Pressable>
           ) : (
             <View style={[styles.avatar, { backgroundColor: colors.hairline }]} />
           )}
         </View>
+
+        {profileData?.profile?.bio ? (
+          <Text style={styles.bio}>{profileData.profile.bio}</Text>
+        ) : null}
 
         <ProfileTabs
           active={tab}
@@ -145,21 +151,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 
       {isOwn && <BottomNav active="profile" />}
 
-      {isOwn && (
-        <Sheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} height={240}>
-          <View style={styles.sheetBody}>
-            <Text style={[type.subhead, { color: colors.ink, marginBottom: 16 }]}>Settings</Text>
-            <Button
-              label="Sign out"
-              variant="secondary"
-              onPress={() => {
-                setSettingsOpen(false);
-                signOut();
-              }}
-            />
-          </View>
-        </Sheet>
-      )}
+      <AvatarViewer uri={avatarUrl} visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -266,6 +258,15 @@ const styles = StyleSheet.create({
   counts: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8 },
   countGroup: { flexDirection: 'row', alignItems: 'baseline' },
   avatar: { width: 72, height: 72, borderRadius: 36, marginLeft: 12 },
+  bio: {
+    fontFamily: type.reviewBody.fontFamily,
+    fontSize: type.reviewBody.fontSize,
+    color: colors.ink,
+    lineHeight: 20,
+    paddingHorizontal: pad,
+    marginTop: -4,
+    marginBottom: 16,
+  },
 
   sectionHead: {
     flexDirection: 'row',

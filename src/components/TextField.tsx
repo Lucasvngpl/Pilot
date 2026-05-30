@@ -13,11 +13,14 @@ type Props = {
   rightAccessory?: React.ReactNode;
   // Multiline grows the input into a text area (review body etc.).
   multiline?: boolean;
+  editable?: boolean; // false = read-only (e.g. username), dimmed text
+  maxLength?: number;
 };
 
 export function TextField({
   label, value, onChangeText, placeholder,
   secureTextEntry, keyboardType, autoCapitalize, rightAccessory, multiline,
+  editable = true, maxLength,
 }: Props) {
   return (
     <View style={styles.wrap}>
@@ -26,7 +29,7 @@ export function TextField({
         {rightAccessory}
       </View>
       <TextInput
-        style={[styles.input, multiline && styles.inputMultiline]}
+        style={[styles.input, multiline && styles.inputMultiline, editable === false && styles.inputDisabled]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -35,6 +38,8 @@ export function TextField({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         autoCorrect={!secureTextEntry}
+        editable={editable}
+        maxLength={maxLength}
         multiline={multiline}
         scrollEnabled={multiline}
         textAlignVertical={multiline ? 'top' : 'center'}
@@ -68,4 +73,5 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 14,
   },
+  inputDisabled: { color: colors.muted },
 });

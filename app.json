@@ -34,6 +34,12 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Pilot needs photo access to set your avatar."
+        }
       ]
     ],
     "experiments": {
