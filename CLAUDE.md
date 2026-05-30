@@ -152,11 +152,17 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Episode/season-scoped list items** — lists hold whole shows only today. To hold seasons/episodes, `list_items` needs the polymorphic scope the other social tables use (nullable `season_number`/`episode_number` + `UNIQUE NULLS NOT DISTINCT`), plus picker drill-down + episode/season render variants. Migration + UI.
 - **Lists polish** — rename/edit a list after creation; reorder + ranked lists (`is_ranked` column exists, unused); public/private (Pilot's first private data → a column + read-scoping RLS); tags; the Search screen's Lists sub-tab (list _search_). And be able to edit it.
 - **Reviews** — edit/delete your own review (the `⋯` menu is inert); likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`.
-- **Profile** — Top-4 favorites picker (reuse the show-search surface); Diary (date-grouped watch log from `watch_status.updated_at`, no schema change).
+- **Profile** — Diary (date-grouped watch log from `watch_status.updated_at`, no schema change). _(Top-4 favorites picker: **done** — `/profile/top-shows`, add-order; reorder-via-arrows deferred to post-TestFlight per [[ship-simplest-cut-gestures]].)_
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
 - **Activity feed** — the bottom-nav Activity tab 404s; the social/feed surface is unbuilt.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
 - episode/season-scoped list items
+- Steal letterboxd's premium subscription features
+- Connect to streaming services by mcp so it shows when youve watched the show?
+- Watchlist Notifications: Get email or push notifications when movies on your watchlist are added to your preferred streaming platforms?
+- Advanced Statistics: Unlocks personalized, real-time insights into your all-time and annual viewing habits. This includes breakdowns of your favorite genres, most-watched actors, average ratings by decade, and a world map of the countries your films originate from.
+- Visual Perks: Access to custom app icons (iOS) like widgets
+- Ultimate Customization: Choose custom posters and backdrops for your profile, favorites, lists, reviews, and diary entries. You can also select specific images for any cast or crew member.
 
 ## Workflow Orchestration
 

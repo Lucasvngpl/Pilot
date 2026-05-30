@@ -11,6 +11,7 @@ import { useCurrentlyWatching } from '@/api/useCurrentlyWatching';
 import { useWatchedShows } from '@/api/useWatchedShows';
 import { useWatchlist } from '@/api/useWatchlist';
 import { useMyLists } from '@/api/useLists';
+import { useTopShows } from '@/api/useTopShows';
 import { Poster } from '@/components/Poster';
 import { BottomNav } from '@/components/BottomNav';
 import { FollowButton } from '@/components/FollowButton';
@@ -22,8 +23,8 @@ import { DashedSlot } from '@/components/DashedSlot';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
 } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
-import type { CurrentlyWatchingCard } from '@/types';
+import { colors, type, pad, fonts } from '@/theme';
+import type { CurrentlyWatchingCard, ShowCard } from '@/types';
 
 const TOP_N = 4; // four favorites fit one row with no horizontal scroll
 const GAP = 10;
@@ -50,6 +51,8 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   // it's the primary "what I've watched" grid. Watchlist stays lazy.
   const { data: watched } = useWatchedShows(userId);
   const { data: watchlist } = useWatchlist(userId, tab === 'watchlist');
+  // Top-4 is on the default Profile tab, so fetch eagerly (like watched).
+  const { data: topShows } = useTopShows(userId);
 
   // Other-user profile that doesn't exist → friendly not-found (back only).
   if (!isOwn && profileData && !profileData.profile) {
@@ -143,7 +146,14 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
           counts={{ shows: watched?.length, watchlist: watchlist?.length }}
         />
 
-        {tab === 'profile' && <ProfileBody watching={watching ?? []} showDiary={isOwn} />}
+        {tab === 'profile' && (
+          <ProfileBody
+            watching={watching ?? []}
+            showDiary={isOwn}
+            topShows={topShows ?? []}
+            isOwn={isOwn}
+          />
+        )}
         {tab === 'shows' && <PosterGrid items={watched ?? []} emptyText="No watched shows yet." />}
         {tab === 'lists' && <ListsBody userId={userId} isOwn={isOwn} />}
         {tab === 'watchlist' && (
@@ -163,22 +173,68 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 function ProfileBody({
   watching,
   showDiary,
+  topShows,
+  isOwn,
 }: {
   watching: CurrentlyWatchingCard[];
   showDiary: boolean;
+  topShows: ShowCard[];
+  isOwn: boolean;
 }) {
   const { width: screenW } = useWindowDimensions();
   const slotW = Math.floor((screenW - pad * 2 - GAP * (TOP_N - 1)) / TOP_N);
 
+  // Own profile: always show the 4-slot grid (empty slots are the "add" affordance).
+  // Another user: only show their favorites if they have any — never empty slots
+  // on someone else's profile.
+  const showTop4 = isOwn || topShows.length > 0;
+
   return (
     <View>
-      {/* Top 4 — edit flow deferred (needs Search), so no "Edit" link yet. */}
-      <SectionHeader title="Your Top 4" />
-      <View style={styles.topRow}>
-        {Array.from({ length: TOP_N }).map((_, i) => (
-          <DashedSlot key={i} n={i + 1} width={slotW} />
-        ))}
-      </View>
+      {showTop4 && (
+        <>
+          <SectionHeader
+            title="Your Top 4"
+            right={
+              isOwn ? (
+                <Pressable hitSlop={8} onPress={() => router.push('/profile/top-shows' as any)}>
+                  <Text style={styles.editLink}>Edit</Text>
+                </Pressable>
+              ) : undefined
+            }
+          />
+          <View style={styles.topRow}>
+            {isOwn
+              ? // 4 fixed slots: poster if filled, else a tappable dashed slot → editor.
+                Array.from({ length: TOP_N }).map((_, i) => {
+                  const show = topShows[i];
+                  return show ? (
+                    <Poster
+                      key={show.tmdb_show_id}
+                      tmdbShowId={show.tmdb_show_id}
+                      posterPath={show.poster_path}
+                      name={show.name}
+                      width={slotW}
+                    />
+                  ) : (
+                    <Pressable key={`slot-${i}`} onPress={() => router.push('/profile/top-shows' as any)}>
+                      <DashedSlot n={i + 1} width={slotW} />
+                    </Pressable>
+                  );
+                })
+              : // Other user: just their favorites, no dashed fillers.
+                topShows.map((show) => (
+                  <Poster
+                    key={show.tmdb_show_id}
+                    tmdbShowId={show.tmdb_show_id}
+                    posterPath={show.poster_path}
+                    name={show.name}
+                    width={slotW}
+                  />
+                ))}
+          </View>
+        </>
+      )}
 
       <SectionHeader title="Currently watching" />
       {watching.length === 0 ? (
@@ -224,10 +280,11 @@ function WatchingCard({ card }: { card: CurrentlyWatchingCard }) {
   );
 }
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
   return (
     <View style={styles.sectionHead}>
       <Text style={[type.profileSection, { color: colors.ink }]}>{title}</Text>
+      {right}
     </View>
   );
 }
@@ -299,6 +356,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   topRow: { flexDirection: 'row', gap: GAP, paddingHorizontal: pad, marginTop: 12 },
+  editLink: { fontFamily: fonts.semibold, fontSize: 14, color: colors.purple },
   shelf: { gap: 12, paddingHorizontal: pad, paddingTop: 12 },
   checkBubble: {
     position: 'absolute',
