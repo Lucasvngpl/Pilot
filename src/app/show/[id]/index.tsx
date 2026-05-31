@@ -16,7 +16,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { UserRatingCard } from '@/components/UserRatingCard';
-import { colors, type, pad, fonts } from '@/theme';
+import { colors, type, pad, fonts, radius } from '@/theme';
 import { formatScope, type GetReviewsResponse } from '@/types';
 
 type ReviewItem = GetReviewsResponse['reviews'][number];
@@ -61,6 +61,20 @@ export default function ShowDetail() {
   const showScopeRating = data?.mySocial.ratings.find(
     (r) => r.season_number === null && r.episode_number === null,
   )?.score ?? null;
+
+  // --- Catalog meta (all from the cached /tv payload — no backend call) ---
+  const c = data?.catalog;
+  // `[year · N Seasons · Status]`. filter(Boolean) drops any part TMDb omitted,
+  // so a show with no air date or season count just shows fewer segments.
+  const metaParts = [
+    c?.first_air_date?.slice(0, 4),
+    c?.number_of_seasons ?? c?.seasons?.length
+      ? `${c?.number_of_seasons ?? c?.seasons?.length} Season${(c?.number_of_seasons ?? c?.seasons?.length) === 1 ? '' : 's'}`
+      : null,
+    prettyStatus(c?.status),
+  ].filter(Boolean) as string[];
+  const networks = (c?.networks ?? []).slice(0, 2); // HBO etc. — rarely more than 1–2
+  const nextAir = formatAirDate(c?.next_episode_to_air?.air_date);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -108,6 +122,39 @@ export default function ShowDetail() {
             >
               {data.catalog.created_by[0].name}
             </Text>
+          )}
+
+          {/* Meta line: year · seasons · status. Centered to match the hero. */}
+          {metaParts.length > 0 && (
+            <Text style={[styles.meta, { color: colors.muted }]}>
+              {metaParts.join('  ·  ')}
+            </Text>
+          )}
+
+          {/* Tagline — the show's one-liner. Synthetic italic (no italic font
+              in the theme) is fine for one short, low-emphasis line. */}
+          {data.catalog.tagline ? (
+            <Text style={[styles.tagline, { color: colors.faint }]}>
+              &ldquo;{data.catalog.tagline}&rdquo;
+            </Text>
+          ) : null}
+
+          {/* Network(s) = the broadcaster (HBO). NOT "where to stream" — that's
+              watch/providers, a separate change with JustWatch attribution. Names
+              (not logos) so light-on-transparent logos stay legible on white. */}
+          {networks.length > 0 && (
+            <View style={styles.networkRow}>
+              {networks.map((n) => (
+                <View key={n.id} style={styles.networkPill}>
+                  <Text style={styles.networkPillText}>{n.name}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Only when TMDb has a scheduled next air date (ongoing shows). */}
+          {nextAir && (
+            <Text style={[styles.nextEp, { color: colors.green }]}>New episode {nextAir}</Text>
           )}
 
           <View style={styles.statWrap}>
@@ -212,9 +259,46 @@ export default function ShowDetail() {
   );
 }
 
+// TMDb's lifecycle strings → short human labels. Returns null for unknown/empty
+// so it drops out of the meta line rather than printing a raw API value.
+function prettyStatus(status?: string): string | null {
+  switch (status) {
+    case 'Returning Series': return 'Returning';
+    case 'Ended': return 'Ended';
+    case 'Canceled': return 'Canceled';
+    case 'In Production': return 'In production';
+    case 'Planned': return 'Upcoming';
+    case 'Pilot': return 'Pilot';
+    default: return status ?? null;
+  }
+}
+
+// "2026-05-31" → "May 31". Parse the parts by hand instead of `new Date(iso)`:
+// that reads the string as UTC midnight, which renders as the *previous* day in
+// any negative-offset timezone (US) — a classic off-by-one on bare dates.
+function formatAirDate(iso?: string): string | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${MONTHS[m - 1]} ${d}`;
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
   heroWrap: { alignItems: 'center', marginTop: 16 },
+  meta: { fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginTop: 10 },
+  tagline: {
+    fontFamily: fonts.regular, fontSize: 14, fontStyle: 'italic',
+    textAlign: 'center', marginTop: 8, paddingHorizontal: pad,
+  },
+  networkRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 12 },
+  networkPill: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: radius.sm, backgroundColor: colors.field,
+  },
+  networkPillText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.ink },
+  nextEp: { fontFamily: fonts.semibold, fontSize: 13, textAlign: 'center', marginTop: 10 },
   kickerRow: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
     marginTop: 16,

@@ -28,15 +28,33 @@ export type TmdbSeason = {
   episodes?: TmdbEpisode[];
 };
 
+// The thin episode stub TMDb embeds on a show for its next/last air date —
+// NOT a full TmdbEpisode (no overview/still). Only the fields the meta line reads.
+export type TmdbAirStub = {
+  air_date?: string;
+  season_number?: number;
+  episode_number?: number;
+  name?: string;
+};
+
 export type TmdbPayload = {
   id: number;
   name: string;
   overview?: string;
+  tagline?: string;        // one-liner, e.g. "May God have mercy."
+  status?: string;         // TMDb lifecycle: "Returning Series" | "Ended" | "Canceled" | ...
   poster_path?: string | null;
   backdrop_path?: string | null;
   first_air_date?: string;
+  number_of_seasons?: number;
   created_by?: Array<{ id: number; name: string }>;
   genres?: Array<{ id: number; name: string }>;
+  // The broadcaster(s) that AIR the show (HBO) — distinct from streaming
+  // availability (watch/providers, added separately). All already in the
+  // cached /tv/{id} payload; no backend change to read them.
+  networks?: Array<{ id: number; name: string; logo_path?: string | null }>;
+  next_episode_to_air?: TmdbAirStub | null;
+  last_episode_to_air?: TmdbAirStub | null;
   vote_average?: number;
   vote_count?: number;
   seasons?: TmdbSeason[];

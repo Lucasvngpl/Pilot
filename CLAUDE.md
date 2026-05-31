@@ -163,6 +163,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
 - episode/season-scoped list items
+- Tell the people which network to watch it on
 - Be able to change to a different poster of the show like they rcently added on Letterboxd for free
 - Steal letterboxd's premium subscription features, the following are premium featrues
 - Connect to streaming services by mcp so it shows when youve watched the show?
@@ -178,6 +179,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - Be able to search shows by actors
 - iPad version
 - Adding how many times someone rewatched something to it adds to time watching TV without having to log it sperately so in their profile it can track time watching TV
+- Hold down on poster to see options
 
 ## Workflow Orchestration
 
