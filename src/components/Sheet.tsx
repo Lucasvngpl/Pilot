@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, View, Pressable, StyleSheet, BackHandler } from 'react-native';
+import {
+  Animated, View, Pressable, StyleSheet, BackHandler, Keyboard, Platform,
+  type KeyboardEvent,
+} from 'react-native';
 import { colors } from '@/theme';
 
 type Props = {
@@ -25,6 +28,11 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // normally — fixing the old inner-Pressable interception.
 export function Sheet({ visible, onClose, children, height = 560 }: Props) {
   const progress = useRef(new Animated.Value(0)).current;
+  // Lift the sheet above the on-screen keyboard. The sheet is pinned to
+  // bottom:0, so without this the keyboard covers its lower half (the inputs +
+  // submit button on the LoginSheet). Stays 0 when no keyboard shows → a no-op
+  // for the input-less sheets (action menus, rating picker).
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
   // Stay mounted through the close animation, then unmount.
   const [mounted, setMounted] = useState(visible);
 
@@ -48,6 +56,29 @@ export function Sheet({ visible, onClose, children, height = 560 }: Props) {
     return () => sub.remove();
   }, [mounted, onClose]);
 
+  // Track the keyboard so the sheet rides up with it. iOS exposes the *Will*
+  // events (fire in lockstep with the system animation curve); Android only the
+  // *Did* events. `endCoordinates.height` is how much the keyboard occupies.
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e: KeyboardEvent) =>
+      Animated.timing(keyboardOffset, {
+        toValue: e.endCoordinates.height,
+        duration: e.duration || 250,
+        useNativeDriver: true,
+      }).start();
+    const onHide = (e: KeyboardEvent) =>
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration: e.duration || 200,
+        useNativeDriver: true,
+      }).start();
+    const s1 = Keyboard.addListener(showEvt, onShow);
+    const s2 = Keyboard.addListener(hideEvt, onHide);
+    return () => { s1.remove(); s2.remove(); };
+  }, [keyboardOffset]);
+
   if (!mounted) return null;
 
   const translateY = progress.interpolate({
@@ -58,7 +89,14 @@ export function Sheet({ visible, onClose, children, height = 560 }: Props) {
   return (
     <View style={StyleSheet.absoluteFill}>
       <AnimatedPressable style={[styles.scrim, { opacity: progress }]} onPress={onClose} />
-      <Animated.View style={[styles.sheet, { height, transform: [{ translateY }] }]}>
+      <Animated.View
+        style={[
+          styles.sheet,
+          // Two stacked translates: the open/close slide, then the keyboard lift
+          // (negative = upward). Both run on the native driver.
+          { height, transform: [{ translateY }, { translateY: Animated.multiply(keyboardOffset, -1) }] },
+        ]}
+      >
         <View style={styles.grabber} />
         {children}
       </Animated.View>
