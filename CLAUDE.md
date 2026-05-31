@@ -43,8 +43,9 @@ The recurring fork is **inclusion** (which signals put a show in a list) vs **di
 
 - **Profile "Shows" grid** — inclusion is broad: show-scope `watched` **OR** show-scope rating **OR** any watched episode (trust the user to curate). Display: show the star **only** from a show-scope rating; never average episode ratings into a show rating (that's a separate product decision) — tile is poster-only if only episodes were rated.
 - **Currently watching** — inclusion is deliberately strict (show-scope `watching` only, so a show finished last month doesn't linger), but the "S2 E5" line _aggregates_ the latest watched episode up to the tile.
+- **Diary** (`useDiary`/`/profile/diary`) — the exception that proves the rule: inclusion is every `watch_status` `watched` row (whole-show / season / episode); display does **NOT** aggregate — each event is its own dated entry, labelled with its scope, because a diary is event-level by nature. Rating/review merge onto each entry by its EXACT scope (string scope-key, JS merge).
 
-Same fork will recur on Diary, Currently watching, and the future activity feed — state the inclusion rule and the aggregation rule explicitly each time.
+Same fork still pending on the future activity feed — state the inclusion rule and the aggregation rule explicitly each time.
 
 ## RLS principle
 
@@ -152,7 +153,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Episode/season-scoped list items** — lists hold whole shows only today. To hold seasons/episodes, `list_items` needs the polymorphic scope the other social tables use (nullable `season_number`/`episode_number` + `UNIQUE NULLS NOT DISTINCT`), plus picker drill-down + episode/season render variants. Migration + UI.
 - **Lists polish** — reorder + ranked lists (`is_ranked` column exists, unused); public/private (Pilot's first private data → a column + read-scoping RLS); tags; the Search screen's Lists sub-tab (list _search_). _(Rename/edit a list after creation: **done** — `/list/new?edit=`.)_
 - **Reviews** — likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`; **Report** on others' reviews. _(Edit/delete your own review: **done** — `⋯` → ActionMenuSheet, edit reuses the composer with locked scope.)_
-- **Profile** — Diary (date-grouped watch log from `watch_status.updated_at`, no schema change). _(Top-4 favorites picker: **done** — `/profile/top-shows`, add-order; reorder-via-arrows deferred to post-TestFlight per [[ship-simplest-cut-gestures]].)_
+- **Profile** — _(Top-4 favorites picker: **done** — `/profile/top-shows`, add-order; reorder-via-arrows deferred to post-TestFlight per [[ship-simplest-cut-gestures]]. Diary: **done** — `/profile/diary`, event-level watched log.)_ Remaining: nothing major on Profile itself.
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
 - **Activity feed** — the bottom-nav Activity tab 404s; the social/feed surface is unbuilt.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).

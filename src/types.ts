@@ -128,6 +128,22 @@ export type CurrentlyWatchingCard = ShowCard & {
   episodeLine: string | null; // "S2 E5" from latest watched episode, else null
 };
 
+// One Diary row — a single watched event (whole-show / season / episode),
+// enriched with its catalog card + the rating/review for THAT exact scope (not
+// aggregated up to the show — the diary is event-level by nature).
+export type DiaryEntry = ShowCard & {
+  key: string;               // unique per entry: `${showId}:${season}:${episode}:${ts}`
+  year: string | null;       // first_air_date year, e.g. "1972"
+  scopeLabel: string | null; // null = whole show; "Season 2"; "Season 2 · E5"
+  watchedAt: string;         // ISO updated_at
+  day: number;               // day-of-month, for the date cell
+  rating: number | null;     // rating for this scope, if any
+  hasReview: boolean;        // a review exists for this scope
+};
+
+// Diary grouped into month bands (newest first), e.g. month = "MAY 2026".
+export type DiarySection = { month: string; entries: DiaryEntry[] };
+
 // A review enriched server-side (get-reviews) with reviewer identity, like
 // count, and the reviewer's rating for the same scope.
 export type ReviewWithMeta = {
