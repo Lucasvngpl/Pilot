@@ -146,6 +146,11 @@ Anonymous users browse the entire catalog. Login is prompted **per action**, not
 
 The live snapshot — what's built, what's mocked, what's next, and known issues — lives in `HANDOFF.md` at the repo root. Read it at the start of a session. (Current-state stays there, not here, so the two don't drift.)
 
+## Key things to keep in mind
+
+- Needs to run super fast and smooth
+- Core features need to work extremely well
+
 ## Down the road (deferred features)
 
 Features parked **deliberately** so essentials ship first — not bugs, not oversights. Decisions/tradeoffs already made; pick up when the core loop is solid. This is the durable index (one line each); the volatile implementation notes live in `HANDOFF.md`'s per-area "deferred" sections. When one ships, delete it here **and** in HANDOFF.
@@ -158,12 +163,21 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
 - episode/season-scoped list items
-- Steal letterboxd's premium subscription features
+- Be able to change to a different poster of the show like they rcently added on Letterboxd for free
+- Steal letterboxd's premium subscription features, the following are premium featrues
 - Connect to streaming services by mcp so it shows when youve watched the show?
 - Watchlist Notifications: Get email or push notifications when movies on your watchlist are added to your preferred streaming platforms?
 - Advanced Statistics: Unlocks personalized, real-time insights into your all-time and annual viewing habits. This includes breakdowns of your favorite genres, most-watched actors, average ratings by decade, and a world map of the countries your films originate from.
 - Visual Perks: Access to custom app icons (iOS) like widgets
 - Ultimate Customization: Choose custom posters and backdrops for your profile, favorites, lists, reviews, and diary entries. You can also select specific images for any cast or crew member.
+- Collaborative lists
+- Drafts of reviews
+- Discussion sections
+- Posters/Poster swap
+- Characters to be able to rank favourite characters
+- Be able to search shows by actors
+- iPad version
+- Adding how many times someone rewatched something to it adds to time watching TV without having to log it sperately so in their profile it can track time watching TV
 
 ## Workflow Orchestration
 
