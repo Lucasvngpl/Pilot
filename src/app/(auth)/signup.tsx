@@ -104,7 +104,7 @@ function ConfirmSent({ email }: { email: string }) {
         We sent a confirmation link to <Text style={{ color: colors.ink, fontFamily: fonts.semibold }}>{email}</Text>. Open it on this device, then come back here to sign in.
       </Text>
       <View style={{ height: 32 }} />
-      <Button label="Back to log in" variant="secondary" onPress={() => router.replace('/(auth)')} />
+      <Button label="Back to log in" variant="secondary" onPress={() => router.replace('/welcome' as any)} />
     </View>
   );
 }

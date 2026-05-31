@@ -13,10 +13,21 @@ import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { RequireAuthProvider } from '@/lib/requireAuth';
 
-// One-way auth gate (Letterboxd-style): anonymous users can browse the catalog
-// freely. We only redirect AWAY from the auth group once a session lands.
-// Per-action gating (write a review, mark watched, follow) goes through
-// useRequireAuth from RequireAuthProvider, not this gate.
+// One-way auth gate (Letterboxd-style): anonymous users browse the catalog
+// freely; we never force them into the auth group. When a session lands while
+// the user is in the (auth) group, we bounce them to Home with replace('/').
+//
+// This only works because the auth landing lives at its OWN url — /welcome
+// (app/(auth)/welcome.tsx) — NOT at '/'. It used to be app/(auth)/index.tsx,
+// which ALSO resolves to '/', so two routes shared one url: replace('/') from
+// inside the group was a no-op (already at '/'), and a declarative
+// <Redirect href="/"> looped forever (re-resolving to the group's own index).
+// Distinct urls fix both.
+//
+// The `loading` gate HOLDS the UI until the persisted session hydrates from
+// AsyncStorage, so no auth-gated screen (Profile) renders a signed-out view off
+// a transiently-null session — which dumped a logged-in user on the login screen
+// after a reload. The wait is just the AsyncStorage read (~tens of ms).
 function AuthGate() {
   const { session, loading } = useAuth();
   const segments = useSegments();
@@ -27,6 +38,10 @@ function AuthGate() {
     const inAuthGroup = segments[0] === '(auth)';
     if (session && inAuthGroup) router.replace('/');
   }, [session, loading, segments]);
+
+  // Hold the UI until the persisted session hydrates from AsyncStorage, so no
+  // screen renders a signed-out view with a transiently-null session.
+  if (loading) return null;
 
   return <Slot />;
 }

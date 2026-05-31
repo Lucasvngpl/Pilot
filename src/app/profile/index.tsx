@@ -8,7 +8,7 @@ import { ProfileView } from '@/components/ProfileView';
 import { colors, type, pad } from '@/theme';
 
 // Own profile = ProfileView in 'own' mode. The only thing this route adds is the
-// anonymous fallback (BottomNav normally routes anon users to /(auth), but guard
+// anonymous fallback (BottomNav normally routes anon users to /welcome, but guard
 // for a deep link / sign-out-while-here).
 export default function Profile() {
   const { user } = useAuth();
@@ -22,7 +22,7 @@ export default function Profile() {
             Log in to see your profile, watchlist, and the shows you&apos;ve tracked.
           </Text>
           <View style={styles.signedOutBtn}>
-            <Button label="Log in" onPress={() => router.push('/(auth)')} />
+            <Button label="Log in" onPress={() => router.push('/welcome' as any)} />
           </View>
         </View>
         <BottomNav active="profile" />

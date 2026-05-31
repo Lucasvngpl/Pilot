@@ -10,7 +10,7 @@ export type NavTab = 'home' | 'activity' | 'log' | 'search' | 'profile';
 
 // "Log" is NOT a route — its tap opens the log/list ActionMenuSheet (below), so
 // the "+" works from every screen with the nav. Home (/), Search, Activity, and
-// Profile navigate; Profile redirects unauthed users to /(auth) to sign in.
+// Profile navigate; Profile redirects unauthed users to /welcome to sign in.
 const ITEMS: { tab: NavTab; label: string; href: string; Icon: React.ComponentType<{ color?: string; size?: number }> }[] = [
   { tab: 'home',     label: 'Home',     href: '/',         Icon: HomeIcon },
   { tab: 'activity', label: 'Activity', href: '/activity', Icon: ActivityIcon },
@@ -31,7 +31,8 @@ export function BottomNav({ active }: { active: NavTab }) {
           const color = isActive ? colors.ink : colors.navInactive;
 
           // Profile-when-unauthed is the only routing decision we make here.
-          const target = tab === 'profile' && !session ? '/(auth)' : href;
+          // '/welcome' = the auth landing (own URL so it doesn't collide with '/').
+          const target = tab === 'profile' && !session ? '/welcome' : href;
 
           return (
             <Pressable
