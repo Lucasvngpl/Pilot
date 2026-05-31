@@ -155,7 +155,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Reviews** — likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`; **Report** on others' reviews. _(Edit/delete your own review: **done** — `⋯` → ActionMenuSheet, edit reuses the composer with locked scope.)_
 - **Profile** — _(Top-4 favorites picker: **done** — `/profile/top-shows`, add-order; reorder-via-arrows deferred to post-TestFlight per [[ship-simplest-cut-gestures]]. Diary: **done** — `/profile/diary`, event-level watched log.)_ Remaining: nothing major on Profile itself.
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
-- **Activity feed** — the bottom-nav Activity tab 404s; the social/feed surface is unbuilt.
+- **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
 - episode/season-scoped list items
 - Steal letterboxd's premium subscription features

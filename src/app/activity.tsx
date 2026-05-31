@@ -1,0 +1,214 @@
+import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
+import { useAuth } from '@/lib/auth';
+import { useActivityFeed } from '@/api/useActivityFeed';
+import { Poster } from '@/components/Poster';
+import { Stars } from '@/components/Stars';
+import { BottomNav } from '@/components/BottomNav';
+import { tmdbImage } from '@/types';
+import { timeAgo } from '@/lib/timeAgo';
+import { colors, type, pad, fonts } from '@/theme';
+import type { ActivityActor, ActivityItem } from '@/types';
+
+// Activity → Friends feed: a time-ordered stream of what people you follow did.
+// Only the Friends feed for now — "You" / "Incoming" tabs come later, so we don't
+// render dead tabs (see [[no-dead-controls]]); the screen is the feed itself.
+export default function Activity() {
+  const { user } = useAuth();
+  const { data: items, isLoading } = useActivityFeed();
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <View style={styles.nav}>
+        <Text style={[type.subhead, { color: colors.ink }]}>Activity</Text>
+      </View>
+
+      {/* flex:1 so the content region fills the screen and BottomNav stays
+          pinned to the bottom in every state (empty / loading / populated). */}
+      <View style={{ flex: 1 }}>
+        {!user ? (
+          <Text style={styles.empty}>Log in to see what the people you follow are watching.</Text>
+        ) : isLoading ? (
+          <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        ) : !items || items.length === 0 ? (
+          <Text style={styles.empty}>Follow people to see their activity here.</Text>
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
+            {items.map((item) => (
+              <ActivityRow key={item.key} item={item} />
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
+      <BottomNav active="activity" />
+    </SafeAreaView>
+  );
+}
+
+// ----- Rows -----------------------------------------------------------------
+
+function Avatar({ actor }: { actor: ActivityActor }) {
+  return (
+    <Pressable onPress={() => router.push(`/user/${actor.id}` as any)} hitSlop={6}>
+      {actor.avatar_url ? (
+        <Image source={{ uri: actor.avatar_url }} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, { backgroundColor: colors.hairline }]} />
+      )}
+    </Pressable>
+  );
+}
+
+function ActivityRow({ item }: { item: ActivityItem }) {
+  switch (item.type) {
+    case 'watched':
+      return (
+        <FeedRow onPress={() => router.push(`/show/${item.show.tmdb_show_id}`)}>
+          <Avatar actor={item.actor} />
+          <View style={styles.body}>
+            <HeaderLine actor={item.actor} verb="watched" object={item.show.name} at={item.at} />
+            <View style={styles.posterRow}>
+              <Poster tmdbShowId={item.show.tmdb_show_id} posterPath={item.show.poster_path} name={item.show.name} width={48} pressable={false} />
+              {item.rating != null && (
+                <View style={styles.posterMeta}>
+                  <Stars value={item.rating} size={12} color={colors.gold} />
+                </View>
+              )}
+            </View>
+          </View>
+        </FeedRow>
+      );
+
+    case 'reviewed':
+      return (
+        <FeedRow onPress={() => router.push(`/show/${item.show.tmdb_show_id}`)}>
+          <Avatar actor={item.actor} />
+          <View style={styles.body}>
+            <HeaderLine
+              actor={item.actor}
+              verb="reviewed"
+              object={item.show.name + (item.scopeLabel ? ` · ${item.scopeLabel}` : '')}
+              at={item.at}
+            />
+            <View style={styles.posterRow}>
+              <Poster tmdbShowId={item.show.tmdb_show_id} posterPath={item.show.poster_path} name={item.show.name} width={48} pressable={false} />
+              <View style={styles.posterMeta}>
+                {item.rating != null && <Stars value={item.rating} size={12} color={colors.gold} />}
+                <Text style={styles.reviewBody} numberOfLines={2}>
+                  {item.containsSpoilers ? 'Contains spoilers' : item.body}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </FeedRow>
+      );
+
+    case 'watchlist':
+      // Compact (no poster) — matches Letterboxd's watchlist-add rows.
+      return (
+        <FeedRow onPress={() => router.push(`/show/${item.show.tmdb_show_id}`)}>
+          <Avatar actor={item.actor} />
+          <View style={styles.body}>
+            <HeaderLine actor={item.actor} verb="added" object={item.show.name} suffix=" to their watchlist" at={item.at} />
+          </View>
+        </FeedRow>
+      );
+
+    case 'listed':
+      return (
+        <FeedRow onPress={() => router.push(`/list/${item.listId}` as any)}>
+          <Avatar actor={item.actor} />
+          <View style={styles.body}>
+            <HeaderLine
+              actor={item.actor}
+              verb="listed"
+              object={item.title}
+              suffix={`  (${item.count} ${item.count === 1 ? 'show' : 'shows'})`}
+              at={item.at}
+            />
+            {item.posters.length > 0 && (
+              <View style={styles.listStrip}>
+                {item.posters.map((p, i) => {
+                  const uri = p ? tmdbImage(p, 'w185') : null;
+                  return <Image key={i} source={uri ? { uri } : undefined} style={styles.listPoster} />;
+                })}
+              </View>
+            )}
+          </View>
+        </FeedRow>
+      );
+  }
+}
+
+function FeedRow({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
+  return (
+    <Pressable style={styles.row} onPress={onPress}>
+      {children}
+    </Pressable>
+  );
+}
+
+// "username verb **object** suffix" on the left, relative time on the right.
+function HeaderLine({
+  actor, verb, object, suffix, at,
+}: {
+  actor: ActivityActor; verb: string; object: string; suffix?: string; at: string;
+}) {
+  return (
+    <View style={styles.headerLine}>
+      <Text style={styles.headerText} numberOfLines={2}>
+        <Text style={styles.user}>{actor.username}</Text>
+        <Text style={styles.connective}> {verb} </Text>
+        <Text style={styles.object}>{object}</Text>
+        {suffix ? <Text style={styles.connective}>{suffix}</Text> : null}
+      </Text>
+      <Text style={styles.time}>{timeAgo(at)}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.white },
+  nav: { alignItems: 'center', paddingVertical: 12, paddingHorizontal: pad },
+  empty: {
+    fontFamily: type.reviewBody.fontFamily,
+    fontSize: type.reviewBody.fontSize,
+    color: colors.muted,
+    textAlign: 'center',
+    paddingHorizontal: pad,
+    paddingVertical: 40,
+  },
+
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: pad,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  avatar: { width: 32, height: 32, borderRadius: 16 },
+  body: { flex: 1 },
+
+  headerLine: { flexDirection: 'row', alignItems: 'flex-start' },
+  headerText: { flex: 1, fontSize: 14, lineHeight: 19 },
+  user: { fontFamily: fonts.medium, color: colors.ink },
+  connective: { fontFamily: fonts.regular, color: colors.muted },
+  object: { fontFamily: fonts.semibold, color: colors.ink },
+  time: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint, marginLeft: 8 },
+
+  posterRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  posterMeta: { flex: 1, gap: 6, paddingTop: 2 },
+  reviewBody: {
+    fontFamily: type.reviewBody.fontFamily,
+    fontSize: 13,
+    color: colors.ink,
+    lineHeight: 18,
+  },
+
+  listStrip: { flexDirection: 'row', gap: 6, marginTop: 8 },
+  listPoster: { width: 44, height: 66, borderRadius: 4, backgroundColor: colors.hairline },
+});

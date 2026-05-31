@@ -144,6 +144,26 @@ export type DiaryEntry = ShowCard & {
 // Diary grouped into month bands (newest first), e.g. month = "MAY 2026".
 export type DiarySection = { month: string; entries: DiaryEntry[] };
 
+// ----- Activity feed (Friends tab) -----------------------------------------
+// A row in the feed = one social action by someone the viewer follows. A
+// discriminated union on `type` — each variant carries only what its row renders.
+export type ActivityActor = { id: string; username: string; avatar_url: string | null };
+
+type ActivityBase = { key: string; actor: ActivityActor; at: string }; // at = ISO timestamp
+
+export type ActivityItem =
+  | (ActivityBase & { type: 'watched'; show: ShowCard; rating: number | null })
+  | (ActivityBase & { type: 'watchlist'; show: ShowCard })
+  | (ActivityBase & {
+      type: 'reviewed'; show: ShowCard;
+      scopeLabel: string | null; rating: number | null;
+      body: string; containsSpoilers: boolean;
+    })
+  | (ActivityBase & {
+      type: 'listed'; listId: string; title: string;
+      count: number; posters: (string | null)[];
+    });
+
 // A review enriched server-side (get-reviews) with reviewer identity, like
 // count, and the reviewer's rating for the same scope.
 export type ReviewWithMeta = {

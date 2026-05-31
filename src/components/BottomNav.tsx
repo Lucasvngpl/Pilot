@@ -6,8 +6,8 @@ import { useAuth } from '@/lib/auth';
 
 export type NavTab = 'home' | 'activity' | 'log' | 'search' | 'profile';
 
-// Routes for Activity / Log / Search don't exist yet — tapping them currently
-// 404s. Home (/) and Profile (/profile) work; Profile additionally redirects
+// The Log route doesn't exist yet — tapping it 404s. Home (/), Search,
+// Activity, and Profile all work; Profile additionally redirects
 // unauthed users to /(auth) so they can sign in.
 const ITEMS: { tab: NavTab; label: string; href: string; Icon: React.ComponentType<{ color?: string; size?: number }> }[] = [
   { tab: 'home',     label: 'Home',     href: '/',         Icon: HomeIcon },
