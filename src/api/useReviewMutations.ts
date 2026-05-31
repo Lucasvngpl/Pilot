@@ -16,6 +16,7 @@ function useInvalidateReview(tmdbShowId: number) {
     qc.invalidateQueries({ queryKey: ['reviews', tmdbShowId] });
     qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
     qc.invalidateQueries({ queryKey: ['watched'] });
+    qc.invalidateQueries({ queryKey: ['myReviews'] }); // Profile › Your record → Reviews
   };
 }
 

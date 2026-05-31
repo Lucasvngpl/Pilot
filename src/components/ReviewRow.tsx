@@ -31,6 +31,9 @@ type Props = {
   // Provided ONLY for the current user's own reviews → shows the ⋯ menu. Omitted
   // for everyone else's, so the ⋯ isn't a dead control on reviews you can't act on.
   onMenu?: () => void;
+  // On the show screen you're already on that show, so the poster is inert. On
+  // the "my reviews" list it's the way into each show → make it tappable there.
+  posterPressable?: boolean;
 };
 
 export function ReviewRow(p: Props) {
@@ -120,7 +123,7 @@ export function ReviewRow(p: Props) {
           posterPath={p.posterPath}
           name={p.showTitle}
           width={46}
-          pressable={false}
+          pressable={!!p.posterPressable}
         />
       </View>
 

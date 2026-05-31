@@ -203,6 +203,24 @@ export type GetReviewsResponse = {
   reviews: ReviewWithMeta[];
 };
 
+// One of the signed-in user's OWN reviews — powers Profile › Your record →
+// Reviews. Enriched with its show card + the rating for THAT exact scope
+// (string-key JS merge, never a SQL join on nullable scope) + a like count.
+// The author is always the viewer, so identity is supplied by the screen once,
+// not repeated per row.
+export type MyReviewEntry = {
+  id: string;
+  tmdb_show_id: number;
+  season_number: number | null;
+  episode_number: number | null;
+  body: string;
+  contains_spoilers: boolean;
+  showName: string;
+  posterPath: string | null;
+  rating: number | null; // the user's rating for this exact scope, if any
+  likes: number;
+};
+
 // ----- Search --------------------------------------------------------------
 
 // Slim show result from the search-shows Edge Function (TMDb /search/tv proxy).

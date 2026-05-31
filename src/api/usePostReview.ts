@@ -49,6 +49,8 @@ export function usePostReview(tmdbShowId: number) {
       qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
       // A review paints the review badge on the Profile "Shows" tile → refetch it.
       qc.invalidateQueries({ queryKey: ['watched'] });
+      // A new review shows up in Profile › Your record → Reviews.
+      qc.invalidateQueries({ queryKey: ['myReviews'] });
     },
   });
 

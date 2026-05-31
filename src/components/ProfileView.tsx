@@ -20,8 +20,10 @@ import { ListCard } from '@/components/ListCard';
 import { ProfileTabs, type ProfileTabKey } from '@/components/ProfileTabs';
 import { PosterGrid } from '@/components/PosterGrid';
 import { DashedSlot } from '@/components/DashedSlot';
+import { ProfileSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
+  CalendarIcon, ReviewBadgeIcon,
 } from '@/components/icons';
 import { colors, type, pad, fonts } from '@/theme';
 import type { CurrentlyWatchingCard, ShowCard } from '@/types';
@@ -45,7 +47,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   const [tab, setTab] = useState<ProfileTabKey>('profile');
   const [avatarOpen, setAvatarOpen] = useState(false);
 
-  const { data: profileData } = useProfile(userId);
+  const { data: profileData, isLoading: profileLoading } = useProfile(userId);
   const { data: watching } = useCurrentlyWatching(userId);
   // Shows is prefetched on mount (no tab gate) so switching to it is instant —
   // it's the primary "what I've watched" grid. Watchlist stays lazy.
@@ -53,6 +55,34 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   const { data: watchlist } = useWatchlist(userId, tab === 'watchlist');
   // Top-4 is on the default Profile tab, so fetch eagerly (like watched).
   const { data: topShows } = useTopShows(userId);
+
+  // Initial load → skeleton, so we don't flash empty fallbacks ("user", 0
+  // counts, blank grids) before the profile data lands. Keep the nav affordance
+  // (gear/share or back) live during the load.
+  if (profileLoading) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <View style={styles.actionRow}>
+          {isOwn ? (
+            <>
+              <Pressable hitSlop={8}>
+                <ShareIcon color={colors.ink} size={22} />
+              </Pressable>
+              <Pressable hitSlop={8} onPress={() => router.push('/settings' as any)}>
+                <GearIcon color={colors.ink} size={22} />
+              </Pressable>
+            </>
+          ) : (
+            <Pressable hitSlop={8} onPress={() => router.back()}>
+              <ChevronLeftIcon color={colors.ink} size={24} />
+            </Pressable>
+          )}
+        </View>
+        <ProfileSkeleton />
+        {isOwn && <BottomNav active="profile" />}
+      </SafeAreaView>
+    );
+  }
 
   // Other-user profile that doesn't exist → friendly not-found (back only).
   if (!isOwn && profileData && !profileData.profile) {
@@ -156,7 +186,6 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         {tab === 'profile' && (
           <ProfileBody
             watching={watching ?? []}
-            showDiary={isOwn}
             topShows={topShows ?? []}
             isOwn={isOwn}
           />
@@ -179,12 +208,10 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 
 function ProfileBody({
   watching,
-  showDiary,
   topShows,
   isOwn,
 }: {
   watching: CurrentlyWatchingCard[];
-  showDiary: boolean;
   topShows: ShowCard[];
   isOwn: boolean;
 }) {
@@ -254,13 +281,28 @@ function ProfileBody({
         </ScrollView>
       )}
 
-      {/* Following/Followers now live on the tappable identity counts. Diary is
-          own-only and still a stub. `as any`: typed-route union regenerates only
-          when Metro runs. */}
-      {showDiary && (
-        <View style={styles.links}>
-          <LinkRow label="Diary" onPress={() => router.push('/profile/diary' as any)} />
-        </View>
+      {/* "Your record" — the expressive / archive surfaces (Diary, Reviews; Stats
+          later) grouped under one borderless headed section, beneath the showcase
+          blocks above. Own-profile only: these are *your* activity surfaces. The
+          Shows grid (a tab) stays the sole door to watched shows — deliberately no
+          "Watched" row here, so nothing has two entry points. `as any`: typed-route
+          union regenerates only when Metro runs. */}
+      {isOwn && (
+        <>
+          <SectionHeader title="Your record" />
+          <View style={styles.record}>
+            <RecordRow
+              icon={<CalendarIcon color={colors.ink} size={22} />}
+              label="Diary"
+              onPress={() => router.push('/profile/diary' as any)}
+            />
+            <RecordRow
+              icon={<ReviewBadgeIcon color={colors.ink} size={20} />}
+              label="Reviews"
+              onPress={() => router.push('/profile/reviews' as any)}
+            />
+          </View>
+        </>
       )}
     </View>
   );
@@ -296,10 +338,22 @@ function SectionHeader({ title, right }: { title: string; right?: React.ReactNod
   );
 }
 
-function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+// One borderless row in "Your record": leading icon · label · trailing chevron.
+// No dividers between rows (clean Serializd-style list), generous height. Built
+// to extend — Stats and other expressive surfaces drop in as more RecordRows.
+function RecordRow({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+}) {
   return (
-    <Pressable style={styles.linkRow} onPress={onPress}>
-      <Text style={[type.reviewTitle, { color: colors.ink }]}>{label}</Text>
+    <Pressable style={styles.recordRow} onPress={onPress}>
+      <View style={styles.recordIcon}>{icon}</View>
+      <Text style={[type.reviewTitle, { color: colors.ink, flex: 1 }]}>{label}</Text>
       <ChevronRightIcon color={colors.faint} size={20} />
     </Pressable>
   );
@@ -378,16 +432,16 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
 
-  links: { marginTop: 24, borderTopWidth: 1, borderTopColor: colors.hairline },
-  linkRow: {
+  // "Your record" — borderless rows (no dividers), generous height.
+  record: { marginTop: 4 },
+  recordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 14,
     paddingHorizontal: pad,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
   },
+  recordIcon: { width: 24, alignItems: 'center' },
 
   comingSoon: {
     fontFamily: type.reviewBody.fontFamily,

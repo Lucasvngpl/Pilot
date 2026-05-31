@@ -285,11 +285,25 @@ export function ChevronRightIcon({ color = '#000', size = 24 }: Props) {
   );
 }
 
-// "Has a review" marker — short stacked lines (≡), Letterboxd-style.
+// "Has a review" marker — short stacked lines (≡), Letterboxd-style. Also the
+// Profile › Your record → Reviews row glyph (a list of written things).
 export function ReviewBadgeIcon({ color = '#000', size = 12 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 7 H20 M4 12 H20 M4 17 H14" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Calendar — the Diary surface (date-grouped watch log) in Your record.
+export function CalendarIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={3.5} y={5} width={17} height={16} rx={2} stroke={color} strokeWidth={1.6} />
+      <Path
+        d="M3.5 9.5 H20.5 M8 3.5 V6 M16 3.5 V6"
+        stroke={color} strokeWidth={1.6} strokeLinecap="round"
+      />
     </Svg>
   );
 }

@@ -150,6 +150,7 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 
 - Needs to run super fast and smooth
 - Core features need to work extremely well
+- Should be able to track what Im curerntly watching and hwta others are currently watching and what I and others have liked, watched
 
 ## Down the road (deferred features)
 
