@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -9,6 +9,7 @@ import { Poster } from '@/components/Poster';
 import { BottomNav } from '@/components/BottomNav';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { FAB } from '@/components/FAB';
+import { HomeSkeleton } from '@/components/Skeletons';
 import { StarIcon, ChevronRightIcon } from '@/components/icons';
 import { colors, type, pad, fonts } from '@/theme';
 import type { SearchShowResult, ActivityActor, ActivityItem } from '@/types';
@@ -44,7 +45,7 @@ export default function Home() {
         <Text style={[type.wordmark, { color: colors.ink, fontSize: 20, letterSpacing: 3 }]}>PILOT</Text>
       </View>
 
-      {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}
+      {isLoading && <HomeSkeleton />}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load shows.</Text>}
 
       {data && (

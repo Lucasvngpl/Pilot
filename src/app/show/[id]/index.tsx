@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -16,6 +16,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { UserRatingCard } from '@/components/UserRatingCard';
+import { ShowDetailSkeleton } from '@/components/ShowDetailSkeleton';
 import { colors, type, pad, fonts, radius } from '@/theme';
 import { formatScope, type GetReviewsResponse } from '@/types';
 
@@ -83,7 +84,7 @@ export default function ShowDetail() {
         onCheckPress={() => setSheetOpen(true)}
       />
 
-      {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}
+      {isLoading && <ShowDetailSkeleton />}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
       {data && (

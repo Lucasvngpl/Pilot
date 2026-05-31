@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTrendingShows } from '@/api/useTrendingShows';
@@ -11,6 +11,7 @@ import { SearchInput } from '@/components/SearchInput';
 import { SegmentTabs, type SegmentTab } from '@/components/SegmentTabs';
 import { ShowResultRow } from '@/components/ShowResultRow';
 import { PersonRow } from '@/components/PersonRow';
+import { ShowRowsSkeleton, PersonRowsSkeleton } from '@/components/Skeletons';
 import { BottomNav } from '@/components/BottomNav';
 import { colors, type, pad, radius } from '@/theme';
 
@@ -133,7 +134,7 @@ function RecentSearches({
 // normalized to SearchShowResult, so rows render identically to search rows.
 function Trending({ query, logMode }: { query: ReturnType<typeof useTrendingShows>; logMode?: boolean }) {
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t load trending.</Text>;
-  if (query.isLoading) return <ActivityIndicator style={styles.center} color={colors.ink} />;
+  if (query.isLoading) return <ShowRowsSkeleton />;
   const items = query.data ?? [];
   if (items.length === 0) return <Text style={styles.muted}>Nothing trending right now.</Text>;
   return (
@@ -156,7 +157,7 @@ function ShowResults({
   logMode?: boolean;
 }) {
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t search shows.</Text>;
-  if (query.isLoading) return <ActivityIndicator style={styles.center} color={colors.ink} />;
+  if (query.isLoading) return <ShowRowsSkeleton />;
   const results = query.data?.results ?? [];
   if (results.length === 0) return <Text style={styles.muted}>No shows found.</Text>;
   return (
@@ -181,7 +182,7 @@ function PeopleResults({
 }) {
   if (!searching) return <Text style={styles.muted}>Search for people by username.</Text>;
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t search people.</Text>;
-  if (query.isLoading) return <ActivityIndicator style={styles.center} color={colors.ink} />;
+  if (query.isLoading) return <PersonRowsSkeleton />;
   const results = query.data ?? [];
   if (results.length === 0) return <Text style={styles.muted}>No people found.</Text>;
   return (

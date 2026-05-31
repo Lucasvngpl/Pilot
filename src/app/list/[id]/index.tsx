@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { useList } from '@/api/useLists';
 import { useDeleteList } from '@/api/useListMutations';
 import { PosterGrid } from '@/components/PosterGrid';
+import { Skeleton } from '@/components/Skeleton';
+import { PosterGridSkeleton } from '@/components/Skeletons';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon, DotsIcon } from '@/components/icons';
 import { colors, type, pad } from '@/theme';
@@ -53,7 +55,14 @@ export default function ListDetail() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        <View>
+          <View style={styles.header}>
+            <Skeleton width={200} height={26} />
+            <Skeleton width={120} height={13} style={{ marginTop: 8 }} />
+            <Skeleton width={70} height={13} style={{ marginTop: 10 }} />
+          </View>
+          <PosterGridSkeleton />
+        </View>
       ) : isError || !list ? (
         <Text style={styles.muted}>List not found.</Text>
       ) : (
