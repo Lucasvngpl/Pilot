@@ -26,7 +26,7 @@ import {
   CalendarIcon, ReviewBadgeIcon,
 } from '@/components/icons';
 import { colors, type, pad, fonts } from '@/theme';
-import type { CurrentlyWatchingCard, ShowCard } from '@/types';
+import type { CurrentlyWatchingCard, ShowCard, ListSummary } from '@/types';
 
 const TOP_N = 4; // four favorites fit one row with no horizontal scroll
 const GAP = 10;
@@ -49,12 +49,15 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 
   const { data: profileData, isLoading: profileLoading } = useProfile(userId);
   const { data: watching } = useCurrentlyWatching(userId);
-  // Shows is prefetched on mount (no tab gate) so switching to it is instant —
-  // it's the primary "what I've watched" grid. Watchlist stays lazy.
+  // Every Profile tab's data is fetched EAGERLY on mount (no tab gate), so once
+  // the profile is open, switching between Shows / Lists / Watchlist is instant —
+  // the queries are already in flight (or cached) before you tap a tab. Watchlist
+  // and Lists used to be lazy (fetch-on-tab); we trade a little upfront work for
+  // zero per-tab spinner.
   const { data: watched } = useWatchedShows(userId);
-  const { data: watchlist } = useWatchlist(userId, tab === 'watchlist');
-  // Top-4 is on the default Profile tab, so fetch eagerly (like watched).
+  const { data: watchlist } = useWatchlist(userId);
   const { data: topShows } = useTopShows(userId);
+  const { data: lists, isLoading: listsLoading } = useMyLists(userId);
 
   // Initial load → skeleton, so we don't flash empty fallbacks ("user", 0
   // counts, blank grids) before the profile data lands. Keep the nav affordance
@@ -191,7 +194,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
           />
         )}
         {tab === 'shows' && <PosterGrid items={watched ?? []} emptyText="No watched shows yet." />}
-        {tab === 'lists' && <ListsBody userId={userId} isOwn={isOwn} />}
+        {tab === 'lists' && <ListsBody lists={lists ?? []} isLoading={listsLoading} isOwn={isOwn} />}
         {tab === 'watchlist' && (
           <PosterGrid items={watchlist ?? []} emptyText="Nothing on the watchlist yet." />
         )}
@@ -359,9 +362,18 @@ function RecordRow({
   );
 }
 
-function ListsBody({ userId, isOwn }: { userId: string; isOwn: boolean }) {
-  const { data: lists, isLoading } = useMyLists(userId);
-  const items = lists ?? [];
+// Lists tab body. Data is fetched eagerly by ProfileView (so the tab is instant)
+// and passed in — this just renders it (+ the owner's "New list" row).
+function ListsBody({
+  lists,
+  isLoading,
+  isOwn,
+}: {
+  lists: ListSummary[];
+  isLoading: boolean;
+  isOwn: boolean;
+}) {
+  const items = lists;
   return (
     <View style={{ paddingTop: 4 }}>
       {isOwn && (
