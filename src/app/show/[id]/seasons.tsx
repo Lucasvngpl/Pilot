@@ -1,3 +1,4 @@
+// /show/[id]/seasons — season + episode browser for a show: season pills, per-episode rows with watched toggles.
 import { ScrollView, View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';

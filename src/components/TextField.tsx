@@ -1,3 +1,4 @@
+// TextField — labeled form input (email, password, username, review body); supports multiline/text-area mode and a right-accessory slot.
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { colors, fonts } from '@/theme';
 

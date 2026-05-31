@@ -1,3 +1,4 @@
+// requireAuth.tsx — RequireAuthProvider + useRequireAuth: per-action auth gate that shows the LoginSheet and resolves a Promise true/false.
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { LoginSheet } from '@/components/LoginSheet';

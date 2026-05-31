@@ -1,3 +1,4 @@
+// EpisodeRow — single episode list item: number, title, runtime, TMDb rating, and a tappable watched-toggle checkmark.
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors, type, pad } from '@/theme';
 import { StarIcon, CheckIcon } from '@/components/icons';

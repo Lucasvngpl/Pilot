@@ -1,3 +1,4 @@
+// auth.tsx — AuthProvider + useAuth: manages the Supabase session lifecycle and exposes signIn/signUp/signOut.
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';

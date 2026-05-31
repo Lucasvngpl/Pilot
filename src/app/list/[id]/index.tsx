@@ -1,3 +1,4 @@
+// /list/[id] — list detail: title, description, show count, and a poster grid; owner gets an edit/delete ⋯ menu.
 import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

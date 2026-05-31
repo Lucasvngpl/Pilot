@@ -1,3 +1,4 @@
+// queryClient.ts — singleton TanStack Query client with a 5-min staleTime default; imported by AuthProvider and the app root.
 import { QueryClient } from '@tanstack/react-query';
 
 // staleTime = how long cached data is considered "fresh"; during this window

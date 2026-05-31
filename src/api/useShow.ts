@@ -1,3 +1,4 @@
+// useShow — fetch one show's full catalog + the caller's social rows (ratings, statuses, reviews) via the get-show Edge Function.
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { GetShowResponse } from '@/types';

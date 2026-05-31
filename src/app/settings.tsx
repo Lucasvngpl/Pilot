@@ -1,3 +1,4 @@
+// /settings — edit profile screen: avatar picker, username, display name, bio, and a sign-out button.
 import { useEffect, useState } from 'react';
 import {
   ScrollView, View, Text, Pressable, StyleSheet, Alert, ActivityIndicator,

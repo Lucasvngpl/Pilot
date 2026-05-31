@@ -1,3 +1,4 @@
+// SeasonPills — horizontally scrollable pill row for picking a season; active pill is ink-filled, inactive is outlined.
 import { ScrollView, Pressable, Text, StyleSheet } from 'react-native';
 import { colors, type, radius, pad } from '@/theme';
 

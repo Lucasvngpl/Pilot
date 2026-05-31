@@ -1,3 +1,4 @@
+// /show/[id] — show detail: hero poster, metadata, community stats, the signed-in user's rating card, and the reviews list.
 import { ScrollView, View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';

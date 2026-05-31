@@ -1,3 +1,4 @@
+// useListMutations — create, update, delete lists, and add/remove individual shows within a list.
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';

@@ -1,3 +1,4 @@
+// / — Home feed: "Popular on TV" shelf (TMDb trending) + "New From Friends" shelf (followee activity), with a purple FAB for logging.
 import { useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

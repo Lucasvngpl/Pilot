@@ -1,3 +1,4 @@
+// ReviewRow — one review card: avatar + show title + star rating + collapsible body + spoiler gate + like count + optional ⋯ menu for own reviews.
 import { useState, useCallback } from 'react';
 import {
   View,
