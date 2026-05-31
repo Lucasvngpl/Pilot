@@ -1,6 +1,8 @@
+// Poster — tappable TMDb show poster that routes to /show/[id]; auto-picks image size from render width; titled placeholder when no image.
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { router } from 'expo-router';
+import { useShowSheet } from '@/lib/showSheet';
 import { colors, fonts, radius } from '@/theme';
 import { tmdbImage } from '@/types';
 
@@ -21,6 +23,7 @@ function sizeFor(width: number): 'w185' | 'w342' | 'w500' {
 }
 
 export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }: Props) {
+  const openSheet = useShowSheet(); // long-press → quick actions, no navigation
   const height = width * 1.5;
   const uri = tmdbImage(posterPath, sizeFor(width));
 
@@ -43,7 +46,15 @@ export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }
 
   if (!pressable) return inner;
   return (
-    <Pressable onPress={() => router.push(`/show/${tmdbShowId}`)}>{inner}</Pressable>
+    <Pressable
+      onPress={() => router.push(`/show/${tmdbShowId}`)}
+      // Long-press = quick actions for this show WITHOUT leaving the page. When
+      // onLongPress fires, RN suppresses onPress, so the hold doesn't also navigate.
+      onLongPress={() => openSheet(tmdbShowId)}
+      delayLongPress={280}
+    >
+      {inner}
+    </Pressable>
   );
 }
 

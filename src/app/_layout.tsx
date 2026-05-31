@@ -12,6 +12,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { RequireAuthProvider } from '@/lib/requireAuth';
+import { ShowSheetProvider } from '@/lib/showSheet';
 
 // One-way auth gate (Letterboxd-style): anonymous users browse the catalog
 // freely; we never force them into the auth group. When a session lands while
@@ -62,7 +63,11 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <RequireAuthProvider>
-            <AuthGate />
+            {/* One global ShowActionSheet, opened by long-pressing any poster.
+                Inside RequireAuthProvider so its write actions can gate auth. */}
+            <ShowSheetProvider>
+              <AuthGate />
+            </ShowSheetProvider>
           </RequireAuthProvider>
         </AuthProvider>
       </QueryClientProvider>
