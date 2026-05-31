@@ -34,11 +34,11 @@ export function PersonRow({
       )}
       <View style={styles.text}>
         <Text style={[type.reviewUser, { color: colors.ink }]} numberOfLines={1}>
-          {person.username}
+          {person.display_name ?? person.username}
         </Text>
         {person.display_name && (
           <Text style={[type.filter, { color: colors.muted, marginTop: 1 }]} numberOfLines={1}>
-            {person.display_name}
+            @{person.username}
           </Text>
         )}
       </View>

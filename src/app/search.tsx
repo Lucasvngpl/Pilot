@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 import { useTrendingShows } from '@/api/useTrendingShows';
 import { useSearchShows } from '@/api/useSearchShows';
 import { useSearchPeople } from '@/api/useSearchPeople';
@@ -24,8 +25,14 @@ const SEARCH_TABS: SegmentTab<SearchTabKey>[] = [
 // hit shows outside the seeded set — tapping one routes to /show/[id] where
 // get-show lazily fetches + caches it.
 export default function Search() {
+  // Deep-link targets: Home's "follow people" prompt → ?tab=people; the FAB's
+  // "Review or log" → ?log=1 (taps route to the composer instead of show detail).
+  const { tab: tabParam, log } = useLocalSearchParams<{ tab?: string; log?: string }>();
+  const logMode = log === '1';
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<SearchTabKey>('shows');
+  const [tab, setTab] = useState<SearchTabKey>(
+    tabParam === 'people' || tabParam === 'lists' ? tabParam : 'shows',
+  );
   // Recent searches show only while the search bar is focused; Trending is the
   // default before you tap in.
   const [focused, setFocused] = useState(false);
@@ -52,6 +59,7 @@ export default function Search() {
       <SearchInput
         value={query}
         onChangeText={setQuery}
+        placeholder={logMode ? 'Search a show to review or log' : undefined}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
@@ -63,11 +71,11 @@ export default function Search() {
       >
         {tab === 'shows' &&
           (searching ? (
-            <ShowResults query={showsQuery} onActivate={() => addRecent(query, 'shows')} />
+            <ShowResults query={showsQuery} onActivate={() => addRecent(query, 'shows')} logMode={logMode} />
           ) : focused && recents.length > 0 ? (
             <RecentSearches recents={recents} onPick={pickRecent} onClear={clearRecents} />
           ) : (
-            <Trending query={trending} />
+            <Trending query={trending} logMode={logMode} />
           ))}
         {tab === 'people' && (
           <PeopleResults
@@ -123,7 +131,7 @@ function RecentSearches({
 
 // Trending (default Shows state when there's no search history). Data arrives
 // normalized to SearchShowResult, so rows render identically to search rows.
-function Trending({ query }: { query: ReturnType<typeof useTrendingShows> }) {
+function Trending({ query, logMode }: { query: ReturnType<typeof useTrendingShows>; logMode?: boolean }) {
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t load trending.</Text>;
   if (query.isLoading) return <ActivityIndicator style={styles.center} color={colors.ink} />;
   const items = query.data ?? [];
@@ -132,7 +140,7 @@ function Trending({ query }: { query: ReturnType<typeof useTrendingShows> }) {
     <View>
       <Text style={styles.sectionLabel}>Trending</Text>
       {items.map((it) => (
-        <ShowResultRow key={it.tmdb_show_id} item={it} />
+        <ShowResultRow key={it.tmdb_show_id} item={it} logMode={logMode} />
       ))}
     </View>
   );
@@ -141,9 +149,11 @@ function Trending({ query }: { query: ReturnType<typeof useTrendingShows> }) {
 function ShowResults({
   query,
   onActivate,
+  logMode,
 }: {
   query: ReturnType<typeof useSearchShows>;
   onActivate: () => void;
+  logMode?: boolean;
 }) {
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t search shows.</Text>;
   if (query.isLoading) return <ActivityIndicator style={styles.center} color={colors.ink} />;
@@ -152,7 +162,7 @@ function ShowResults({
   return (
     <View>
       {results.map((it) => (
-        <ShowResultRow key={it.tmdb_show_id} item={it} onActivate={onActivate} />
+        <ShowResultRow key={it.tmdb_show_id} item={it} onActivate={onActivate} logMode={logMode} />
       ))}
     </View>
   );

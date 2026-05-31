@@ -68,3 +68,12 @@ enable_signup = true
 # before shipping if you want verified emails.
 enable_confirmations = false
 double_confirm_changes = true
+
+
+[functions.refresh-popular]
+# verify_jwt OFF on purpose. The gateway's JWT check is meaningless protection
+# here — the public anon key is a valid JWT, so it gates nothing — AND it blocks
+# the pg_cron caller, which sends only X-Cron-Secret (no Authorization header).
+# The function's own fail-closed CRON_SECRET check is the real gate. Apply to the
+# REMOTE function with: supabase functions deploy refresh-popular --no-verify-jwt
+verify_jwt = false

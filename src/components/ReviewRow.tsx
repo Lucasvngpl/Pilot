@@ -18,6 +18,7 @@ const COLLAPSED_LINES = 4;
 
 type Props = {
   username: string;
+  displayName?: string | null; // shown name; falls back to username (the handle)
   avatarUri?: string;
   showTitle: string;
   seasonLine?: string;
@@ -58,7 +59,7 @@ export function ReviewRow(p: Props) {
           <View style={[styles.avatar, { backgroundColor: colors.hairline }]} />
         )}
         <Text style={[type.reviewUser, { color: colors.ink, flex: 1, marginLeft: 8 }]}>
-          {p.username}
+          {p.displayName ?? p.username}
         </Text>
         {p.onMenu && (
           <Pressable onPress={p.onMenu} hitSlop={8}>

@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import type { ProfileData } from '@/api/useProfile';
 
 export type ProfilePatch = {
+  username?: string;
   display_name?: string | null;
   bio?: string | null;
   avatar_url?: string | null;

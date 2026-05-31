@@ -9,7 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { useProfile, type ProfileData } from '@/api/useProfile';
-import { useUpdateProfile } from '@/api/useUpdateProfile';
+import { useUpdateProfile, type ProfilePatch } from '@/api/useUpdateProfile';
 import { uploadAvatar } from '@/lib/uploadAvatar';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
@@ -26,6 +26,8 @@ export default function Settings() {
   const { update, isPending } = useUpdateProfile(userId);
 
   const profile = profileData?.profile ?? null;
+  const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -34,6 +36,7 @@ export default function Settings() {
   // Seed the form once from the loaded profile.
   useEffect(() => {
     if (profile && !seeded) {
+      setUsername(profile.username ?? '');
       setDisplayName(profile.display_name ?? '');
       setBio(profile.bio ?? '');
       setSeeded(true);
@@ -50,10 +53,13 @@ export default function Settings() {
   }
   const uid = user.id; // user is non-null past the guard
 
-  // Dirty-check on the form fields (avatar saves on its own, immediately).
+  // Validate the username only when it CHANGED — existing (grandfathered) handles
+  // may contain dots etc., so a bio-only edit shouldn't force a rename.
+  const usernameChanged = seeded && username.trim() !== (profile?.username ?? '');
   const dirty =
     seeded &&
-    (displayName.trim() !== (profile?.display_name ?? '').trim() ||
+    (usernameChanged ||
+      displayName.trim() !== (profile?.display_name ?? '').trim() ||
       bio.trim() !== (profile?.bio ?? '').trim());
 
   const onPickAvatar = async () => {
@@ -103,11 +109,27 @@ export default function Settings() {
 
   const onSave = async () => {
     if (!dirty || isPending) return;
+    const trimmedUsername = username.trim();
+    if (usernameChanged) {
+      const err = validateUsername(trimmedUsername);
+      if (err) { setUsernameError(err); return; }
+    }
+    setUsernameError(null);
     try {
-      await update({ display_name: displayName.trim() || null, bio: bio.trim() || null });
+      const patch: ProfilePatch = {
+        display_name: displayName.trim() || null,
+        bio: bio.trim() || null,
+      };
+      if (usernameChanged) patch.username = trimmedUsername;
+      await update(patch);
       router.back();
     } catch (e) {
-      Alert.alert("Couldn't save", e instanceof Error ? e.message : 'Please try again.');
+      // The lower(username) unique index raises Postgres 23505 on a collision.
+      if ((e as { code?: string })?.code === '23505') {
+        setUsernameError('That username is taken.');
+      } else {
+        Alert.alert("Couldn't save", e instanceof Error ? e.message : 'Please try again.');
+      }
     }
   };
 
@@ -136,11 +158,14 @@ export default function Settings() {
 
         <TextField
           label="Username"
-          value={profile?.username ?? ''}
-          onChangeText={() => {}}
-          editable={false}
-          rightAccessory={<Text style={styles.helper}>Can&apos;t be changed yet</Text>}
+          value={username}
+          onChangeText={(t) => { setUsername(t); if (usernameError) setUsernameError(null); }}
+          placeholder="username"
+          autoCapitalize="none"
         />
+        <Text style={[styles.fieldHint, usernameError ? styles.fieldError : null]}>
+          {usernameError ?? 'Letters, numbers, and underscores · 3–20 characters'}
+        </Text>
         <TextField
           label="Display name"
           value={displayName}
@@ -167,6 +192,14 @@ export default function Settings() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+// Format rule for new/edited handles (existing dotted handles are grandfathered —
+// only validated when changed). Length first so the message is specific.
+function validateUsername(u: string): string | null {
+  if (u.length < 3 || u.length > 20) return 'Username must be 3–20 characters.';
+  if (!/^[a-zA-Z0-9_]+$/.test(u)) return 'Use only letters, numbers, and underscores.';
+  return null;
 }
 
 function NavBar() {
@@ -211,6 +244,11 @@ const styles = StyleSheet.create({
   avatarBadgeText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.white },
 
   helper: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint },
+  fieldHint: {
+    fontFamily: fonts.regular, fontSize: 12, color: colors.faint,
+    marginTop: -8, marginBottom: 14, marginLeft: 2,
+  },
+  fieldError: { color: colors.red },
 
   signOutSection: {
     marginTop: 28,

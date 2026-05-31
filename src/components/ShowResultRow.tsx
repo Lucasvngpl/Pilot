@@ -13,9 +13,11 @@ import type { SearchShowResult } from '@/types';
 export function ShowResultRow({
   item,
   onActivate,
+  logMode,
 }: {
   item: SearchShowResult;
   onActivate?: () => void; // fired before navigation — used to record a recent search
+  logMode?: boolean; // "pick a show to log" → route straight to the composer, not show detail
 }) {
   const year = item.first_air_date ? item.first_air_date.slice(0, 4) : null;
   return (
@@ -23,7 +25,7 @@ export function ShowResultRow({
       style={styles.row}
       onPress={() => {
         onActivate?.();
-        router.push(`/show/${item.tmdb_show_id}`);
+        router.push(logMode ? `/show/${item.tmdb_show_id}/review` : `/show/${item.tmdb_show_id}`);
       }}
     >
       <Poster

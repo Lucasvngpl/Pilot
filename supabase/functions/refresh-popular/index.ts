@@ -3,7 +3,7 @@
  *
  * POST /functions/v1/refresh-popular?batch=25&offset=0
  *
- * Refreshes a SLICE of the TMDb popular catalog into shows_cache.
+ * Refreshes a SLICE of TMDb's trending-this-week TV into shows_cache (is_popular).
  *
  * Why a slice (not all 200):
  *   Edge Function execution time caps at 150s (free tier) / 400s (pro).
@@ -23,11 +23,13 @@
  * Response:
  *   { processed, ok, failed, offset, batch }
  *
- * Optional shared-secret gate:
+ * Auth (REQUIRED — fail closed):
  *   Set CRON_SECRET in function secrets and pass X-Cron-Secret on every
- *   invocation. Without CRON_SECRET set, this function relies on the
- *   default verify_jwt = true (so only callers with a valid JWT — incl.
- *   service_role — can hit it).
+ *   invocation. With NO CRON_SECRET set, the function rejects everything.
+ *   verify_jwt alone is insufficient — the public anon key is itself a valid
+ *   JWT, so anyone could pass it. A shared secret (or service-role-only) is the
+ *   real gate, because this endpoint does expensive TMDb fan-out + privileged
+ *   shows_cache writes.
  */
 
 import { corsHeaders } from '../_shared/cors.ts';
@@ -41,9 +43,11 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Optional shared-secret gate. Enabled by `supabase secrets set CRON_SECRET=...`.
+  // Required shared-secret gate — FAIL CLOSED. No secret set → reject all, so a
+  // bare anon-key caller can't trigger the expensive TMDb fan-out + cache writes.
+  // Set it with `supabase secrets set CRON_SECRET=...`.
   const expectedSecret = Deno.env.get('CRON_SECRET');
-  if (expectedSecret && req.headers.get('x-cron-secret') !== expectedSecret) {
+  if (!expectedSecret || req.headers.get('x-cron-secret') !== expectedSecret) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -55,8 +59,8 @@ Deno.serve(async (req) => {
     const result = await refreshBatch(batch, offset);
     return json(result);
   } catch (err) {
-    console.error('refresh-popular error:', err);
-    return json({ error: err instanceof Error ? err.message : 'unknown' }, 500);
+    console.error('refresh-popular error:', err); // detail server-side only
+    return json({ error: 'Refresh failed.' }, 500);
   }
 });
 
@@ -69,15 +73,17 @@ type PopularPage = {
 };
 
 async function refreshBatch(batch: number, offset: number) {
-  // /tv/popular returns 20 results per page. Translate (offset, batch) into
-  // a starting page + a within-page skip, then walk pages until we've
+  // /trending/tv/week returns 20 results per page. Translate (offset, batch)
+  // into a starting page + a within-page skip, then walk pages until we've
   // collected `batch` IDs.
   const ids: number[] = [];
   let page = Math.floor(offset / 20) + 1;
   let skipInPage = offset % 20;
 
   while (ids.length < batch) {
-    const data = await tmdbGet<PopularPage>('/tv/popular', { page: String(page) });
+    // /trending/tv/week (dynamic, moves daily) — better matches the "this week"
+    // shelf than the slower-moving /tv/popular. Same paged {results:[{id}]} shape.
+    const data = await tmdbGet<PopularPage>('/trending/tv/week', { page: String(page) });
     for (let i = skipInPage; i < data.results.length; i++) {
       ids.push(data.results[i].id);
       if (ids.length >= batch) break;

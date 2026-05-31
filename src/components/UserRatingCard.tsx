@@ -1,22 +1,27 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Stars } from '@/components/Stars';
 import { colors, fonts, pad } from '@/theme';
 
 type Props = {
   rating: number;        // 0..5, half-step. 0 = hidden.
+  avatarUrl?: string | null; // the caller's avatar; grey circle when null
   onPress: () => void;
 };
 
 // Letterboxd-style "you've rated this" card. Self-hides when rating == 0
 // so the caller passes `currentRating ?? 0` with no conditional wrapper.
 // The whole card is the tap target — no decorative dots.
-export function UserRatingCard({ rating, onPress }: Props) {
+export function UserRatingCard({ rating, avatarUrl, onPress }: Props) {
   if (!rating) return null;
 
   return (
     <Pressable onPress={onPress} style={styles.card}>
-      {/* Placeholder avatar — real user-avatar fetching comes with Profile. */}
-      <View style={styles.avatar} />
+      {avatarUrl ? (
+        <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+      ) : (
+        <View style={styles.avatar} />
+      )}
       <Text style={styles.label}>You&apos;ve rated this show</Text>
       <View style={styles.spacer} />
       <Stars value={rating} size={14} color={colors.purple} />

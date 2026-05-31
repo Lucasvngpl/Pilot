@@ -47,8 +47,8 @@ Deno.serve(async (req) => {
 
     return json({ shows: data ?? [] });
   } catch (err) {
-    console.error('get-popular error:', err);
-    return json({ error: err instanceof Error ? err.message : 'unknown' }, 500);
+    console.error('get-popular error:', err); // detail server-side only
+    return json({ error: 'Something went wrong.' }, 500);
   }
 });
 

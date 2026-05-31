@@ -40,7 +40,7 @@ export function LoginSheet({ visible, onClose }: Props) {
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} height={520}>
+    <Sheet visible={visible} onClose={onClose} height={440}>
       <Text style={styles.sheetTitle}>Log in to Pilot</Text>
 
       <View style={styles.sheetBody}>
@@ -70,16 +70,9 @@ export function LoginSheet({ visible, onClose }: Props) {
         <View style={{ marginTop: 8 }}>
           <Button label="Log in" onPress={onLogin} disabled={!canSubmit} loading={loading} />
         </View>
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerLabel}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* "Continue with Apple" intentionally NOT shipped — spec marks it
-            future-only. Any third-party auth here triggers App Store's
-            sign-in-with-Apple requirement. */}
+        {/* No "or" divider / third-party auth: "Continue with Apple" is
+            future-only (spec), and shipping any third-party auth triggers the
+            App Store's sign-in-with-Apple requirement. */}
       </View>
     </Sheet>
   );
@@ -103,7 +96,4 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: 'center',
   },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 24, gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.hairline },
-  dividerLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint },
 });

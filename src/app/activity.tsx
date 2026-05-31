@@ -160,7 +160,7 @@ function HeaderLine({
   return (
     <View style={styles.headerLine}>
       <Text style={styles.headerText} numberOfLines={2}>
-        <Text style={styles.user}>{actor.username}</Text>
+        <Text style={styles.user}>{actor.display_name ?? actor.username}</Text>
         <Text style={styles.connective}> {verb} </Text>
         <Text style={styles.object}>{object}</Text>
         {suffix ? <Text style={styles.connective}>{suffix}</Text> : null}

@@ -1,14 +1,16 @@
+import { useState } from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { colors, type } from '@/theme';
 import { HomeIcon, ActivityIcon, LogIcon, SearchIcon, ProfileIcon } from '@/components/icons';
+import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { useAuth } from '@/lib/auth';
 
 export type NavTab = 'home' | 'activity' | 'log' | 'search' | 'profile';
 
-// The Log route doesn't exist yet — tapping it 404s. Home (/), Search,
-// Activity, and Profile all work; Profile additionally redirects
-// unauthed users to /(auth) so they can sign in.
+// "Log" is NOT a route — its tap opens the log/list ActionMenuSheet (below), so
+// the "+" works from every screen with the nav. Home (/), Search, Activity, and
+// Profile navigate; Profile redirects unauthed users to /(auth) to sign in.
 const ITEMS: { tab: NavTab; label: string; href: string; Icon: React.ComponentType<{ color?: string; size?: number }> }[] = [
   { tab: 'home',     label: 'Home',     href: '/',         Icon: HomeIcon },
   { tab: 'activity', label: 'Activity', href: '/activity', Icon: ActivityIcon },
@@ -19,33 +21,49 @@ const ITEMS: { tab: NavTab; label: string; href: string; Icon: React.ComponentTy
 
 export function BottomNav({ active }: { active: NavTab }) {
   const { session } = useAuth();
+  const [logMenuOpen, setLogMenuOpen] = useState(false);
 
   return (
-    <View style={styles.bar}>
-      {ITEMS.map(({ tab, label, href, Icon }) => {
-        const isActive = active === tab;
-        const color = isActive ? colors.ink : colors.navInactive;
+    <>
+      <View style={styles.bar}>
+        {ITEMS.map(({ tab, label, href, Icon }) => {
+          const isActive = active === tab;
+          const color = isActive ? colors.ink : colors.navInactive;
 
-        // Profile-when-unauthed is the only routing decision we make here;
-        // everything else uses the static href.
-        const target = tab === 'profile' && !session ? '/(auth)' : href;
+          // Profile-when-unauthed is the only routing decision we make here.
+          const target = tab === 'profile' && !session ? '/(auth)' : href;
 
-        return (
-          <Pressable
-            key={tab}
-            style={styles.item}
-            onPress={() => router.push(target as any)}
-          >
-            <Icon color={color} size={24} />
-            <Text style={[
-              isActive ? type.navActive : type.navMuted,
-              { color, marginTop: 3 },
-            ]}>{label}</Text>
-            {isActive && <View style={styles.activeBar} />}
-          </Pressable>
-        );
-      })}
-    </View>
+          return (
+            <Pressable
+              key={tab}
+              style={styles.item}
+              onPress={() => {
+                if (tab === 'log') { setLogMenuOpen(true); return; } // opens the menu, not a route
+                router.push(target as any);
+              }}
+            >
+              <Icon color={color} size={24} />
+              <Text style={[
+                isActive ? type.navActive : type.navMuted,
+                { color, marginTop: 3 },
+              ]}>{label}</Text>
+              {isActive && <View style={styles.activeBar} />}
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* "+" menu — pick a show to log/review, or start a new list. Rendered as a
+          sibling of the bar so the Sheet overlay fills the screen, not the bar. */}
+      <ActionMenuSheet
+        visible={logMenuOpen}
+        onClose={() => setLogMenuOpen(false)}
+        actions={[
+          { label: 'Review or log', onPress: () => router.push('/search?log=1' as any) },
+          { label: 'New list', onPress: () => router.push('/list/new' as any) },
+        ]}
+      />
+    </>
   );
 }
 

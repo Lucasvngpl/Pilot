@@ -39,19 +39,19 @@ Deno.serve(async (req) => {
 
     return json({ results });
   } catch (err) {
-    console.error('search-shows error:', err);
-    return json({ error: err instanceof Error ? err.message : 'unknown' }, 500);
+    console.error('search-shows error:', err); // detail server-side only
+    return json({ error: 'Search failed.' }, 500);
   }
 });
 
 async function parseQuery(req: Request): Promise<string | null> {
   const url = new URL(req.url);
   const fromQuery = url.searchParams.get('query');
-  if (fromQuery && fromQuery.trim()) return fromQuery.trim();
+  if (fromQuery && fromQuery.trim()) return fromQuery.trim().slice(0, 200); // cap length
   if (req.method === 'POST') {
     try {
       const body = await req.json();
-      const q = typeof body.query === 'string' ? body.query.trim() : '';
+      const q = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
       return q || null;
     } catch {
       return null;

@@ -102,7 +102,7 @@ export function useActivityFeed() {
       const ratedShowIds = [...new Set([...watched.map((w) => w.tmdb_show_id), ...reviews.map((r) => r.tmdb_show_id)])];
 
       const [profilesRes, cards, ratingsRes] = await Promise.all([
-        supabase.from('profiles').select('id, username, avatar_url').in('id', [...actorIds]),
+        supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', [...actorIds]),
         fetchShowCards([...showIds]),
         ratedShowIds.length
           ? supabase.from('ratings').select('user_id, tmdb_show_id, season_number, episode_number, score')
@@ -113,8 +113,8 @@ export function useActivityFeed() {
       if (ratingsRes.error) throw ratingsRes.error;
 
       const actorById = new Map<string, ActivityActor>();
-      for (const p of (profilesRes.data ?? []) as { id: string; username: string; avatar_url: string | null }[]) {
-        actorById.set(p.id, { id: p.id, username: p.username, avatar_url: p.avatar_url });
+      for (const p of (profilesRes.data ?? []) as { id: string; username: string; display_name: string | null; avatar_url: string | null }[]) {
+        actorById.set(p.id, { id: p.id, username: p.username, display_name: p.display_name, avatar_url: p.avatar_url });
       }
       const ratingByScope = new Map<string, number>();
       for (const r of (ratingsRes.data ?? []) as {
@@ -124,7 +124,7 @@ export function useActivityFeed() {
       }
 
       const actor = (uid: string): ActivityActor =>
-        actorById.get(uid) ?? { id: uid, username: 'someone', avatar_url: null };
+        actorById.get(uid) ?? { id: uid, username: 'someone', display_name: null, avatar_url: null };
       const card = (sid: number) =>
         cards.get(sid) ?? { tmdb_show_id: sid, name: 'Untitled', poster_path: null };
 

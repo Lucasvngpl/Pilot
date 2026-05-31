@@ -75,6 +75,8 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
     profileData?.profile?.username ??
     (isOwn ? user?.email?.split('@')[0] : undefined) ??
     'user';
+  const displayName = profileData?.profile?.display_name ?? null;
+  const name = displayName ?? username; // show the friendly name; fall back to the handle
   const avatarUrl = profileData?.profile?.avatar_url ?? null;
 
   return (
@@ -102,12 +104,17 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
           )}
         </View>
 
-        {/* Identity: username + tappable counts (left), avatar (right). */}
+        {/* Identity: display name + @handle + tappable counts (left), avatar (right). */}
         <View style={styles.identity}>
           <View style={{ flex: 1 }}>
             <Text style={[type.compactH, { color: colors.ink, letterSpacing: -0.3 }]} numberOfLines={1}>
-              {username}
+              {name}
             </Text>
+            {displayName && (
+              <Text style={[type.filter, { color: colors.muted, marginTop: 1 }]} numberOfLines={1}>
+                @{username}
+              </Text>
+            )}
             <View style={styles.counts}>
               <Pressable
                 style={styles.countGroup}

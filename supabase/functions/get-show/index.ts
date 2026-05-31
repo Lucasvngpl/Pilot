@@ -69,8 +69,8 @@ Deno.serve(async (req) => {
 
     return json({ catalog, mySocial, stats });
   } catch (err) {
-    console.error('get-show error:', err);
-    return json({ error: err instanceof Error ? err.message : 'unknown' }, 500);
+    console.error('get-show error:', err); // detail server-side only
+    return json({ error: 'Something went wrong loading the show.' }, 500);
   }
 });
 

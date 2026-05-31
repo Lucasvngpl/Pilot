@@ -26,7 +26,7 @@ type EmbeddedReview = {
   body: string;
   contains_spoilers: boolean;
   created_at: string;
-  profiles: { username: string; avatar_url: string | null } | null;
+  profiles: { username: string; display_name: string | null; avatar_url: string | null } | null;
   review_likes: { count: number }[];
 };
 
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     // relationship"). Naming the constraint pins it to the author.
     const { data, error } = await client
       .from('reviews')
-      .select('*, profiles!reviews_user_id_fkey(username, avatar_url), review_likes(count)')
+      .select('*, profiles!reviews_user_id_fkey(username, display_name, avatar_url), review_likes(count)')
       .eq('tmdb_show_id', tmdb_show_id)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
       contains_spoilers: r.contains_spoilers,
       created_at: r.created_at,
       username: r.profiles?.username ?? 'unknown',
+      display_name: r.profiles?.display_name ?? null,
       avatar_url: r.profiles?.avatar_url ?? null,
       likes: r.review_likes?.[0]?.count ?? 0,
       rating: ratingFor(r),
@@ -110,12 +111,11 @@ Deno.serve(async (req) => {
 
     return json({ reviews: result });
   } catch (err) {
+    // Log the real cause server-side (PostgREST errors are plain objects with a
+    // .message), but return a GENERIC string to the client — don't leak schema /
+    // constraint / relationship internals to anonymous callers.
     console.error('get-reviews error:', err);
-    // Supabase/PostgREST errors are plain objects ({ message, code, hint }),
-    // NOT Error instances — so `err instanceof Error` is false and the old
-    // code reported a useless "unknown", hiding the real cause (a PGRST201
-    // ambiguous-embed here). Pull `.message` off any object that has one.
-    return json({ error: errorMessage(err) }, 500);
+    return json({ error: 'Something went wrong loading reviews.' }, 500);
   }
 });
 
@@ -136,15 +136,6 @@ async function parseShowId(req: Request): Promise<number | null> {
     }
   }
   return null;
-}
-
-function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  // PostgREST/Supabase error: plain object carrying a string `message`.
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: unknown }).message);
-  }
-  return 'unknown';
 }
 
 function json(body: unknown, status = 200): Response {

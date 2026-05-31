@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useShow } from '@/api/useShow';
 import { usePopularReviews } from '@/api/usePopularReviews';
 import { useDeleteReview } from '@/api/useReviewMutations';
+import { useProfile } from '@/api/useProfile';
 import { useAuth } from '@/lib/auth';
 import { Poster } from '@/components/Poster';
 import { StatRow } from '@/components/StatRow';
@@ -26,6 +27,9 @@ export default function ShowDetail() {
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const { user } = useAuth();
+  const { data: myProfile } = useProfile(user?.id); // cached from the Profile screen
+  const myAvatar = myProfile?.profile?.avatar_url ?? null;
+  const myDisplayName = myProfile?.profile?.display_name ?? null;
   const { remove } = useDeleteReview(tmdbShowId);
   const [sheetOpen, setSheetOpen] = useState(false);
   // The own-review whose ⋯ menu is open (null = closed).
@@ -113,13 +117,19 @@ export default function ShowDetail() {
             <StatRow
               rating={data.stats?.avgRating ?? null}
               viewers={data.stats?.viewers ?? 0}
-              viewerAvatars={(data.stats?.viewerAvatars ?? []).map((v) => v.avatar_url)}
+              viewerAvatars={[
+                // You don't follow yourself, so stats.viewerAvatars never includes
+                // you — prepend your own face when you're a viewer (have any
+                // watch_status here), else you'd see a grey circle as the lone viewer.
+                ...(data.mySocial.watch_statuses.length > 0 && myAvatar ? [myAvatar] : []),
+                ...(data.stats?.viewerAvatars ?? []).map((v) => v.avatar_url),
+              ]}
               onViewersPress={() => router.push(`/show/${tmdbShowId}/viewers` as any)}
               popularity={Math.round((data.catalog as { popularity?: number }).popularity ?? 0)}
             />
           </View>
 
-          <UserRatingCard rating={showScopeRating ?? 0} onPress={() => setSheetOpen(true)} />
+          <UserRatingCard rating={showScopeRating ?? 0} avatarUrl={myAvatar} onPress={() => setSheetOpen(true)} />
 
           <Tabs
             showId={tmdbShowId}
@@ -147,6 +157,10 @@ export default function ShowDetail() {
               <ReviewRow
                 key={r.id}
                 username={r.username}
+                // Your own reviews use your live profile display name (instant on
+                // edit). Others' come from get-reviews (display_name once it's
+                // redeployed — until then null → falls back to the @handle).
+                displayName={r.user_id === user?.id ? (myDisplayName ?? r.display_name) : r.display_name}
                 avatarUri={r.avatar_url ?? undefined}
                 showTitle={data.catalog.name}
                 seasonLine={formatScope(r.season_number, r.episode_number)}

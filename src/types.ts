@@ -147,7 +147,7 @@ export type DiarySection = { month: string; entries: DiaryEntry[] };
 // ----- Activity feed (Friends tab) -----------------------------------------
 // A row in the feed = one social action by someone the viewer follows. A
 // discriminated union on `type` — each variant carries only what its row renders.
-export type ActivityActor = { id: string; username: string; avatar_url: string | null };
+export type ActivityActor = { id: string; username: string; display_name: string | null; avatar_url: string | null };
 
 type ActivityBase = { key: string; actor: ActivityActor; at: string }; // at = ISO timestamp
 
@@ -175,6 +175,7 @@ export type ReviewWithMeta = {
   contains_spoilers: boolean;
   created_at: string;
   username: string;
+  display_name: string | null;
   avatar_url: string | null;
   likes: number;
   rating: number | null;
