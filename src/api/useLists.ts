@@ -69,13 +69,14 @@ export function useList(listId: string | undefined) {
     queryFn: async () => {
       const { data: list, error } = await supabase
         .from('lists')
-        .select('id, user_id, title, description, is_ranked')
+        .select('id, user_id, title, description, is_ranked, created_at')
         .eq('id', listId!)
         .maybeSingle();
       if (error) throw error;
       if (!list) return null;
       const row = list as {
-        id: string; user_id: string; title: string; description: string | null; is_ranked: boolean;
+        id: string; user_id: string; title: string; description: string | null;
+        is_ranked: boolean; created_at: string;
       };
 
       const [itemsRes, ownerRes] = await Promise.all([
@@ -85,13 +86,32 @@ export function useList(listId: string | undefined) {
           .eq('list_id', listId!)
           .order('position', { ascending: true })
           .order('added_at', { ascending: true }),
-        supabase.from('profiles').select('username').eq('id', row.user_id).maybeSingle(),
+        supabase.from('profiles').select('username, avatar_url').eq('id', row.user_id).maybeSingle(),
       ]);
       if (itemsRes.error) throw itemsRes.error;
 
       const showIds = (itemsRes.data ?? []).map((i) => (i as { tmdb_show_id: number }).tmdb_show_id);
-      const cards = await fetchShowCards(showIds);
-      const owner = ownerRes.data as { username: string } | null;
+
+      // Cards (name + poster) + a light meta read for the row subtitle. The meta
+      // pulls year + the primary network straight out of the cached TMDb payload
+      // via JSON operators (->>, ->) — no extra round-trip to TMDb.
+      const [cards, metaRes] = await Promise.all([
+        fetchShowCards(showIds),
+        supabase
+          .from('shows_cache')
+          .select('tmdb_show_id, year:payload->>first_air_date, networks:payload->networks')
+          .in('tmdb_show_id', showIds),
+      ]);
+      const metaById = new Map<number, { year: string | null; network: string | null }>();
+      for (const m of (metaRes.data ?? []) as {
+        tmdb_show_id: number; year: string | null; networks: { name?: string }[] | null;
+      }[]) {
+        metaById.set(m.tmdb_show_id, {
+          year: m.year ? m.year.slice(0, 4) : null, // "2019-03-24" → "2019"
+          network: m.networks?.[0]?.name ?? null,
+        });
+      }
+      const owner = ownerRes.data as { username: string; avatar_url: string | null } | null;
 
       return {
         id: row.id,
@@ -100,9 +120,14 @@ export function useList(listId: string | undefined) {
         description: row.description,
         is_ranked: row.is_ranked,
         ownerUsername: owner?.username ?? null,
-        items: showIds.map(
-          (sid) => cards.get(sid) ?? { tmdb_show_id: sid, name: 'Untitled', poster_path: null },
-        ),
+        ownerAvatarUrl: owner?.avatar_url ?? null,
+        createdAt: row.created_at,
+        bannerUrl: null, // no custom-banner column yet; the detail screen still renders the seam
+        items: showIds.map((sid) => {
+          const card = cards.get(sid) ?? { tmdb_show_id: sid, name: 'Untitled', poster_path: null };
+          const meta = metaById.get(sid);
+          return { ...card, year: meta?.year ?? null, network: meta?.network ?? null };
+        }),
       };
     },
   });

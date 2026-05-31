@@ -135,5 +135,22 @@ export function useListItemMutations() {
     invalidate(listId);
   };
 
-  return { add, remove };
+  // Renumber a list's items to match `orderedShowIds` (position = 0,1,2…). We
+  // renumber EVERY row sequentially rather than swapping in place, so there are
+  // no gaps or collisions. Safe to do per-row: list_items has NO
+  // UNIQUE(list_id, position) (0001), specifically so a reorder can pass through
+  // transient duplicate positions. RLS scopes the writes to the list owner.
+  const reorder = async (listId: string, orderedShowIds: number[]) => {
+    for (let i = 0; i < orderedShowIds.length; i++) {
+      const { error } = await supabase
+        .from('list_items')
+        .update({ position: i })
+        .eq('list_id', listId)
+        .eq('tmdb_show_id', orderedShowIds[i]);
+      if (error) throw error;
+    }
+    invalidate(listId);
+  };
+
+  return { add, remove, reorder };
 }

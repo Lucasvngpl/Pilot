@@ -285,6 +285,23 @@ export function ChevronRightIcon({ color = '#000', size = 24 }: Props) {
   );
 }
 
+// Up / down chevrons — the per-row reorder arrows in the list editor.
+export function ChevronUpIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 15 L12 9 L18 15" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9 L12 15 L18 9" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 // "Has a review" marker — short stacked lines (≡), Letterboxd-style. Also the
 // Profile › Your record → Reviews row glyph (a list of written things).
 export function ReviewBadgeIcon({ color = '#000', size = 12 }: Props) {

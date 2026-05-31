@@ -254,7 +254,14 @@ export type ListSummary = {
   posters: (string | null)[]; // up to 4 poster_paths for the card preview
 };
 
-// A list opened in detail — its shows (ordered) + owner handle.
+// A list item enriched for the ranked detail rows: the card + a year and network
+// for the subtitle line ("HBO · 2019").
+export type ListShowItem = ShowCard & {
+  year: string | null;    // first_air_date's year, e.g. "2019"
+  network: string | null; // primary broadcaster, e.g. "HBO"
+};
+
+// A list opened in detail — its shows (in position order) + creator identity.
 export type ListDetail = {
   id: string;
   user_id: string;
@@ -262,7 +269,12 @@ export type ListDetail = {
   description: string | null;
   is_ranked: boolean;
   ownerUsername: string | null;
-  items: ShowCard[];
+  ownerAvatarUrl: string | null;
+  createdAt: string; // ISO timestamp from lists.created_at
+  // Render seam for a future pick-your-own banner. No DB column yet, so this is
+  // always null today — the detail screen does `bannerUrl ? custom : auto-composite`.
+  bannerUrl: string | null;
+  items: ListShowItem[];
 };
 
 // Turn a scope into a display line. Whole show → undefined (no line shown).

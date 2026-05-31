@@ -13,7 +13,7 @@ import { SearchInput } from '@/components/SearchInput';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
-import { ChevronLeftIcon, CloseIcon } from '@/components/icons';
+import { ChevronLeftIcon, CloseIcon, ChevronUpIcon, ChevronDownIcon } from '@/components/icons';
 import { colors, type, pad, fonts } from '@/theme';
 import type { SearchShowResult } from '@/types';
 
@@ -30,7 +30,7 @@ export default function NewOrEditList() {
 
   const { create, isPending: creating } = useCreateList();
   const { update: updateList } = useUpdateList();
-  const { add: addItem, remove: removeItem } = useListItemMutations();
+  const { add: addItem, remove: removeItem, reorder: reorderItems } = useListItemMutations();
   const { data: editList } = useList(edit); // disabled query when `edit` is undefined
 
   const [title, setTitle] = useState('');
@@ -83,6 +83,24 @@ export default function NewOrEditList() {
   const removeStaged = (id: number) =>
     setStaged((prev) => prev.filter((s) => s.tmdb_show_id !== id));
 
+  // Reorder via arrows (no drag/PanResponder — same call as Top 4): swap a row
+  // with its neighbor. The staged order is the source of truth; onSave renumbers
+  // positions to match it.
+  const moveUp = (index: number) =>
+    setStaged((prev) => {
+      if (index <= 0) return prev;
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  const moveDown = (index: number) =>
+    setStaged((prev) => {
+      if (index >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      return next;
+    });
+
   const busy = isEdit ? saving : creating;
   const canSubmit = title.trim().length > 0 && !busy;
   const searching = debounced.trim().length > 0;
@@ -121,6 +139,10 @@ export default function NewOrEditList() {
       const removed = originalIds.filter((id) => !stagedSet.has(id));
       for (const sid of added) await addItem(editId, sid);
       for (const sid of removed) await removeItem(editId, sid);
+
+      // Renumber positions to the staged order (covers reorder + where new adds
+      // land). Sequential 0..n-1, gap-free.
+      await reorderItems(editId, staged.map((s) => s.tmdb_show_id));
 
       router.back();
     } catch (e) {
@@ -191,13 +213,22 @@ export default function NewOrEditList() {
             <Text style={styles.muted}>No shows added yet.</Text>
           ) : (
             <View style={styles.stagedWrap}>
-              {staged.map((s) => (
+              {staged.map((s, i) => (
                 <View key={s.tmdb_show_id} style={styles.row}>
+                  <Text style={styles.stagedRank}>{i + 1}</Text>
                   <Poster tmdbShowId={s.tmdb_show_id} posterPath={s.poster_path} name={s.name} width={40} pressable={false} />
                   <Text style={[type.creator, { color: colors.ink, flex: 1 }]} numberOfLines={1}>{s.name}</Text>
-                  <Pressable onPress={() => removeStaged(s.tmdb_show_id)} hitSlop={8}>
-                    <CloseIcon color={colors.muted} size={18} />
-                  </Pressable>
+                  <View style={styles.stagedControls}>
+                    <Pressable onPress={() => moveUp(i)} hitSlop={6} disabled={i === 0}>
+                      <ChevronUpIcon color={i === 0 ? colors.hairline : colors.muted} size={20} />
+                    </Pressable>
+                    <Pressable onPress={() => moveDown(i)} hitSlop={6} disabled={i === staged.length - 1}>
+                      <ChevronDownIcon color={i === staged.length - 1 ? colors.hairline : colors.muted} size={20} />
+                    </Pressable>
+                    <Pressable onPress={() => removeStaged(s.tmdb_show_id)} hitSlop={6}>
+                      <CloseIcon color={colors.muted} size={18} />
+                    </Pressable>
+                  </View>
                 </View>
               ))}
             </View>
@@ -231,6 +262,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   plus: { fontFamily: fonts.bold, fontSize: 22, color: colors.purple, paddingHorizontal: 4 },
   stagedWrap: { marginTop: 4 },
+  stagedRank: { fontFamily: fonts.display, fontSize: 14, color: colors.muted, width: 18, textAlign: 'center' },
+  stagedControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   muted: {
     fontFamily: type.reviewBody.fontFamily,
     fontSize: type.reviewBody.fontSize,
