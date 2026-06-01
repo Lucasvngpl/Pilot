@@ -1,8 +1,10 @@
 // Poster — tappable TMDb show poster that routes to /show/[id]; auto-picks image size from render width; titled placeholder when no image.
+import { useState } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { router } from 'expo-router';
 import { useShowSheet } from '@/lib/showSheet';
+import { Skeleton } from '@/components/Skeleton';
 import { colors, fonts, radius } from '@/theme';
 import { tmdbImage } from '@/types';
 
@@ -28,11 +30,7 @@ export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }
   const uri = tmdbImage(posterPath, sizeFor(width));
 
   const inner = uri ? (
-    <Image
-      source={{ uri }}
-      style={{ width, height, borderRadius: radius.md }}
-      contentFit="cover"
-    />
+    <PosterImage uri={uri} width={width} height={height} />
   ) : (
     <View style={[styles.placeholder, { width, height }]}>
       <Text
@@ -58,7 +56,29 @@ export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }
   );
 }
 
+// Shows a pulsing skeleton in the poster's place until the image loads, then the
+// image cross-fades in. The wrapper keeps a static light fill behind it so the
+// fade lands on grey, not a white flash. `onError` also clears the skeleton so a
+// failed image doesn't pulse forever.
+function PosterImage({ uri, width, height }: { uri: string; width: number; height: number }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <View style={[styles.imageWrap, { width, height }]}>
+      {!loaded && <Skeleton radius={radius.md} style={StyleSheet.absoluteFill} />}
+      <Image
+        source={{ uri }}
+        style={{ width, height, borderRadius: radius.md }}
+        contentFit="cover"
+        transition={200}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  imageWrap: { borderRadius: radius.md, backgroundColor: colors.field, overflow: 'hidden' },
   placeholder: {
     backgroundColor: colors.cream,
     borderRadius: radius.md,
