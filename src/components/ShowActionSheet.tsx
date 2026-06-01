@@ -60,14 +60,10 @@ export function ShowActionSheet({
             active={currentStatus === 'watchlist'} onPress={() => setStatus('watchlist')} />
         </View>
 
-        <View style={styles.hairline} />
-
         <RatingPicker value={currentRating} onChange={(score) => rate(score)} />
 
-        <View style={styles.hairline} />
-
-        <ActionRow Icon={PencilSquareIcon} label="Review or log..." onPress={onReviewOrLog} />
-        <ActionRow Icon={ListPlusIcon} label="Add to lists..." onPress={onAddToList} />
+        <ActionRow Icon={PencilSquareIcon} label="Review or log" onPress={onReviewOrLog} />
+        <ActionRow Icon={ListPlusIcon} label="Add to lists" onPress={onAddToList} />
 
         <View style={styles.hairline} />
 
