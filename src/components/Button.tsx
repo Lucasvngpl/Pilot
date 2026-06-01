@@ -1,5 +1,6 @@
 import { Pressable, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { colors, fonts } from '@/theme';
+import { fonts } from '@/theme';
+import { useTheme } from '@/lib/theme';
 
 type Variant = 'primary' | 'secondary';
 
@@ -11,19 +12,25 @@ type Props = {
   loading?: boolean;
 };
 
-// Primary = ink fill / white text. Disabled primary = field fill / faint text
+// Primary = ink fill / inverted text. Disabled primary = field fill / faint text
 // (per spec — the disabled state of the Log-in button).
-// Secondary = white fill / hairline border / ink text.
+// Secondary = surface fill / hairline border / ink text.
+//
+// Dark-mode note: the fill (`ink`) and the text must INVERT together. `ink` flips
+// to light in dark mode, so the label tracks `background` (flips to dark) — not a
+// fixed white, which would vanish on the now-light fill. Likewise the secondary
+// fill is `surface` (flips), not `white`, so its `ink` text stays legible.
 export function Button({ label, onPress, variant = 'primary', disabled, loading }: Props) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
 
   const bg =
     variant === 'primary'
       ? (isDisabled ? colors.field : colors.ink)
-      : colors.white;
+      : colors.surface;
   const fg =
     variant === 'primary'
-      ? (isDisabled ? colors.faint : colors.white)
+      ? (isDisabled ? colors.faint : colors.background)
       : colors.ink;
   const border = variant === 'secondary' ? colors.hairline : undefined;
 

@@ -1,21 +1,16 @@
-// ReviewRow — one review card: avatar + show title + star rating + collapsible body + spoiler gate + like count + optional ⋯ menu for own reviews.
-import { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  type NativeSyntheticEvent,
-  type TextLayoutEventData,
-} from 'react-native';
+// ReviewRow — one review card: avatar + show title + star rating + truncated body (tap → full-review page) + spoiler gate + like count + optional ⋯ menu for own reviews.
+import { useState } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { colors, type, pad, radius } from '@/theme';
+import { type, pad, radius, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { DotsIcon, HeartIcon } from '@/components/icons';
 import { Stars } from '@/components/Stars';
 import { Poster } from '@/components/Poster';
 
-// How many lines of a review body show before we offer "Read more".
-const COLLAPSED_LINES = 4;
+// Lines of body shown in the row before the trailing "…". The full text lives on
+// the review's own page (/review/[id]); tapping the body navigates there.
+const BODY_LINES = 4;
 
 type Props = {
   username: string;
@@ -35,24 +30,16 @@ type Props = {
   // On the show screen you're already on that show, so the poster is inert. On
   // the "my reviews" list it's the way into each show → make it tappable there.
   posterPressable?: boolean;
+  // Tapping the body opens the full review (/review/[id]) — or, for drafts, the
+  // composer. The ⋯ menu, spoiler gate, and poster claim their own taps, so they
+  // never trigger this.
+  onPress?: () => void;
 };
 
 export function ReviewRow(p: Props) {
-  const [expanded, setExpanded] = useState(false);
-  const [truncatable, setTruncatable] = useState(false);
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const [revealed, setRevealed] = useState(false);
-
-  // onTextLayout hands us the text's full line breakdown. If it would wrap past
-  // COLLAPSED_LINES, we reveal the "Read more" toggle. We latch it true once and
-  // never flip back — a body that's long stays long.
-  const onTextLayout = useCallback(
-    (e: NativeSyntheticEvent<TextLayoutEventData>) => {
-      if (!truncatable && e.nativeEvent.lines.length > COLLAPSED_LINES) {
-        setTruncatable(true);
-      }
-    },
-    [truncatable],
-  );
 
   return (
     <View style={styles.row}>
@@ -99,23 +86,17 @@ export function ReviewRow(p: Props) {
               </Text>
             </Pressable>
           ) : (
-            // Tap to expand a long review in place. No review-detail screen
-            // exists yet (comments aren't built), so inline expand/collapse is
-            // the smallest thing that lets you read the whole body. `disabled`
-            // keeps short reviews from being a dead tap target.
-            <Pressable onPress={() => setExpanded((v) => !v)} disabled={!truncatable}>
+            // Tap the body to read the review in full on its own page
+            // (/review/[id]). The row stays clamped to BODY_LINES — the trailing
+            // "…" signals there's more — and the page shows the untruncated text.
+            // Drafts route this to the composer instead.
+            <Pressable onPress={p.onPress}>
               <Text
                 style={[type.reviewBody, { color: colors.ink, marginTop: 8 }]}
-                numberOfLines={expanded ? undefined : COLLAPSED_LINES}
-                onTextLayout={onTextLayout}
+                numberOfLines={BODY_LINES}
               >
                 {p.body}
               </Text>
-              {truncatable && (
-                <Text style={[type.reviewMeta, { color: colors.purple, marginTop: 4 }]}>
-                  {expanded ? 'Show less' : 'Read more'}
-                </Text>
-              )}
             </Pressable>
           )}
         </View>
@@ -140,7 +121,7 @@ export function ReviewRow(p: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: {
     paddingVertical: 16,
     paddingHorizontal: pad,

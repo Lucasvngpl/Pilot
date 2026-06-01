@@ -3,7 +3,8 @@ import {
   Animated, View, Pressable, StyleSheet, BackHandler, Keyboard, Platform,
   type KeyboardEvent,
 } from 'react-native';
-import { colors } from '@/theme';
+import { type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 
 type Props = {
   visible: boolean;
@@ -27,6 +28,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // so no responder hack is needed and child drags (RatingPicker) claim touches
 // normally — fixing the old inner-Pressable interception.
 export function Sheet({ visible, onClose, children, height = 560 }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const progress = useRef(new Animated.Value(0)).current;
   // Lift the sheet above the on-screen keyboard. The sheet is pinned to
   // bottom:0, so without this the keyboard covers its lower half (the inputs +
@@ -104,7 +106,7 @@ export function Sheet({ visible, onClose, children, height = 560 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   scrim: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
@@ -113,7 +115,9 @@ const styles = StyleSheet.create({
   sheet: {
     position: 'absolute',
     left: 0, right: 0, bottom: 0,
-    backgroundColor: colors.white,
+    // `surface` (not `background`): a sheet is an elevated panel that should sit
+    // a touch lighter than the screen in dark mode so it lifts off the scrim.
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 12,

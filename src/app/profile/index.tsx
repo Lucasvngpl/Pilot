@@ -5,12 +5,15 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/Button';
 import { BottomNav } from '@/components/BottomNav';
 import { ProfileView } from '@/components/ProfileView';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 // Own profile = ProfileView in 'own' mode. The only thing this route adds is the
 // anonymous fallback (BottomNav normally routes anon users to /welcome, but guard
 // for a deep link / sign-out-while-here).
 export default function Profile() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
 
   if (!user) {
@@ -33,8 +36,8 @@ export default function Profile() {
   return <ProfileView userId={user.id} variant="own" />;
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   signedOut: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: pad },
   signedOutText: { color: colors.muted, marginTop: 8, textAlign: 'center' },
   signedOutBtn: { marginTop: 20, alignSelf: 'stretch' },

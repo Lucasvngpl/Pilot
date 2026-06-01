@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Stars } from '@/components/Stars';
-import { colors, fonts, pad } from '@/theme';
+import { fonts, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Props = {
   rating: number;        // 0..5, half-step. 0 = hidden.
@@ -13,6 +14,8 @@ type Props = {
 // so the caller passes `currentRating ?? 0` with no conditional wrapper.
 // The whole card is the tap target — no decorative dots.
 export function UserRatingCard({ rating, avatarUrl, onPress }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   if (!rating) return null;
 
   return (
@@ -29,7 +32,7 @@ export function UserRatingCard({ rating, avatarUrl, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',

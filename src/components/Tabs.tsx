@@ -1,6 +1,7 @@
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 export type TabKey = 'reviews' | 'overview' | 'seasons' | 'lists';
 
@@ -20,6 +21,8 @@ const TABS: { key: TabKey; label: string; route: (id: string) => string }[] = [
 ];
 
 export function Tabs({ showId, active, counts }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View>
       <View style={styles.row}>
@@ -56,7 +59,7 @@ export function Tabs({ showId, active, counts }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', gap: 22, paddingHorizontal: pad, paddingBottom: 10 },
   tab: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

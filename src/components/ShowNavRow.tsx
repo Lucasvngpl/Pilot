@@ -1,6 +1,7 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, pad } from '@/theme';
+import { pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { ChevronLeftIcon, CheckIcon, PlayIcon, ClockIcon, DotsIcon } from '@/components/icons';
 import type { WatchStatus } from '@/types';
 
@@ -22,6 +23,8 @@ export function ShowNavRow({
   status: WatchStatus | null;
   onCheckPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const active = status !== null;
   // No status yet → a neutral check outline as the "set a status" affordance.
   const Icon = status ? STATUS_ICON[status] : CheckIcon;
@@ -49,7 +52,7 @@ export function ShowNavRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

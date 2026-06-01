@@ -1,6 +1,7 @@
 import { View, TextInput, Pressable, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { SearchIcon, CloseIcon } from '@/components/icons';
-import { colors, fonts, pad } from '@/theme';
+import { fonts, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Props = {
   value: string;
@@ -25,6 +26,8 @@ export function SearchInput({
   onBlur,
   style,
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={[styles.wrap, style]}>
       <SearchIcon color={colors.faint} size={18} />
@@ -49,7 +52,7 @@ export function SearchInput({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',

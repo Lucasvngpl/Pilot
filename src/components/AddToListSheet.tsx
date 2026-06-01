@@ -8,13 +8,16 @@ import { useMyLists } from '@/api/useLists';
 import { useListItemMutations } from '@/api/useListMutations';
 import { Sheet } from '@/components/Sheet';
 import { CheckIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Props = { visible: boolean; onClose: () => void; tmdbShowId: number };
 
 // Stacks OVER ShowActionSheet (sibling Sheets, the overlay convention). Toggling
 // a list is optimistic: the check flips instantly and rolls back on failure.
 export function AddToListSheet({ visible, onClose, tmdbShowId }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const myId = user?.id;
   const { data: lists, isLoading } = useMyLists(myId);
@@ -115,7 +118,7 @@ function useMembership(tmdbShowId: number, listIds: string[]) {
   });
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   header: {
     fontFamily: type.subhead.fontFamily,
     fontSize: type.subhead.fontSize,

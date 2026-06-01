@@ -14,7 +14,8 @@ import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
 import { ChevronLeftIcon, CloseIcon, ChevronUpIcon, ChevronDownIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { SearchShowResult } from '@/types';
 
 type Staged = { tmdb_show_id: number; name: string; poster_path: string | null };
@@ -25,6 +26,8 @@ type Staged = { tmdb_show_id: number; name: string; poster_path: string | null }
 //    updates the list + reconciles items as a true set-difference (only the
 //    genuine adds/removes are written — unchanged shows aren't touched).
 export default function NewOrEditList() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { showId, edit } = useLocalSearchParams<{ showId?: string; edit?: string }>();
   const isEdit = !!edit;
 
@@ -248,8 +251,8 @@ export default function NewOrEditList() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

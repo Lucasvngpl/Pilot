@@ -6,7 +6,8 @@ import { useDiary } from '@/api/useDiary';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { ChevronLeftIcon, ReviewBadgeIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { DiaryEntry } from '@/types';
 
 // Diary = a date-grouped log of every watched event (whole-show / season /
@@ -14,6 +15,8 @@ import type { DiaryEntry } from '@/types';
 // year · scope · stars + review marker), in Pilot's light theme. Own-only (the
 // Profile "Diary" link is gated to the signed-in user).
 export default function Diary() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { data: sections, isLoading } = useDiary(user?.id);
 
@@ -50,6 +53,8 @@ export default function Diary() {
 }
 
 function DiaryRow({ entry }: { entry: DiaryEntry }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable style={styles.row} onPress={() => router.push(`/show/${entry.tmdb_show_id}`)}>
       <View style={styles.dateCell}>
@@ -93,8 +98,8 @@ function DiaryRow({ entry }: { entry: DiaryEntry }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

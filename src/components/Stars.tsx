@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { StarIcon } from '@/components/icons';
-import { colors } from '@/theme';
+import { useTheme } from '@/lib/theme';
 
 type Props = {
   value: number;       // 0..total, half-step
@@ -17,9 +17,14 @@ export function Stars({
   value,
   total = 5,
   size = 24,
-  color = colors.purple,
-  emptyColor = colors.hairline,
+  color,
+  emptyColor,
 }: Props) {
+  const { colors } = useTheme();
+  // Defaults resolve here (not in the param list) so they read live theme
+  // values — a hook can't run in a default-parameter position.
+  const fill = color ?? colors.purple;
+  const empty = emptyColor ?? colors.hairline;
   return (
     <View style={{ flexDirection: 'row' }}>
       {Array.from({ length: total }).map((_, i) => (
@@ -28,8 +33,8 @@ export function Stars({
           index={i}
           value={value}
           size={size}
-          color={color}
-          emptyColor={emptyColor}
+          color={fill}
+          emptyColor={empty}
         />
       ))}
     </View>

@@ -1,13 +1,16 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { tmdbImage } from '@/types';
 import type { ListSummary } from '@/types';
 
 // A list row on the Lists tab: a fanned stack of up to 4 poster thumbnails +
 // title + show count. Tap → /list/[id].
 export function ListCard({ list }: { list: ListSummary }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable style={styles.row} onPress={() => router.push(`/list/${list.id}` as any)}>
       <View style={styles.posters}>
@@ -41,7 +44,7 @@ export function ListCard({ list }: { list: ListSummary }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -58,7 +61,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.hairline,
     borderWidth: 1,
-    borderColor: colors.white,
+    // Background-colored stroke = a "cutout" between the fanned posters.
+    borderColor: colors.background,
   },
   overlap: { marginLeft: -22 }, // fan the posters
   text: { flex: 1 },

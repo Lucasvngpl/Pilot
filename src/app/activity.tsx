@@ -9,13 +9,16 @@ import { Stars } from '@/components/Stars';
 import { BottomNav } from '@/components/BottomNav';
 import { tmdbImage } from '@/types';
 import { timeAgo } from '@/lib/timeAgo';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { ActivityActor, ActivityItem } from '@/types';
 
 // Activity → Friends feed: a time-ordered stream of what people you follow did.
 // Only the Friends feed for now — "You" / "Incoming" tabs come later, so we don't
 // render dead tabs (see [[no-dead-controls]]); the screen is the feed itself.
 export default function Activity() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { data: items, isLoading } = useActivityFeed();
 
@@ -51,6 +54,8 @@ export default function Activity() {
 // ----- Rows -----------------------------------------------------------------
 
 function Avatar({ actor }: { actor: ActivityActor }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable onPress={() => router.push(`/user/${actor.id}` as any)} hitSlop={6}>
       {actor.avatar_url ? (
@@ -63,6 +68,8 @@ function Avatar({ actor }: { actor: ActivityActor }) {
 }
 
 function ActivityRow({ item }: { item: ActivityItem }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   switch (item.type) {
     case 'watched':
       return (
@@ -144,6 +151,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 }
 
 function FeedRow({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable style={styles.row} onPress={onPress}>
       {children}
@@ -157,6 +165,7 @@ function HeaderLine({
 }: {
   actor: ActivityActor; verb: string; object: string; suffix?: string; at: string;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.headerLine}>
       <Text style={styles.headerText} numberOfLines={2}>
@@ -170,8 +179,8 @@ function HeaderLine({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: { alignItems: 'center', paddingVertical: 12, paddingHorizontal: pad },
   empty: {
     fontFamily: type.reviewBody.fontFamily,

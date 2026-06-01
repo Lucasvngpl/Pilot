@@ -1,6 +1,7 @@
 // TextField — labeled form input (email, password, username, review body); supports multiline/text-area mode and a right-accessory slot.
 import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { colors, fonts } from '@/theme';
+import { fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Props = {
   label: string;
@@ -23,6 +24,8 @@ export function TextField({
   secureTextEntry, keyboardType, autoCapitalize, rightAccessory, multiline,
   editable = true, maxLength,
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.wrap}>
       <View style={styles.labelRow}>
@@ -49,7 +52,7 @@ export function TextField({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: { marginBottom: 16 },
   labelRow: {
     flexDirection: 'row',

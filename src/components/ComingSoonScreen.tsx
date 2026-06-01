@@ -2,12 +2,15 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ChevronLeftIcon } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 // Shared placeholder for profile sub-pages (Diary / Following / Followers) that
 // are reachable but not built yet. A real back-affordance + an honest message
 // beats a 404 or a dead link.
 export function ComingSoonScreen({ title, message }: { title: string; message: string }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.nav}>
@@ -24,8 +27,8 @@ export function ComingSoonScreen({ title, message }: { title: string; message: s
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

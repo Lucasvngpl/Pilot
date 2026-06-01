@@ -2,7 +2,8 @@ import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { ReviewBadgeIcon } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 const GAP = 10;
 const COLS = 4;
@@ -20,6 +21,8 @@ export type GridItem = {
 // tile only renders when there's something to show, so a bare watchlist grid
 // stays clean.
 export function PosterGrid({ items, emptyText }: { items: GridItem[]; emptyText: string }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { width: screenW } = useWindowDimensions();
   // Divide the content width (screen minus side padding) into COLS tiles + gaps.
   const tileW = Math.floor((screenW - pad * 2 - GAP * (COLS - 1)) / COLS);
@@ -57,7 +60,7 @@ export function PosterGrid({ items, emptyText }: { items: GridItem[]; emptyText:
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   // `gap` spaces tiles both across (column gap) and between wrapped rows.
   grid: {
     flexDirection: 'row',

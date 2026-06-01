@@ -1,5 +1,6 @@
 import { Pressable, View, Text, StyleSheet } from 'react-native';
-import { colors, fonts } from '@/theme';
+import { fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type IconComponent = React.ComponentType<{ color?: string; size?: number }>;
 
@@ -14,6 +15,8 @@ type Props = {
 // Active = purple fill + white icon. Inactive = field fill + muted icon.
 // Spec mirrors Record Club's pills (image 2: filled purple "Listened" pill).
 export function StatusPill({ Icon, label, active, onPress }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable onPress={onPress} style={styles.wrap} hitSlop={4}>
       <View style={[styles.circle, active ? styles.active : styles.inactive]}>
@@ -24,7 +27,7 @@ export function StatusPill({ Icon, label, active, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: { alignItems: 'center', gap: 8, flex: 1 },
   circle: {
     width: 44, height: 44, borderRadius: 22,

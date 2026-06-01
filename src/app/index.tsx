@@ -12,7 +12,8 @@ import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { FAB } from '@/components/FAB';
 import { HomeSkeleton } from '@/components/Skeletons';
 import { StarIcon, ChevronRightIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { SearchShowResult, ActivityActor, ActivityItem } from '@/types';
 
 // "New From Friends" = shows a followee recently watched or reviewed. Derived
@@ -21,6 +22,8 @@ import type { SearchShowResult, ActivityActor, ActivityItem } from '@/types';
 type FeedShowItem = Extract<ActivityItem, { type: 'watched' | 'reviewed' }>;
 
 export default function Home() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   // Slim trending (name + poster only) — NOT get-popular, which ships the full
   // ~16MB payload blob per shelf load. Shared with Search's trending state.
   const { data, isLoading, error } = useTrendingShows(20);
@@ -98,6 +101,8 @@ export default function Home() {
 // Section header MUST hug content height — fixed height causes Archivo Black
 // to overflow into the row above (spec gotcha).
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.section}>
       <Text style={[type.sectionH, { color: colors.ink, paddingHorizontal: pad }]}>
@@ -109,6 +114,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function PosterRow({ shows }: { shows: SearchShowResult[] }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
       {shows.map((s) => (
@@ -121,6 +127,8 @@ function PosterRow({ shows }: { shows: SearchShowResult[] }) {
 }
 
 function FriendInfo({ actor, rating }: { actor: ActivityActor; rating: number | null }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.friend}>
       {actor.avatar_url ? (
@@ -146,6 +154,8 @@ function FriendInfo({ actor, rating }: { actor: ActivityActor; rating: number | 
 
 // Empty state — no fabricated friends. Points to where you'd add some.
 function FollowPrompt() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable style={styles.followPrompt} onPress={() => router.push('/search?tab=people' as any)}>
       <Text style={styles.followPromptText}>Follow people to see what they&apos;re watching</Text>
@@ -154,8 +164,8 @@ function FollowPrompt() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   topBar: {
     alignItems: 'center', // center the wordmark
     paddingHorizontal: pad,

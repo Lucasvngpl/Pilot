@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Poster } from '@/components/Poster';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { SearchShowResult } from '@/types';
 
 // One row in a show list — used for BOTH Trending and search results. Both
@@ -19,6 +20,8 @@ export function ShowResultRow({
   onActivate?: () => void; // fired before navigation — used to record a recent search
   logMode?: boolean; // "pick a show to log" → route straight to the composer, not show detail
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const year = item.first_air_date ? item.first_air_date.slice(0, 4) : null;
   return (
     <Pressable
@@ -47,7 +50,7 @@ export function ShowResultRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: pad, paddingVertical: 8 },
   text: { flex: 1 },
 });

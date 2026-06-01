@@ -1,5 +1,6 @@
 import { ScrollView, View, Pressable, Text, StyleSheet } from 'react-native';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 export type SegmentTab<K extends string> = { key: K; label: string };
 
@@ -14,6 +15,8 @@ type Props<K extends string> = {
 // chip. Switches content via onChange; it does NOT navigate. Shared by the
 // Profile sub-tabs and the Search sub-tabs (styling matches components/Tabs.tsx).
 export function SegmentTabs<K extends string>({ tabs, active, onChange, counts }: Props<K>) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View>
       <ScrollView
@@ -53,7 +56,7 @@ export function SegmentTabs<K extends string>({ tabs, active, onChange, counts }
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', gap: 22, paddingHorizontal: pad, paddingBottom: 10 },
   tab: {
     flexDirection: 'row',

@@ -4,11 +4,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useShowViewers } from '@/api/useShowViewers';
 import { PersonRow } from '@/components/PersonRow';
 import { ChevronLeftIcon } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 // People who watched or are watching this show — a follow-discovery surface
 // (followed-to-top, each row followable). Distinct from the Reviews tab.
 export default function Viewers() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data, isLoading, isError } = useShowViewers(Number(id));
   const people = data ?? [];
@@ -40,8 +43,8 @@ export default function Viewers() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

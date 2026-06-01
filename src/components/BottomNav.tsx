@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, type } from '@/theme';
+import { type, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { HomeIcon, ActivityIcon, LogIcon, SearchIcon, ProfileIcon } from '@/components/icons';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { useAuth } from '@/lib/auth';
@@ -20,6 +21,8 @@ const ITEMS: { tab: NavTab; label: string; href: string; Icon: React.ComponentTy
 ];
 
 export function BottomNav({ active }: { active: NavTab }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { session } = useAuth();
   const [logMenuOpen, setLogMenuOpen] = useState(false);
 
@@ -40,7 +43,10 @@ export function BottomNav({ active }: { active: NavTab }) {
               style={styles.item}
               onPress={() => {
                 if (tab === 'log') { setLogMenuOpen(true); return; } // opens the menu, not a route
-                router.push(target as any);
+                // replace, not push: tabs are roots, so switching one shouldn't
+                // stack onto the swipe-back history (you'd "swipe back" through
+                // tabs). Detail screens still push (and gain swipe-back).
+                router.replace(target as any);
               }}
             >
               <Icon color={color} size={24} />
@@ -68,11 +74,12 @@ export function BottomNav({ active }: { active: NavTab }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   bar: {
     flexDirection: 'row',
     height: 84,
-    backgroundColor: colors.white,
+    // `surface`: the nav bar is an elevated chrome surface above the screen.
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.hairline,
     paddingTop: 10,

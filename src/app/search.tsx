@@ -3,17 +3,21 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTrendingShows } from '@/api/useTrendingShows';
+import { useShowsByGenre } from '@/api/useShowsByGenre';
 import { useSearchShows } from '@/api/useSearchShows';
 import { useSearchPeople } from '@/api/useSearchPeople';
 import { useDebounce } from '@/lib/useDebounce';
 import { useRecentSearches, type RecentSearch } from '@/lib/useRecentSearches';
+import { genreName } from '@/lib/genres';
 import { SearchInput } from '@/components/SearchInput';
 import { SegmentTabs, type SegmentTab } from '@/components/SegmentTabs';
+import { GenreChips } from '@/components/GenreChips';
 import { ShowResultRow } from '@/components/ShowResultRow';
 import { PersonRow } from '@/components/PersonRow';
 import { ShowRowsSkeleton, PersonRowsSkeleton } from '@/components/Skeletons';
 import { BottomNav } from '@/components/BottomNav';
-import { colors, type, pad, radius } from '@/theme';
+import { type, pad, radius, type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 
 type SearchTabKey = 'shows' | 'people' | 'lists';
 const SEARCH_TABS: SegmentTab<SearchTabKey>[] = [
@@ -26,6 +30,7 @@ const SEARCH_TABS: SegmentTab<SearchTabKey>[] = [
 // hit shows outside the seeded set — tapping one routes to /show/[id] where
 // get-show lazily fetches + caches it.
 export default function Search() {
+  const styles = useThemedStyles(makeStyles);
   // Deep-link targets: Home's "follow people" prompt → ?tab=people; the FAB's
   // "Review or log" → ?log=1 (taps route to the composer instead of show detail).
   const { tab: tabParam, log } = useLocalSearchParams<{ tab?: string; log?: string }>();
@@ -37,6 +42,9 @@ export default function Search() {
   // Recent searches show only while the search bar is focused; Trending is the
   // default before you tap in.
   const [focused, setFocused] = useState(false);
+  // Selected genre chip (null = All → trending). Browse-by-genre on the empty
+  // Shows state; single-select for v1.
+  const [genre, setGenre] = useState<number | null>(null);
 
   // The DEBOUNCED value is what drives the search hooks (queryKey + enabled) —
   // so we hit the network on pause, not per keystroke.
@@ -44,6 +52,9 @@ export default function Search() {
   const searching = debouncedQuery.trim().length > 0;
 
   const trending = useTrendingShows(); // slim trending (direct shows_cache read)
+  // Genre browse — same slim cache read, filtered. Only runs on the Shows tab
+  // with a genre selected (off-tab / All → disabled, no fetch).
+  const genreShows = useShowsByGenre(tab === 'shows' ? genre : null);
   const { recents, add: addRecent, clear: clearRecents } = useRecentSearches();
   // Each search is gated to its tab so we don't fetch the other tab's results.
   const showsQuery = useSearchShows(tab === 'shows' ? debouncedQuery : '');
@@ -73,10 +84,19 @@ export default function Search() {
         {tab === 'shows' &&
           (searching ? (
             <ShowResults query={showsQuery} onActivate={() => addRecent(query, 'shows')} logMode={logMode} />
-          ) : focused && recents.length > 0 ? (
-            <RecentSearches recents={recents} onPick={pickRecent} onClear={clearRecents} />
           ) : (
-            <Trending query={trending} logMode={logMode} />
+            // Empty-box browse state: genre chips on top, then either the
+            // genre-filtered set, recent searches (when focused), or trending.
+            <>
+              <GenreChips selected={genre} onSelect={setGenre} />
+              {genre !== null ? (
+                <GenreResults query={genreShows} genreId={genre} logMode={logMode} />
+              ) : focused && recents.length > 0 ? (
+                <RecentSearches recents={recents} onPick={pickRecent} onClear={clearRecents} />
+              ) : (
+                <Trending query={trending} logMode={logMode} />
+              )}
+            </>
           ))}
         {tab === 'people' && (
           <PeopleResults
@@ -104,6 +124,7 @@ function RecentSearches({
   onPick: (r: RecentSearch) => void;
   onClear: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View>
       <View style={styles.recentHeader}>
@@ -133,6 +154,7 @@ function RecentSearches({
 // Trending (default Shows state when there's no search history). Data arrives
 // normalized to SearchShowResult, so rows render identically to search rows.
 function Trending({ query, logMode }: { query: ReturnType<typeof useTrendingShows>; logMode?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t load trending.</Text>;
   if (query.isLoading) return <ShowRowsSkeleton />;
   const items = query.data ?? [];
@@ -140,6 +162,36 @@ function Trending({ query, logMode }: { query: ReturnType<typeof useTrendingShow
   return (
     <View>
       <Text style={styles.sectionLabel}>Trending</Text>
+      {items.map((it) => (
+        <ShowResultRow key={it.tmdb_show_id} item={it} logMode={logMode} />
+      ))}
+    </View>
+  );
+}
+
+// Genre browse results — same row + routing as Trending, just a filtered set.
+// The empty copy is honest about being cache-bound (the cue to add /discover if
+// a genre reads too thin).
+function GenreResults({
+  query,
+  genreId,
+  logMode,
+}: {
+  query: ReturnType<typeof useShowsByGenre>;
+  genreId: number;
+  logMode?: boolean;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const name = genreName(genreId);
+  if (query.isError) return <Text style={styles.muted}>Couldn&apos;t load {name}.</Text>;
+  if (query.isLoading) return <ShowRowsSkeleton />;
+  const items = query.data ?? [];
+  if (items.length === 0) {
+    return <Text style={styles.muted}>No {name} shows in the catalog yet.</Text>;
+  }
+  return (
+    <View>
+      <Text style={styles.sectionLabel}>{name}</Text>
       {items.map((it) => (
         <ShowResultRow key={it.tmdb_show_id} item={it} logMode={logMode} />
       ))}
@@ -156,6 +208,7 @@ function ShowResults({
   onActivate: () => void;
   logMode?: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t search shows.</Text>;
   if (query.isLoading) return <ShowRowsSkeleton />;
   const results = query.data?.results ?? [];
@@ -180,6 +233,7 @@ function PeopleResults({
   searching: boolean;
   onActivate: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   if (!searching) return <Text style={styles.muted}>Search for people by username.</Text>;
   if (query.isError) return <Text style={styles.muted}>Couldn&apos;t search people.</Text>;
   if (query.isLoading) return <PersonRowsSkeleton />;
@@ -194,8 +248,8 @@ function PeopleResults({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   center: { padding: pad },
   sectionLabel: {
     fontFamily: type.subhead.fontFamily,

@@ -4,7 +4,8 @@ import {
   type GestureResponderEvent, type LayoutChangeEvent,
 } from 'react-native';
 import { Stars } from '@/components/Stars';
-import { colors, fonts } from '@/theme';
+import { fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Props = {
   value: number | null;
@@ -20,6 +21,8 @@ const STAR_SIZE = 36;
 //   - Drag past the left edge → preview = 0 → release clears the rating.
 //   - Release → commit preview to onChange.
 export function RatingPicker({ value, onChange }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const [rowWidth, setRowWidth] = useState(0);
   const [preview, setPreview] = useState<number | null>(null);
   // Did this gesture actually touch a measured row? Guards the rowWidth=0
@@ -75,7 +78,7 @@ export function RatingPicker({ value, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: { alignItems: 'center', paddingVertical: 18 },
   row: { flexDirection: 'row' },
   caption: {

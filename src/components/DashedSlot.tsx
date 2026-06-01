@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fonts } from '@/theme';
+import { fonts, type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 
 type Props = { n: number; width: number };
 
@@ -12,6 +13,7 @@ type Props = { n: number; width: number };
 // dash/gap lengths the spec calls for (dash 5 / gap 4). Acceptable for v1;
 // upgrade to a react-native-svg dashed rect if the fidelity ever matters.
 export function DashedSlot({ n, width }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const height = width * 1.5; // 2:3, matches <Poster> so filled/empty slots align
   return (
     <View style={[styles.slot, { width, height }]}>
@@ -20,7 +22,7 @@ export function DashedSlot({ n, width }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   slot: {
     borderRadius: 8,
     backgroundColor: colors.field,

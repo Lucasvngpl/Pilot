@@ -13,10 +13,13 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { StarIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { TmdbSeason, TmdbEpisode } from '@/types';
 
 export default function Seasons() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
@@ -138,6 +141,8 @@ function CompactHeader({
   posterPath?: string | null;
   tmdbShowId: number;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.compact}>
       <Poster
@@ -162,8 +167,8 @@ function CompactHeader({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   compact: { flexDirection: 'row', paddingHorizontal: pad, paddingBottom: 12 },
   compactSub: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   metaRow: {

@@ -1,7 +1,8 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { colors, fonts, pad24 } from '@/theme';
+import { fonts, pad24, type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { TVIllustration } from '@/components/TVIllustration';
 import { useRequireAuth } from '@/lib/requireAuth';
@@ -9,6 +10,7 @@ import { useRequireAuth } from '@/lib/requireAuth';
 // Auth Landing. The "Log in" button uses the same global LoginSheet that
 // per-action mutation gates open — one sheet, one code path.
 export default function AuthLanding() {
+  const styles = useThemedStyles(makeStyles);
   const requireAuth = useRequireAuth();
 
   return (
@@ -58,8 +60,8 @@ export default function AuthLanding() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   container: { flex: 1, paddingHorizontal: pad24 },
 
   wordmark: {

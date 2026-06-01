@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { router } from 'expo-router';
 import { useShowSheet } from '@/lib/showSheet';
 import { Skeleton } from '@/components/Skeleton';
-import { colors, fonts, radius } from '@/theme';
+import { fonts, radius, type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 import { tmdbImage } from '@/types';
 
 type Props = {
@@ -25,6 +26,7 @@ function sizeFor(width: number): 'w185' | 'w342' | 'w500' {
 }
 
 export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const openSheet = useShowSheet(); // long-press → quick actions, no navigation
   const height = width * 1.5;
   const uri = tmdbImage(posterPath, sizeFor(width));
@@ -61,6 +63,7 @@ export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }
 // fade lands on grey, not a white flash. `onError` also clears the skeleton so a
 // failed image doesn't pulse forever.
 function PosterImage({ uri, width, height }: { uri: string; width: number; height: number }) {
+  const styles = useThemedStyles(makeStyles);
   const [loaded, setLoaded] = useState(false);
   return (
     <View style={[styles.imageWrap, { width, height }]}>
@@ -77,7 +80,7 @@ function PosterImage({ uri, width, height }: { uri: string; width: number; heigh
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   imageWrap: { borderRadius: radius.md, backgroundColor: colors.field, overflow: 'hidden' },
   placeholder: {
     backgroundColor: colors.cream,

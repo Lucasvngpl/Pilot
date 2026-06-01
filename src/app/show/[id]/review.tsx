@@ -17,7 +17,8 @@ import { TextField } from '@/components/TextField';
 import { Skeleton } from '@/components/Skeleton';
 import { Button } from '@/components/Button';
 import { ChevronLeftIcon, CheckIcon } from '@/components/icons';
-import { colors, fonts, pad24, radius } from '@/theme';
+import { fonts, pad24, radius, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { formatScope } from '@/types';
 import type { TmdbSeason } from '@/types';
 
@@ -33,6 +34,8 @@ type ScopeKind = 'show' | 'season' | 'episode';
 // The rating writes publicly immediately (ratings have no draft state); only the
 // review BODY is held back by a draft.
 export default function ReviewComposer() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id, reviewId } = useLocalSearchParams<{ id: string; reviewId?: string }>();
   const tmdbShowId = Number(id);
   const isEdit = !!reviewId;
@@ -222,7 +225,7 @@ export default function ReviewComposer() {
                         }}
                         style={[styles.segItem, scopeKind === k && styles.segItemActive]}
                       >
-                        <Text style={[styles.segText, { color: scopeKind === k ? colors.white : colors.ink }]}>
+                        <Text style={[styles.segText, { color: scopeKind === k ? colors.background : colors.ink }]}>
                           {k === 'show' ? 'Show' : k === 'season' ? 'Season' : 'Episode'}
                         </Text>
                       </Pressable>
@@ -245,7 +248,7 @@ export default function ReviewComposer() {
                           onPress={() => setEpisode(ep.episode_number)}
                           style={[styles.epChip, episode === ep.episode_number && styles.epChipActive]}
                         >
-                          <Text style={[styles.epChipText, { color: episode === ep.episode_number ? colors.white : colors.ink }]}>
+                          <Text style={[styles.epChipText, { color: episode === ep.episode_number ? colors.background : colors.ink }]}>
                             E{ep.episode_number}
                           </Text>
                         </Pressable>
@@ -300,8 +303,8 @@ export default function ReviewComposer() {
 
 const FAIL_MSG = "Something went wrong. Your text is still here — check your connection and try again.";
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -333,7 +336,7 @@ const styles = StyleSheet.create({
   epRow: { flexDirection: 'row', gap: 8, paddingVertical: 8 },
   epChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill,
-    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.hairline,
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.hairline,
   },
   epChipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   epChipText: { fontFamily: fonts.medium, fontSize: 13 },

@@ -1,5 +1,6 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, type } from '@/theme';
+import { type, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { StarIcon, TrendUpIcon } from '@/components/icons';
 import { AvatarCluster } from '@/components/AvatarCluster';
 
@@ -13,6 +14,8 @@ type Props = {
 
 // Letterboxd-style social compact: rating · viewers · popularity. 34px gap.
 export function StatRow({ rating, viewers, viewerAvatars = [], onViewersPress, popularity }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const viewerCount = viewers ?? 0;
   // Render min(3, viewers) circles; the first ones are followed-viewer faces
   // (from viewerAvatars), the rest fall back to gray placeholders.
@@ -48,6 +51,8 @@ export function StatRow({ rating, viewers, viewerAvatars = [], onViewersPress, p
 }
 
 function Stat({ value, label, icon }: { value: string; label: string; icon: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.cell}>
       <View style={styles.top}>
@@ -66,7 +71,7 @@ function formatK(n: number) {
   return String(n);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 34 },
   cell: { alignItems: 'center' },
   top: { flexDirection: 'row', alignItems: 'center' },

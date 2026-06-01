@@ -3,7 +3,8 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { FollowButton } from '@/components/FollowButton';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { PersonResult } from '@/types';
 
 // A person row — People search, Following/Followers, and the show Viewers list.
@@ -18,6 +19,8 @@ export function PersonRow({
   onActivate?: () => void; // fired before navigation — used to record a recent search
   showFollow?: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   return (
     <Pressable
@@ -49,7 +52,7 @@ export function PersonRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: pad, paddingVertical: 10 },
   avatar: { width: 48, height: 48, borderRadius: 24 },
   text: { flex: 1 },

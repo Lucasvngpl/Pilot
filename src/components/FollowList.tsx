@@ -4,13 +4,16 @@ import { router } from 'expo-router';
 import { useFollowList } from '@/api/useFollowList';
 import { PersonRow } from '@/components/PersonRow';
 import { ChevronLeftIcon } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Kind = 'following' | 'followers';
 
 // Following / Followers list screen — back + title header, then tappable
 // PersonRows. Shared by /user/[id]/following and /user/[id]/followers.
 export function FollowList({ userId, kind }: { userId: string; kind: Kind }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { data, isLoading, isError } = useFollowList(userId, kind);
   const title = kind === 'following' ? 'Following' : 'Followers';
   const people = data ?? [];
@@ -44,8 +47,8 @@ export function FollowList({ userId, kind }: { userId: string; kind: Kind }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,6 +1,7 @@
 // SeasonPills — horizontally scrollable pill row for picking a season; active pill is ink-filled, inactive is outlined.
 import { ScrollView, Pressable, Text, StyleSheet } from 'react-native';
-import { colors, type, radius, pad } from '@/theme';
+import { type, radius, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 type Props = {
   seasons: number[];
@@ -9,6 +10,8 @@ type Props = {
 };
 
 export function SeasonPills({ seasons, active, onChange }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <ScrollView
       horizontal
@@ -25,7 +28,9 @@ export function SeasonPills({ seasons, active, onChange }: Props) {
           >
             <Text style={[
               isActive ? type.pillActive : type.pillInactive,
-              { color: isActive ? colors.white : colors.ink },
+              // Active pill is ink-filled (inverts to light in dark), so the
+              // label tracks `background` to stay contrasting in both modes.
+              { color: isActive ? colors.background : colors.ink },
             ]}>
               Season {n}
             </Text>
@@ -36,9 +41,9 @@ export function SeasonPills({ seasons, active, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, paddingHorizontal: pad, paddingVertical: 12 },
   pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill },
   active:   { backgroundColor: colors.ink },
-  inactive: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.hairline },
+  inactive: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.hairline },
 });

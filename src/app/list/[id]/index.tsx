@@ -14,10 +14,13 @@ import { Skeleton } from '@/components/Skeleton';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
 import { shareList } from '@/lib/share';
-import { colors, type, pad, fonts, radius } from '@/theme';
+import { type, pad, fonts, radius, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { ListDetail, ListShowItem } from '@/types';
 
 export default function ListDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -168,6 +171,8 @@ export default function ListDetailScreen() {
 }
 
 function RankedRow({ rank, item }: { rank: number; item: ListShowItem }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   // Subtitle = "network · year" when we have them, else nothing (title carries it).
   const subtitle = [item.network, item.year].filter(Boolean).join(' · ');
   return (
@@ -202,8 +207,8 @@ function formatCreated(iso: string): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
 
   controls: {
     flexDirection: 'row',

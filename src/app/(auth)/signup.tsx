@@ -2,7 +2,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { colors, fonts, pad24 } from '@/theme';
+import { fonts, pad24, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { ChevronLeftIcon } from '@/components/icons';
@@ -12,6 +13,8 @@ import { useAuth } from '@/lib/auth';
 // Same form vocabulary as the Login Sheet so the visual treatment is
 // cohesive.
 export default function SignUp() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,6 +100,8 @@ export default function SignUp() {
 }
 
 function ConfirmSent({ email }: { email: string }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View>
       <Text style={styles.title}>Check your email</Text>
@@ -109,8 +114,8 @@ function ConfirmSent({ email }: { email: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: { paddingHorizontal: pad24, paddingVertical: 8 },
   body: {
     paddingHorizontal: pad24,

@@ -1,6 +1,7 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Sheet } from '@/components/Sheet';
-import { colors, fonts, pad } from '@/theme';
+import { fonts, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 export type MenuAction = { label: string; destructive?: boolean; onPress: () => void };
 
@@ -11,6 +12,8 @@ type Props = { visible: boolean; onClose: () => void; actions: MenuAction[] };
 // it. Tapping an action closes the sheet first, then runs it (so a follow-up
 // navigation or confirm Alert appears cleanly over the dismissed sheet).
 export function ActionMenuSheet({ visible, onClose, actions }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   // Size the sheet to its rows (+ the Cancel row) instead of the 560 default.
   const height = actions.length * 58 + 58 + 96;
 
@@ -34,7 +37,7 @@ export function ActionMenuSheet({ visible, onClose, actions }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { paddingVertical: 17, paddingHorizontal: pad, alignItems: 'center' },
   label: { fontFamily: fonts.medium, fontSize: 16, color: colors.ink },
   hairline: { height: 1, backgroundColor: colors.hairline },

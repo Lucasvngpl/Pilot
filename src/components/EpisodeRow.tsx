@@ -1,6 +1,7 @@
 // EpisodeRow — single episode list item: number, title, runtime, TMDb rating, and a tappable watched-toggle checkmark.
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { StarIcon, CheckIcon } from '@/components/icons';
 
 type Props = {
@@ -13,6 +14,8 @@ type Props = {
 };
 
 export function EpisodeRow({ number, title, runtimeMin, rating, watched, onToggle }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.row}>
       <Text style={[type.epNum, { color: watched ? colors.ink : colors.faint, width: 24 }]}>
@@ -48,7 +51,7 @@ export function EpisodeRow({ number, title, runtimeMin, rating, watched, onToggl
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

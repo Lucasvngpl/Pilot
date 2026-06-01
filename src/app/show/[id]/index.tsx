@@ -18,12 +18,15 @@ import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { UserRatingCard } from '@/components/UserRatingCard';
 import { ShowDetailSkeleton } from '@/components/ShowDetailSkeleton';
-import { colors, type, pad, fonts, radius } from '@/theme';
+import { type, pad, fonts, radius, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { formatScope, type GetReviewsResponse } from '@/types';
 
 type ReviewItem = GetReviewsResponse['reviews'][number];
 
 export default function ShowDetail() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
@@ -219,6 +222,7 @@ export default function ShowDetail() {
                 likes={r.likes}
                 tmdbShowId={tmdbShowId}
                 posterPath={data.catalog.poster_path}
+                onPress={() => router.push(`/review/${r.id}` as any)}
                 onMenu={user && r.user_id === user.id ? () => setMenuReview(r) : undefined}
               />
             ))
@@ -286,8 +290,8 @@ function formatAirDate(iso?: string): string | null {
   return `${MONTHS[m - 1]} ${d}`;
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   heroWrap: { alignItems: 'center', marginTop: 16 },
   meta: { fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginTop: 10 },
   tagline: {

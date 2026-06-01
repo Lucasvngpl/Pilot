@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { colors } from '@/theme';
+import { type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 
 // Tap-to-enlarge avatar lightbox: a dim full-screen scrim with the avatar
 // centered. Tap anywhere to dismiss. Modal (not the Sheet overlay) so it covers
@@ -15,6 +16,7 @@ export function AvatarViewer({
   visible: boolean;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
   if (!uri) return null;
   const size = Math.min(width - 72, 320);
@@ -38,6 +40,6 @@ export function AvatarViewer({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   scrim: { flex: 1, backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center' },
 });

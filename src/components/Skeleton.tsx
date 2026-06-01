@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radius as themeRadius } from '@/theme';
+import { radius as themeRadius } from '@/theme';
+import { useTheme } from '@/lib/theme';
 
 // A pulsing gray placeholder block — the building block of skeleton screens.
 // React Native has no CSS, so the "shimmer" is an opacity loop driven natively
@@ -19,6 +20,7 @@ export function Skeleton({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { colors } = useTheme();
   // 0.5 → 1 → 0.5 forever. useNativeDriver so it animates off the JS thread.
   const opacity = useRef(new Animated.Value(0.5)).current;
 

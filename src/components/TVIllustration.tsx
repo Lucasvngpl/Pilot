@@ -1,10 +1,11 @@
 import Svg, { Rect, Line, Path, Circle } from 'react-native-svg';
-import { colors } from '@/theme';
+import { useTheme } from '@/lib/theme';
 
 // Placeholder for the eventual Procreate hand-drawn TV character.
 // Simple line-art: rectangle TV body, screen inside, V-stand, antennae,
 // purple power dot. Ink stroke 3 per spec.
 export function TVIllustration({ size = 180 }: { size?: number }) {
+  const { colors } = useTheme();
   return (
     <Svg width={size} height={size} viewBox="0 0 180 180" fill="none">
       {/* Antennae (drawn first so they sit behind the body) */}

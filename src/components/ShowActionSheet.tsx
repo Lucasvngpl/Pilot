@@ -12,7 +12,8 @@ import {
 import { useRequireAuth } from '@/lib/requireAuth';
 import { useRate } from '@/api/useRate';
 import { useSetWatchStatus } from '@/api/useSetWatchStatus';
-import { colors, fonts, pad } from '@/theme';
+import { fonts, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { WatchStatus } from '@/types';
 
 type Props = {
@@ -28,6 +29,7 @@ type Props = {
 export function ShowActionSheet({
   visible, onClose, tmdbShowId, currentStatus, currentRating,
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const requireAuth = useRequireAuth();
   const { setStatus } = useSetWatchStatus(tmdbShowId);
   const { rate } = useRate(tmdbShowId);
@@ -89,6 +91,8 @@ function ActionRow({
   label: string;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable style={styles.row} onPress={onPress}>
       <Icon color={colors.ink} size={22} />
@@ -97,7 +101,7 @@ function ActionRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   pillsRow: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: pad },
   hairline: { height: 1, backgroundColor: colors.hairline },
   row: {

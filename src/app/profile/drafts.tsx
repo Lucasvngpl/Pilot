@@ -11,13 +11,16 @@ import { ReviewRow } from '@/components/ReviewRow';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { formatScope, type MyReviewEntry } from '@/types';
 
 // IMPORTANT: useDraftReviews must only ever run for the SIGNED-IN user (it's
 // is_draft=true, and RLS does NOT hide drafts from others — see 0007). The row
 // that links here is own-only, and we pass our own user.id.
 export default function Drafts() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { data: drafts, isLoading } = useDraftReviews(user?.id);
   const { data: myProfile } = useProfile(user?.id);
@@ -64,24 +67,24 @@ export default function Drafts() {
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {drafts.map((d) => (
-            // Whole row → composer (continue editing). The inner ⋯ / read-more
-            // pressables claim their own taps; everything else opens the composer.
-            <Pressable key={d.id} onPress={() => openComposer(d)}>
-              <ReviewRow
-                username={username}
-                displayName={profile?.display_name}
-                avatarUri={profile?.avatar_url ?? undefined}
-                showTitle={d.showName}
-                seasonLine={formatScope(d.season_number, d.episode_number)}
-                rating={d.rating ?? 0}
-                body={d.body || 'No text yet — tap to keep writing.'}
-                containsSpoilers={d.contains_spoilers}
-                likes={d.likes}
-                tmdbShowId={d.tmdb_show_id}
-                posterPath={d.posterPath}
-                onMenu={() => setMenuDraft(d)}
-              />
-            </Pressable>
+            // Tapping the body opens the composer (continue editing) — drafts go
+            // there, NOT to the public /review page. The ⋯ menu claims its own tap.
+            <ReviewRow
+              key={d.id}
+              username={username}
+              displayName={profile?.display_name}
+              avatarUri={profile?.avatar_url ?? undefined}
+              showTitle={d.showName}
+              seasonLine={formatScope(d.season_number, d.episode_number)}
+              rating={d.rating ?? 0}
+              body={d.body || 'No text yet — tap to keep writing.'}
+              containsSpoilers={d.contains_spoilers}
+              likes={d.likes}
+              tmdbShowId={d.tmdb_show_id}
+              posterPath={d.posterPath}
+              onPress={() => openComposer(d)}
+              onMenu={() => setMenuDraft(d)}
+            />
           ))}
         </ScrollView>
       )}
@@ -102,8 +105,8 @@ export default function Drafts() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

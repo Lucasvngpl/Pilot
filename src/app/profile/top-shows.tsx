@@ -13,7 +13,8 @@ import { SearchInput } from '@/components/SearchInput';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
 import { ChevronLeftIcon, CloseIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { SearchShowResult } from '@/types';
 
 const MAX = 4;
@@ -24,6 +25,8 @@ type Staged = { tmdb_show_id: number; name: string; poster_path: string | null }
 // slot 1) — no reorder UI in v1; remove + re-add to change order. Reuses the
 // /list/new picker pattern (search → "+" to stage → removable rows).
 export default function TopShowsEdit() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const myId = user?.id;
   const { data: existing } = useTopShows(myId);
@@ -142,8 +145,8 @@ export default function TopShowsEdit() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

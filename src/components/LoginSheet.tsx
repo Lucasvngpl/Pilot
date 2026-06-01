@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, fonts, pad24 } from '@/theme';
+import { fonts, pad24, type Palette } from '@/theme';
+import { useThemedStyles } from '@/lib/theme';
 import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
@@ -11,6 +12,7 @@ type Props = { visible: boolean; onClose: () => void };
 // Globally-mounted login sheet. Both the auth landing's "Log in" button and
 // per-action mutation gates open this single instance via useRequireAuth().
 export function LoginSheet({ visible, onClose }: Props) {
+  const styles = useThemedStyles(makeStyles);
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,7 +80,7 @@ export function LoginSheet({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   sheetTitle: {
     fontFamily: fonts.bold,
     fontSize: 18,

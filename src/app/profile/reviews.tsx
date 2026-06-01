@@ -10,7 +10,8 @@ import { ReviewRow } from '@/components/ReviewRow';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon } from '@/components/icons';
-import { colors, type, pad } from '@/theme';
+import { type, pad, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { formatScope, type MyReviewEntry } from '@/types';
 
 // Reviews = the signed-in user's own posted reviews, newest first. The "Reviews"
@@ -18,6 +19,8 @@ import { formatScope, type MyReviewEntry } from '@/types';
 // uses); every review here is yours, so each row gets the ⋯ menu to edit (reuses
 // the show's review composer, scope locked) or delete. Posters tap to each show.
 export default function MyReviews() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { data: reviews, isLoading } = useMyReviews(user?.id);
   const { data: myProfile } = useProfile(user?.id);
@@ -76,6 +79,7 @@ export default function MyReviews() {
               tmdbShowId={r.tmdb_show_id}
               posterPath={r.posterPath}
               posterPressable
+              onPress={() => router.push(`/review/${r.id}` as any)}
               onMenu={() => setMenuReview(r)}
             />
           ))}
@@ -108,8 +112,8 @@ export default function MyReviews() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
