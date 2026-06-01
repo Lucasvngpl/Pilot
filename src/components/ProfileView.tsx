@@ -14,6 +14,7 @@ import { useMyLists } from '@/api/useLists';
 import { useTopShows } from '@/api/useTopShows';
 import { useDraftReviews } from '@/api/useMyReviews';
 import { Poster } from '@/components/Poster';
+import { Skeleton } from '@/components/Skeleton';
 import { BottomNav } from '@/components/BottomNav';
 import { FollowButton } from '@/components/FollowButton';
 import { AvatarViewer } from '@/components/AvatarViewer';
@@ -24,9 +25,10 @@ import { DashedSlot } from '@/components/DashedSlot';
 import { ProfileSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
-  CalendarIcon, ReviewBadgeIcon, DraftIcon,
+  CalendarIcon, ReviewBadgeIcon, DraftIcon, SunIcon, MoonIcon,
 } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, radius, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { CurrentlyWatchingCard, ShowCard, ListSummary } from '@/types';
 
 const TOP_N = 4; // four favorites fit one row with no horizontal scroll
@@ -41,6 +43,8 @@ type Variant = 'own' | 'other';
  *  - other: back button, Follow button (when not yourself), no sheet/nav/Diary.
  */
 export function ProfileView({ userId, variant }: { userId: string; variant: Variant }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { user } = useAuth();
   const myId = user?.id;
   const isOwn = variant === 'own';
@@ -57,7 +61,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   // zero per-tab spinner.
   const { data: watched } = useWatchedShows(userId);
   const { data: watchlist } = useWatchlist(userId);
-  const { data: topShows } = useTopShows(userId);
+  const { data: topShows, isLoading: topLoading } = useTopShows(userId);
   const { data: lists, isLoading: listsLoading } = useMyLists(userId);
   // Drafts are OWN-ONLY — never fetch another user's. is_draft=true is NOT hidden
   // by RLS (see 0007), so passing undefined for other profiles keeps the query
@@ -77,9 +81,13 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
               <Pressable hitSlop={8}>
                 <ShareIcon color={colors.ink} size={22} />
               </Pressable>
-              <Pressable hitSlop={8} onPress={() => router.push('/settings' as any)}>
-                <GearIcon color={colors.ink} size={22} />
-              </Pressable>
+              {/* Right cluster: theme toggle sits just LEFT of the gear. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                <ThemeToggle />
+                <Pressable hitSlop={8} onPress={() => router.push('/settings' as any)}>
+                  <GearIcon color={colors.ink} size={22} />
+                </Pressable>
+              </View>
             </>
           ) : (
             <Pressable hitSlop={8} onPress={() => router.back()}>
@@ -128,9 +136,13 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
               <Pressable hitSlop={8}>
                 <ShareIcon color={colors.ink} size={22} />
               </Pressable>
-              <Pressable hitSlop={8} onPress={() => router.push('/settings' as any)}>
-                <GearIcon color={colors.ink} size={22} />
-              </Pressable>
+              {/* Right cluster: theme toggle sits just LEFT of the gear. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                <ThemeToggle />
+                <Pressable hitSlop={8} onPress={() => router.push('/settings' as any)}>
+                  <GearIcon color={colors.ink} size={22} />
+                </Pressable>
+              </View>
             </>
           ) : (
             <>
@@ -196,6 +208,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
           <ProfileBody
             watching={watching ?? []}
             topShows={topShows ?? []}
+            topLoading={topLoading}
             isOwn={isOwn}
             draftCount={draftCount}
           />
@@ -214,19 +227,37 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   );
 }
 
+// Header quick-flip between light/dark. Shows the OPPOSITE mode's icon (a moon in
+// light → "go dark", a sun in dark → "go light"). Tapping sets an EXPLICIT manual
+// preference; the 3-way System option lives in Settings › Appearance. Outline
+// icon tinted `ink` (textPrimary) to match the share/gear icons it sits beside.
+function ThemeToggle() {
+  const { mode, setPref, colors } = useTheme();
+  const isDark = mode === 'dark';
+  return (
+    <Pressable hitSlop={8} onPress={() => setPref(isDark ? 'light' : 'dark')}>
+      {isDark ? <SunIcon color={colors.ink} size={22} /> : <MoonIcon color={colors.ink} size={22} />}
+    </Pressable>
+  );
+}
+
 // ----- Profile tab body -----------------------------------------------------
 
 function ProfileBody({
   watching,
   topShows,
+  topLoading,
   isOwn,
   draftCount,
 }: {
   watching: CurrentlyWatchingCard[];
   topShows: ShowCard[];
+  topLoading: boolean;
   isOwn: boolean;
   draftCount: number;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { width: screenW } = useWindowDimensions();
   const slotW = Math.floor((screenW - pad * 2 - GAP * (TOP_N - 1)) / TOP_N);
 
@@ -251,18 +282,27 @@ function ProfileBody({
           />
           <View style={styles.topRow}>
             {isOwn
-              ? // 4 fixed slots: poster if filled, else a tappable dashed slot → editor.
+              ? // 4 fixed slots. Filled → poster. Still loading → a poster-shaped
+                // skeleton (NOT the dashed "add" slot — otherwise a user WITH a
+                // Top 4 sees empty numbered slots flash before their posters land).
+                // Loaded + genuinely empty → the tappable dashed slot → editor.
                 Array.from({ length: TOP_N }).map((_, i) => {
                   const show = topShows[i];
-                  return show ? (
-                    <Poster
-                      key={show.tmdb_show_id}
-                      tmdbShowId={show.tmdb_show_id}
-                      posterPath={show.poster_path}
-                      name={show.name}
-                      width={slotW}
-                    />
-                  ) : (
+                  if (show) {
+                    return (
+                      <Poster
+                        key={show.tmdb_show_id}
+                        tmdbShowId={show.tmdb_show_id}
+                        posterPath={show.poster_path}
+                        name={show.name}
+                        width={slotW}
+                      />
+                    );
+                  }
+                  if (topLoading) {
+                    return <Skeleton key={`sk-${i}`} width={slotW} height={slotW * 1.5} radius={radius.md} />;
+                  }
+                  return (
                     <Pressable key={`slot-${i}`} onPress={() => router.push('/profile/top-shows' as any)}>
                       <DashedSlot n={i + 1} width={slotW} />
                     </Pressable>
@@ -327,6 +367,8 @@ function ProfileBody({
 }
 
 function WatchingCard({ card }: { card: CurrentlyWatchingCard }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={{ width: 112 }}>
       <View>
@@ -348,6 +390,8 @@ function WatchingCard({ card }: { card: CurrentlyWatchingCard }) {
 }
 
 function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.sectionHead}>
       <Text style={[type.profileSection, { color: colors.ink }]}>{title}</Text>
@@ -370,6 +414,8 @@ function RecordRow({
   count?: number; // optional badge (e.g. Drafts 2); hidden at 0
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <Pressable style={styles.recordRow} onPress={onPress}>
       <View style={styles.recordIcon}>{icon}</View>
@@ -395,6 +441,8 @@ function ListsBody({
   isLoading: boolean;
   isOwn: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const items = lists;
   return (
     <View style={{ paddingTop: 4 }}>
@@ -414,8 +462,8 @@ function ListsBody({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
 
   actionRow: {
     height: 54,

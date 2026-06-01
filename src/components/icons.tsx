@@ -286,6 +286,33 @@ export function ChevronRightIcon({ color = '#000', size = 24 }: Props) {
   );
 }
 
+// Sun — the "switch to light" affordance, shown in the header WHILE in dark mode.
+// Center disc + 8 rays. Outline only, to match the gear/share header icons.
+export function SunIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={4} stroke={color} strokeWidth={1.6} />
+      <Path
+        d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.1 5.1 L6.8 6.8 M17.2 17.2 L18.9 18.9 M18.9 5.1 L17.2 6.8 M6.8 17.2 L5.1 18.9"
+        stroke={color} strokeWidth={1.6} strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+// Moon — the "switch to dark" affordance, shown in the header WHILE in light mode.
+// A single crescent path (outer arc minus an inner arc).
+export function MoonIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 12.8 A9 9 0 1 1 11.2 3 A7 7 0 0 0 21 12.8 Z"
+        stroke={color} strokeWidth={1.6} strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // Up / down chevrons — the per-row reorder arrows in the list editor.
 export function ChevronUpIcon({ color = '#000', size = 22 }: Props) {
   return (

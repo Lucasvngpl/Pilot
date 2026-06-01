@@ -72,13 +72,35 @@ Auto-injected env vars in every function: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `
 - `src/api/*` hooks wrap `supabase.functions.invoke(...)` in TanStack Query (5-min default `staleTime`).
 - `src/types.ts` is the single source of truth for response shapes. `tmdbImage(path, size)` is the only correct way to build TMDb image URLs — don't string-concat.
 
-## Theme system
+## Theme system (light + dark)
 
-`src/theme.ts` exports `colors`, `fonts`, `radius`, `pad`, and **`type`** (named type styles). Values are exact tokens from the Figma design spec — don't ad-hoc them. Spread type styles + apply color alongside:
+`src/theme.ts` exports `fonts`, `radius`, `pad`, **`type`** (named type styles), and two **palettes** — `lightColors` / `darkColors` (same keys, a `Palette` type). Values are exact tokens from the Figma spec — don't ad-hoc them. `type`/`fonts`/`radius`/`pad` carry **no color** and are imported statically as before.
+
+**Colors are read at RENDER time, never baked into a module-level StyleSheet.** Dark mode switches *live*; `StyleSheet.create` copies a color's value once at module load, so a static `import { colors }` can't re-theme. Get the active palette from `src/lib/theme.tsx`:
 
 ```tsx
-<Text style={[type.statValue, { color: colors.ink }]}>4.6</Text>
+import { type, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
+
+export function Card() {
+  const styles = useThemedStyles(makeStyles);       // themed StyleSheet
+  const { colors } = useTheme();                     // for inline colors in JSX
+  return <Text style={[type.statValue, { color: colors.ink }]}>4.6</Text>;
+}
+// factory param is named `colors` so the StyleSheet body reads identically:
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  card: { backgroundColor: colors.surface },
+});
 ```
+
+`useTheme()` also gives `{ mode, pref, setPref }` (pref = `'light' | 'dark' | 'system'`, persisted in AsyncStorage `pilot.themePref.v1`). The header sun/moon (`ProfileView`) is a 2-way quick flip; Settings › Appearance is the 3-way control. There's one global `<StatusBar>` in `_layout.tsx` that flips its content color with `mode`; banner screens keep a local `<StatusBar style="light" />`.
+
+**Token roles when picking one** (the palette is semantic-ish, with a few overloaded names — get these right or dark mode breaks):
+- `background` / `surface` / `surface2` — screen / card+sheet / secondary backgrounds. Screen roots → `background`; elevated overlays (sheets, the nav bar) → `surface`.
+- `ink` — primary text/icons **and** active-control fills. FLIPS dark→light, so a selected pill/chip on an `ink` fill inverts for free — but its **label** must then track `background` (not fixed `white`), else it vanishes on the inverted light fill (see `FollowButton`, `Button`, `SeasonPills`, `GenreChips`).
+- `white` — FIXED `#FFFFFF`. Use ONLY for a foreground on a *saturated* fill (label/icon on a purple button). Never a background.
+- `bannerInk` — FIXED dark; the always-dark hero banners (list + review).
+- `gold`/`green`/`red` — FIXED (stars / FRESH / popularity; read fine on dark).
 
 Don't restate `fontFamily` / `fontSize` per component.
 
@@ -153,6 +175,8 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 - Draft reviews
 - Should be able to track what Im curerntly watching and hwta others are currently watching and what I and others have liked, watched
 - Should be able to specify watched/watching on not just show but also season and episode scope.
+- Eventually more social of course like comment section and recommednations and recommending to your friends and sharing taste profile to insta
+- Should be hyper clear that you can have lists and keep track of shows across ALL 3 scopes not just show scope and eventually even including actors/characters to lists (also behind premium)
 
 ## Down the road (deferred features)
 
@@ -160,7 +184,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 
 - **Episode/season-scoped list items** — lists hold whole shows only today. To hold seasons/episodes, `list_items` needs the polymorphic scope the other social tables use (nullable `season_number`/`episode_number` + `UNIQUE NULLS NOT DISTINCT`), plus picker drill-down + episode/season render variants. Migration + UI.
 - **Lists polish** — reorder + ranked lists (`is_ranked` column exists, unused); public/private (Pilot's first private data → a column + read-scoping RLS); tags; the Search screen's Lists sub-tab (list _search_). _(Rename/edit a list after creation: **done** — `/list/new?edit=`.)_
-- **Reviews** — likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`; **Report** on others' reviews. _(Edit/delete your own review: **done** — `⋯` → ActionMenuSheet, edit reuses the composer with locked scope. **Review drafts: done** — `reviews.is_draft` (0007); composer has Save draft / Publish; drafts surface only in Profile › Drafts and are filtered from EVERY public review query; publishing is one-way; `useDraftReviews` is own-only since RLS doesn't hide drafts.)_
+- **Reviews** — likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`; **Report** on others' reviews. _(Edit/delete your own review: **done** — `⋯` → ActionMenuSheet, edit reuses the composer with locked scope. **Review drafts: done** — `reviews.is_draft` (0007); composer has Save draft / Publish; drafts surface only in Profile › Drafts and are filtered from EVERY public review query; publishing is one-way; `useDraftReviews` is own-only since RLS doesn't hide drafts. **Full single-review page: done** — `/review/[id]` (`useReviewDetail`); tapping a review row opens it (backdrop banner + poster + reviewer + stars + date + full body); published-only (drafts → composer); the inline "Read more" expand in `ReviewRow` was retired in favor of it.)_
 - **Profile** — _(Top-4 favorites picker: **done** — `/profile/top-shows`, add-order; reorder-via-arrows deferred to post-TestFlight per [[ship-simplest-cut-gestures]]. Diary: **done** — `/profile/diary`, event-level watched log.)_ Remaining: nothing major on Profile itself.
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
 - **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.
@@ -168,9 +192,14 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - episode/season-scoped list items
 - Tell the people which network to watch it on
 - Be able to change to a different poster of the show like they rcently added on Letterboxd for free
+- be able to put date on when you saw the show
+- can also add which series are nominated for popular awards - GGlobes, Emmy’s etc.
 - Steal letterboxd's premium subscription features, the following are premium featrues
 - Connect to streaming services by mcp so it shows when youve watched the show?
+- Notif when friends pushed out new review
 - Watchlist Notifications: Get email or push notifications when movies on your watchlist are added to your preferred streaming platforms?
+- Clearer distinction between shows tab and strictly done watched tab
+  - Should be able to specify watched/watching on not just show but also season and episode scope.
 - Advanced Statistics: Unlocks personalized, real-time insights into your all-time and annual viewing habits. This includes breakdowns of your favorite genres, most-watched actors, average ratings by decade, and a world map of the countries your films originate from.
 - Visual Perks: Access to custom app icons (iOS) like widgets
 - Ultimate Customization: Choose custom posters and backdrops for your profile, favorites, lists, reviews, and diary entries. You can also select specific images for any cast or crew member.
@@ -183,6 +212,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - iPad version
 - Adding how many times someone rewatched something to it adds to time watching TV without having to log it sperately so in their profile it can track time watching TV
 - Hold down on poster to see options
+- Notif when new episode comes out
 
 ## Workflow Orchestration
 

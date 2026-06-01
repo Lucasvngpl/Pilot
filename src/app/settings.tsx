@@ -15,11 +15,14 @@ import { uploadAvatar } from '@/lib/uploadAvatar';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
 import { ChevronLeftIcon } from '@/components/icons';
-import { colors, type, pad, fonts } from '@/theme';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 
 const BIO_MAX = 160; // matches the DB `profiles_bio_len` check
 
 export default function Settings() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors, pref, setPref } = useTheme();
   const { user, signOut } = useAuth();
   const userId = user?.id;
   const qc = useQueryClient();
@@ -149,7 +152,9 @@ export default function Settings() {
             )}
             <View style={styles.avatarBadge}>
               {avatarBusy ? (
-                <ActivityIndicator color={colors.white} size="small" />
+                // Spinner sits on the ink badge (which inverts to light in dark),
+                // so it tracks `background` like the "Edit" label — not fixed white.
+                <ActivityIndicator color={colors.background} size="small" />
               ) : (
                 <Text style={styles.avatarBadgeText}>Edit</Text>
               )}
@@ -187,6 +192,31 @@ export default function Settings() {
           <Button label="Update profile" onPress={onSave} disabled={!dirty} loading={isPending} />
         </View>
 
+        {/* Appearance — the explicit 3-way theme preference. 'System' follows the
+            OS; Light/Dark are manual overrides. The Profile header's sun/moon is a
+            2-way quick flip into Light/Dark; this is where you get back to System. */}
+        <View style={styles.appearanceSection}>
+          <Text style={styles.sectionLabel}>Appearance</Text>
+          <View style={styles.segment}>
+            {(['system', 'light', 'dark'] as const).map((opt) => {
+              const active = pref === opt;
+              return (
+                <Pressable
+                  key={opt}
+                  style={[styles.segmentItem, active && styles.segmentItemActive]}
+                  onPress={() => setPref(opt)}
+                >
+                  {/* Active item is ink-filled → label tracks `background` to stay
+                      legible after the fill inverts in dark mode. */}
+                  <Text style={[styles.segmentText, { color: active ? colors.background : colors.ink }]}>
+                    {opt === 'system' ? 'System' : opt === 'light' ? 'Light' : 'Dark'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         <View style={styles.signOutSection}>
           <Button label="Sign out" variant="secondary" onPress={signOut} />
         </View>
@@ -204,6 +234,8 @@ function validateUsername(u: string): string | null {
 }
 
 function NavBar() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={styles.nav}>
       <Pressable onPress={() => router.back()} hitSlop={8}>
@@ -215,8 +247,8 @@ function NavBar() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.white },
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -236,13 +268,16 @@ const styles = StyleSheet.create({
     height: 24,
     paddingHorizontal: 8,
     borderRadius: 12,
+    // The badge fill is `ink` (inverts to light in dark) — its ring + label must
+    // invert too: a `background`-colored ring cuts it out of the avatar, and the
+    // label flips to dark so it stays legible on the now-light badge.
     backgroundColor: colors.ink,
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarBadgeText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.white },
+  avatarBadgeText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.background },
 
   helper: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint },
   fieldHint: {
@@ -250,6 +285,17 @@ const styles = StyleSheet.create({
     marginTop: -8, marginBottom: 14, marginLeft: 2,
   },
   fieldError: { color: colors.red },
+
+  appearanceSection: { marginTop: 28 },
+  sectionLabel: {
+    fontFamily: fonts.semibold, fontSize: 13, color: colors.muted, marginBottom: 8,
+  },
+  // iOS-style segmented control: a `field` track with the active segment lifted
+  // out on an `ink` fill (which inverts in dark, like the other active controls).
+  segment: { flexDirection: 'row', backgroundColor: colors.field, borderRadius: 10, padding: 3 },
+  segmentItem: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
+  segmentItemActive: { backgroundColor: colors.ink },
+  segmentText: { fontFamily: fonts.semibold, fontSize: 14 },
 
   signOutSection: {
     marginTop: 28,
