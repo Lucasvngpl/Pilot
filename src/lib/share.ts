@@ -26,3 +26,29 @@ export async function shareList(list: { id: string; title: string }): Promise<vo
     // Share dismissed or failed — nothing to recover.
   }
 }
+
+// Deep link to a single review — same default-with-override discipline as
+// listShareUrl: repoint this one function when a public web review URL exists.
+export function reviewShareUrl(reviewId: string): string {
+  return `pilot://review/${reviewId}`;
+}
+
+// Share a review via the native sheet — "{who}'s review of {show} on Pilot" + the
+// link. Not owner-gated; any published review is public, so anyone can share it.
+export async function shareReview(review: {
+  id: string;
+  showName: string;
+  username: string;
+  display_name: string | null;
+}): Promise<void> {
+  const url = reviewShareUrl(review.id);
+  const who = review.display_name ?? review.username;
+  try {
+    await Share.share({
+      message: `${who}'s review of ${review.showName} on Pilot\n${url}`,
+      title: `${review.showName} — review`,
+    });
+  } catch {
+    // Share dismissed or failed — nothing to recover.
+  }
+}

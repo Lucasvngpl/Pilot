@@ -32,6 +32,8 @@ export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCar
       tmdb_show_id: row.tmdb_show_id,
       name: payload?.name ?? 'Untitled',
       poster_path: payload?.poster_path ?? null,
+      // Surfaced for the review-detail hero. Harmless elsewhere (optional field).
+      backdrop_path: payload?.backdrop_path ?? null,
     });
   }
 
@@ -60,6 +62,7 @@ export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCar
         tmdb_show_id: f.id,
         name: f.catalog?.name ?? 'Untitled',
         poster_path: f.catalog?.poster_path ?? null,
+        backdrop_path: f.catalog?.backdrop_path ?? null,
       });
     }
   }

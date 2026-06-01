@@ -132,10 +132,14 @@ export type ProfileRow = {
 
 // A show "card" for grids/shelves — the minimal catalog fields we read from
 // shows_cache, optionally decorated with per-user overlays below.
+// `backdrop_path` is OPTIONAL: only `fetchShowCards` populates it (for the
+// review-detail hero), so the many places that build a card by hand don't all
+// have to start supplying it.
 export type ShowCard = {
   tmdb_show_id: number;
   name: string;
   poster_path: string | null;
+  backdrop_path?: string | null;
 };
 
 export type WatchedCard = ShowCard & {
@@ -220,6 +224,29 @@ export type MyReviewEntry = {
   posterPath: string | null;
   rating: number | null; // the user's rating for this exact scope, if any
   likes: number;
+};
+
+// One review opened in full on /review/[id]. Composes the review row, the
+// reviewer's identity, the rating for THIS exact scope, and the show card
+// (incl. backdrop for the hero) — everything the page renders in one shape.
+// Published only: useReviewDetail filters drafts out, so this never carries one.
+export type ReviewDetail = {
+  id: string;
+  user_id: string;
+  tmdb_show_id: number;
+  season_number: number | null;
+  episode_number: number | null;
+  body: string;
+  contains_spoilers: boolean;
+  created_at: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  likes: number;
+  rating: number | null; // the reviewer's rating for this exact scope, if any
+  showName: string;
+  posterPath: string | null;
+  backdropPath: string | null;
 };
 
 // ----- Search --------------------------------------------------------------
