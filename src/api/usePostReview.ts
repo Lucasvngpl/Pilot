@@ -9,6 +9,7 @@ type Args = {
   episode_number: number | null;
   body: string;
   contains_spoilers: boolean;
+  is_draft: boolean; // true = unpublished draft (filtered from all public queries)
 };
 
 // Review TEXT only. INSERT (reviews allow multiple per scope — no upsert).
@@ -24,9 +25,11 @@ export function usePostReview(tmdbShowId: number) {
   const mutation = useMutation({
     mutationFn: async (args: Args) => {
       if (!user) throw new Error('usePostReview: no authenticated user');
-      // Blank body = a rating-only "log" — no review row. (reviews.body has a
-      // length>0 CHECK at migration line 183; a blank insert would 23514.)
-      if (!args.body.trim()) return;
+      // A PUBLISHED rating-only "log" writes no review row (reviews.body has a
+      // length>0 CHECK). A DRAFT may be empty — 0007 relaxed the CHECK to
+      // `is_draft OR length(body) > 0` — so a rating-only draft still gets a row
+      // and shows up in your Drafts.
+      if (!args.is_draft && !args.body.trim()) return;
 
       const { error } = await supabase.from('reviews').insert({
         user_id: user.id,
@@ -35,6 +38,7 @@ export function usePostReview(tmdbShowId: number) {
         episode_number: args.episode_number,
         body: args.body.trim(),
         contains_spoilers: args.contains_spoilers,
+        is_draft: args.is_draft,
       });
       if (error) throw error;
     },
@@ -49,8 +53,9 @@ export function usePostReview(tmdbShowId: number) {
       qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
       // A review paints the review badge on the Profile "Shows" tile → refetch it.
       qc.invalidateQueries({ queryKey: ['watched'] });
-      // A new review shows up in Profile › Your record → Reviews.
+      // A new review shows up in Profile › Your record → Reviews (or Drafts).
       qc.invalidateQueries({ queryKey: ['myReviews'] });
+      qc.invalidateQueries({ queryKey: ['drafts'] });
     },
   });
 

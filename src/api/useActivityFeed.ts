@@ -54,6 +54,7 @@ export function useActivityFeed() {
         supabase.from('reviews')
           .select('id, user_id, tmdb_show_id, season_number, episode_number, body, contains_spoilers, created_at')
           .in('user_id', followees)
+          .eq('is_draft', false) // never surface a followee's drafts in the feed
           .order('created_at', { ascending: false }).limit(SRC_LIMIT),
         supabase.from('lists')
           .select('id, user_id, title, created_at')

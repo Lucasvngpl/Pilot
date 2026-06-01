@@ -53,7 +53,7 @@ export function useDiary(userId: string | undefined) {
         fetchShowCards(ids), // name + poster (lazy-caches any uncached show)
         supabase.from('shows_cache').select('tmdb_show_id, year:payload->>first_air_date').in('tmdb_show_id', ids),
         supabase.from('ratings').select('tmdb_show_id, season_number, episode_number, score').eq('user_id', id).in('tmdb_show_id', ids),
-        supabase.from('reviews').select('tmdb_show_id, season_number, episode_number').eq('user_id', id).in('tmdb_show_id', ids),
+        supabase.from('reviews').select('tmdb_show_id, season_number, episode_number').eq('user_id', id).eq('is_draft', false).in('tmdb_show_id', ids),
       ]);
 
       const yearByShow = new Map<number, string | null>();

@@ -12,6 +12,7 @@ import { useWatchedShows } from '@/api/useWatchedShows';
 import { useWatchlist } from '@/api/useWatchlist';
 import { useMyLists } from '@/api/useLists';
 import { useTopShows } from '@/api/useTopShows';
+import { useDraftReviews } from '@/api/useMyReviews';
 import { Poster } from '@/components/Poster';
 import { BottomNav } from '@/components/BottomNav';
 import { FollowButton } from '@/components/FollowButton';
@@ -23,7 +24,7 @@ import { DashedSlot } from '@/components/DashedSlot';
 import { ProfileSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
-  CalendarIcon, ReviewBadgeIcon,
+  CalendarIcon, ReviewBadgeIcon, DraftIcon,
 } from '@/components/icons';
 import { colors, type, pad, fonts } from '@/theme';
 import type { CurrentlyWatchingCard, ShowCard, ListSummary } from '@/types';
@@ -58,6 +59,11 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   const { data: watchlist } = useWatchlist(userId);
   const { data: topShows } = useTopShows(userId);
   const { data: lists, isLoading: listsLoading } = useMyLists(userId);
+  // Drafts are OWN-ONLY — never fetch another user's. is_draft=true is NOT hidden
+  // by RLS (see 0007), so passing undefined for other profiles keeps the query
+  // disabled there; the Drafts row only renders on your own profile anyway.
+  const { data: drafts } = useDraftReviews(isOwn ? userId : undefined);
+  const draftCount = drafts?.length ?? 0;
 
   // Initial load → skeleton, so we don't flash empty fallbacks ("user", 0
   // counts, blank grids) before the profile data lands. Keep the nav affordance
@@ -191,6 +197,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
             watching={watching ?? []}
             topShows={topShows ?? []}
             isOwn={isOwn}
+            draftCount={draftCount}
           />
         )}
         {tab === 'shows' && <PosterGrid items={watched ?? []} emptyText="No watched shows yet." />}
@@ -213,10 +220,12 @@ function ProfileBody({
   watching,
   topShows,
   isOwn,
+  draftCount,
 }: {
   watching: CurrentlyWatchingCard[];
   topShows: ShowCard[];
   isOwn: boolean;
+  draftCount: number;
 }) {
   const { width: screenW } = useWindowDimensions();
   const slotW = Math.floor((screenW - pad * 2 - GAP * (TOP_N - 1)) / TOP_N);
@@ -304,6 +313,12 @@ function ProfileBody({
               label="Reviews"
               onPress={() => router.push('/profile/reviews' as any)}
             />
+            <RecordRow
+              icon={<DraftIcon color={colors.ink} size={22} />}
+              label="Drafts"
+              count={draftCount}
+              onPress={() => router.push('/profile/drafts' as any)}
+            />
           </View>
         </>
       )}
@@ -347,16 +362,23 @@ function SectionHeader({ title, right }: { title: string; right?: React.ReactNod
 function RecordRow({
   icon,
   label,
+  count,
   onPress,
 }: {
   icon: React.ReactNode;
   label: string;
+  count?: number; // optional badge (e.g. Drafts 2); hidden at 0
   onPress: () => void;
 }) {
   return (
     <Pressable style={styles.recordRow} onPress={onPress}>
       <View style={styles.recordIcon}>{icon}</View>
       <Text style={[type.reviewTitle, { color: colors.ink, flex: 1 }]}>{label}</Text>
+      {count != null && count > 0 && (
+        <View style={styles.recordBadge}>
+          <Text style={styles.recordBadgeText}>{count}</Text>
+        </View>
+      )}
       <ChevronRightIcon color={colors.faint} size={20} />
     </Pressable>
   );
@@ -454,6 +476,12 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   recordIcon: { width: 24, alignItems: 'center' },
+  recordBadge: {
+    minWidth: 22, height: 22, borderRadius: 11,
+    paddingHorizontal: 7, marginRight: 6,
+    backgroundColor: colors.field, alignItems: 'center', justifyContent: 'center',
+  },
+  recordBadgeText: { fontFamily: fonts.semibold, fontSize: 12, color: colors.muted },
 
   comingSoon: {
     fontFamily: type.reviewBody.fontFamily,

@@ -90,6 +90,7 @@ export type ReviewRow = {
   episode_number: number | null;
   body: string;
   contains_spoilers: boolean;
+  is_draft: boolean; // unpublished — filtered out of every public review query
   created_at: string;
 };
 

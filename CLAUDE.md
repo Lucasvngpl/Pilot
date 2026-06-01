@@ -150,7 +150,9 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 
 - Needs to run super fast and smooth
 - Core features need to work extremely well
+- Draft reviews
 - Should be able to track what Im curerntly watching and hwta others are currently watching and what I and others have liked, watched
+- Should be able to specify watched/watching on not just show but also season and episode scope.
 
 ## Down the road (deferred features)
 
@@ -158,7 +160,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 
 - **Episode/season-scoped list items** — lists hold whole shows only today. To hold seasons/episodes, `list_items` needs the polymorphic scope the other social tables use (nullable `season_number`/`episode_number` + `UNIQUE NULLS NOT DISTINCT`), plus picker drill-down + episode/season render variants. Migration + UI.
 - **Lists polish** — reorder + ranked lists (`is_ranked` column exists, unused); public/private (Pilot's first private data → a column + read-scoping RLS); tags; the Search screen's Lists sub-tab (list _search_). _(Rename/edit a list after creation: **done** — `/list/new?edit=`.)_
-- **Reviews** — likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`; **Report** on others' reviews. _(Edit/delete your own review: **done** — `⋯` → ActionMenuSheet, edit reuses the composer with locked scope.)_
+- **Reviews** — likes + comments (the `review_likes` table exists, unused by UI); see-all + popularity sort + pagination on `get-reviews`; **Report** on others' reviews. _(Edit/delete your own review: **done** — `⋯` → ActionMenuSheet, edit reuses the composer with locked scope. **Review drafts: done** — `reviews.is_draft` (0007); composer has Save draft / Publish; drafts surface only in Profile › Drafts and are filtered from EVERY public review query; publishing is one-way; `useDraftReviews` is own-only since RLS doesn't hide drafts.)_
 - **Profile** — _(Top-4 favorites picker: **done** — `/profile/top-shows`, add-order; reorder-via-arrows deferred to post-TestFlight per [[ship-simplest-cut-gestures]]. Diary: **done** — `/profile/diary`, event-level watched log.)_ Remaining: nothing major on Profile itself.
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
 - **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.

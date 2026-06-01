@@ -62,6 +62,7 @@ Deno.serve(async (req) => {
       .from('reviews')
       .select('*, profiles!reviews_user_id_fkey(username, display_name, avatar_url), review_likes(count)')
       .eq('tmdb_show_id', tmdb_show_id)
+      .eq('is_draft', false) // public Reviews tab never shows unpublished drafts
       .order('created_at', { ascending: false });
     if (error) throw error;
 

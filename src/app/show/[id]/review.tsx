@@ -8,13 +8,14 @@ import { useState, useEffect } from 'react';
 import { useShow } from '@/api/useShow';
 import { useRate } from '@/api/useRate';
 import { usePostReview } from '@/api/usePostReview';
-import { usePopularReviews } from '@/api/usePopularReviews';
-import { useUpdateReview } from '@/api/useReviewMutations';
+import { useReview } from '@/api/useReview';
+import { useUpdateReview, useDeleteReview } from '@/api/useReviewMutations';
 import { useRequireAuth } from '@/lib/requireAuth';
 import { RatingPicker } from '@/components/RatingPicker';
 import { SeasonPills } from '@/components/SeasonPills';
 import { TextField } from '@/components/TextField';
 import { Skeleton } from '@/components/Skeleton';
+import { Button } from '@/components/Button';
 import { ChevronLeftIcon, CheckIcon } from '@/components/icons';
 import { colors, fonts, pad24, radius } from '@/theme';
 import { formatScope } from '@/types';
@@ -22,20 +23,26 @@ import type { TmdbSeason } from '@/types';
 
 type ScopeKind = 'show' | 'season' | 'episode';
 
-// One screen, two modes:
-//  - CREATE (default): pick scope → rate + write a new review.
-//  - EDIT (?reviewId): pre-filled body/rating/spoiler; scope is LOCKED (shown as
-//    a label, not editable — moving a review's scope = delete + re-create). Saves
-//    body/spoiler via UPDATE and the rating via the same useRate as create.
+// Write/edit a review, with DRAFTS.
+//  - CREATE (default): pick scope → rate + write. Two actions: "Save draft"
+//    (is_draft=true, never public) and "Publish" (is_draft=false, goes live).
+//  - EDIT a DRAFT (?reviewId of a draft): pre-filled, scope LOCKED. "Save draft"
+//    keeps it a draft; "Publish" flips it live.
+//  - EDIT a PUBLISHED review: pre-filled, scope LOCKED. One "Save" — it stays
+//    published (publishing is one-way in v1; no revert-to-draft).
+// The rating writes publicly immediately (ratings have no draft state); only the
+// review BODY is held back by a draft.
 export default function ReviewComposer() {
   const { id, reviewId } = useLocalSearchParams<{ id: string; reviewId?: string }>();
   const tmdbShowId = Number(id);
   const isEdit = !!reviewId;
   const { data } = useShow(tmdbShowId);
-  const { data: reviewsData, isLoading: reviewsLoading } = usePopularReviews(tmdbShowId);
+  // Edit loads the review directly by id (works for drafts, which get-reviews now hides).
+  const { data: existingData, isLoading: reviewLoading } = useReview(reviewId);
   const { rate } = useRate(tmdbShowId);
   const { postReview } = usePostReview(tmdbShowId);
   const { update: updateReview } = useUpdateReview(tmdbShowId);
+  const { remove: deleteReview } = useDeleteReview();
   const requireAuth = useRequireAuth();
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
@@ -46,16 +53,17 @@ export default function ReviewComposer() {
   const [score, setScore] = useState<number | null>(null);
   const [body, setBody] = useState('');
   const [spoilers, setSpoilers] = useState(false);
-  const [posting, setPosting] = useState(false);
+  const [pending, setPending] = useState<'draft' | 'publish' | null>(null);
+  const posting = pending !== null;
 
-  // ----- Edit mode: find the review, pre-fill once, lock its scope -----------
-  const existing = isEdit ? reviewsData?.reviews.find((r) => r.id === reviewId) ?? null : null;
+  // ----- Edit mode: pre-fill once, lock its scope ----------------------------
+  const existing = existingData ?? null;
   const [seeded, setSeeded] = useState(false);
   useEffect(() => {
     if (isEdit && existing && !seeded) {
       setBody(existing.body);
       setSpoilers(existing.contains_spoilers);
-      setScore(existing.rating); // may be null (reviewed without a rating)
+      setScore(existing.rating); // may be null (rated without text, or neither yet)
       setSeeded(true);
     }
   }, [isEdit, existing, seeded]);
@@ -70,84 +78,100 @@ export default function ReviewComposer() {
       : formatScope(existing.season_number, existing.episode_number)
     : '';
 
-  // "Review or log": create can post with a body OR a rating (episode scope also
-  // needs an episode). Edit requires a non-empty body — the row exists and has a
-  // length>0 CHECK; to remove a review entirely, delete it from the ⋯ menu.
-  const episodeReady = scopeKind !== 'episode' || episode !== null;
-  const canPost = (body.trim().length > 0 || score !== null) && episodeReady && !posting;
-  const canSaveEdit = body.trim().length > 0 && !posting;
-  const canSubmit = isEdit ? canSaveEdit : canPost;
+  const isDraftEdit = isEdit && existing?.is_draft === true;
+  // New review OR editing a draft → offer Save draft + Publish. Editing an
+  // already-published review → a single Save (stays published).
+  const showDraftActions = !isEdit || isDraftEdit;
 
-  const episodesForSeason =
-    seasons.find((s) => s.season_number === season)?.episodes ?? [];
+  const episodeReady = isEdit ? true : scopeKind !== 'episode' || episode !== null;
+  const hasContent = body.trim().length > 0 || score !== null; // review-or-log
+  const canSaveDraft = hasContent && episodeReady && !posting;
+  const canPublish = hasContent && episodeReady && !posting;
+  const canSavePublished = body.trim().length > 0 && !posting; // published review needs text
 
-  const resolveScope = () => {
-    if (scopeKind === 'show') return { season_number: null, episode_number: null };
-    if (scopeKind === 'season') return { season_number: season, episode_number: null };
-    return { season_number: season, episode_number: episode };
-  };
+  const episodesForSeason = seasons.find((s) => s.season_number === season)?.episodes ?? [];
 
-  const onPost = async () => {
-    if (!canPost) return;
-    setPosting(true);
+  const resolveScope = () =>
+    scopeKind === 'show'
+      ? { season_number: null, episode_number: null }
+      : scopeKind === 'season'
+        ? { season_number: season, episode_number: null }
+        : { season_number: season, episode_number: episode };
+
+  // Rating writes publicly to the LOCKED scope (edit) or the picked scope (new).
+  // Returns false on dismissed login / write failure so we don't navigate away.
+  const writeRating = (scope: { season_number: number | null; episode_number: number | null }) =>
+    score !== null ? rate(score, scope) : Promise.resolve(true);
+
+  const onSaveDraft = async () => {
+    if (!canSaveDraft) return;
+    setPending('draft');
     try {
-      // Gate once up front so we don't risk two LoginSheets from the two writes.
-      const allowed = await requireAuth();
-      if (!allowed) return;
-      const scope = resolveScope();
-
-      // Only leave the screen if every write we attempted actually persisted.
-      // rate()/postReview() return false on failure instead of throwing, so the
-      // old code's unconditional router.back() silently discarded a failed
-      // review (dropped network = your text vanished, no error). Now we keep the
-      // user here with their text intact and surface the failure.
-      let ok = true;
-      if (score !== null) ok = await rate(score, scope);
-      if (ok && body.trim()) {
-        ok = await postReview({ ...scope, body, contains_spoilers: spoilers });
-      }
-
+      if (!(await requireAuth())) return;
+      const scope = isEdit ? lockedScope : resolveScope();
+      let ok = await writeRating(scope);
       if (ok) {
-        router.back();
-      } else {
-        Alert.alert(
-          "Couldn't post your review",
-          "Something went wrong saving it. Your text is still here — check your connection and try again.",
-        );
+        ok = isEdit
+          ? await updateReview(reviewId!, body, spoilers, true) // keep as draft
+          : await postReview({ ...scope, body, contains_spoilers: spoilers, is_draft: true });
       }
+      if (ok) router.back();
+      else Alert.alert("Couldn't save your draft", FAIL_MSG);
     } finally {
-      setPosting(false);
+      setPending(null);
     }
   };
 
-  const onSaveEdit = async () => {
-    if (!canSaveEdit || !existing) return;
-    setPosting(true);
+  const onPublish = async () => {
+    if (!canPublish) return;
+    setPending('publish');
     try {
-      const allowed = await requireAuth();
-      if (!allowed) return;
-      // Rating uses the LOCKED scope (same row the review belongs to).
-      let ok = true;
-      if (score !== null) ok = await rate(score, lockedScope);
-      if (ok) ok = await updateReview(reviewId!, body, spoilers);
-
+      if (!(await requireAuth())) return;
+      const scope = isEdit ? lockedScope : resolveScope();
+      let ok = await writeRating(scope);
       if (ok) {
-        router.back();
-      } else {
-        Alert.alert(
-          "Couldn't save your review",
-          "Something went wrong. Your text is still here — check your connection and try again.",
-        );
+        if (body.trim()) {
+          ok = isEdit
+            ? await updateReview(reviewId!, body, spoilers, false) // flip the draft live
+            : await postReview({ ...scope, body, contains_spoilers: spoilers, is_draft: false });
+        } else if (isDraftEdit) {
+          // Publishing a rating-only draft: no text to publish and the rating is
+          // already public, so just clear the empty draft row.
+          try {
+            await deleteReview(reviewId!, tmdbShowId);
+          } catch {
+            ok = false;
+          }
+        }
+        // (new + rating-only: the rating IS the public "log"; no review row.)
       }
+      if (ok) router.back();
+      else Alert.alert("Couldn't publish your review", FAIL_MSG);
     } finally {
-      setPosting(false);
+      setPending(null);
     }
   };
 
-  // In edit mode, hold the form until the review is found (cache is usually warm
-  // from the Reviews tab; cold deep-links fetch first).
-  const editLoading = isEdit && !seeded && reviewsLoading;
-  const editNotFound = isEdit && !seeded && !reviewsLoading && !existing;
+  const onSavePublished = async () => {
+    if (!canSavePublished) return;
+    setPending('publish');
+    try {
+      if (!(await requireAuth())) return;
+      let ok = await writeRating(lockedScope);
+      if (ok) ok = await updateReview(reviewId!, body, spoilers, false); // stays published
+      if (ok) router.back();
+      else Alert.alert("Couldn't save your review", FAIL_MSG);
+    } finally {
+      setPending(null);
+    }
+  };
+
+  // In edit mode, hold the form until the review loads (warm from the surface you
+  // came from; cold deep-links fetch first).
+  const editLoading = isEdit && !seeded && reviewLoading;
+  const editNotFound = isEdit && !seeded && !reviewLoading && !existing;
+
+  const navTitle = isEdit ? (existing?.is_draft ? 'Edit draft' : 'Edit review') : 'Write a review';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
@@ -155,25 +179,16 @@ export default function ReviewComposer() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <ChevronLeftIcon color={colors.ink} size={24} />
         </Pressable>
-        <Text style={styles.navTitle}>{isEdit ? 'Edit review' : 'Write a review'}</Text>
-        <Pressable onPress={isEdit ? onSaveEdit : onPost} hitSlop={8} disabled={!canSubmit}>
-          <Text style={[styles.post, { color: canSubmit ? colors.purple : colors.faint }]}>
-            {isEdit ? 'Save' : 'Post'}
-          </Text>
-        </Pressable>
+        <Text style={styles.navTitle}>{navTitle}</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           {data && <Text style={styles.showName}>{data.catalog.name}</Text>}
 
           {editLoading ? (
-            // Skeleton mirroring the edit form: scope label · rating · review
-            // field · spoiler row — so the composer holds its shape while the
-            // existing review loads, instead of a spinner on blank.
+            // Skeleton mirroring the edit form while the existing review loads.
             <View>
               <Skeleton width="55%" height={14} />
               <Skeleton width={160} height={30} style={{ marginTop: 22 }} />
@@ -189,8 +204,6 @@ export default function ReviewComposer() {
           ) : (
             <>
               {isEdit ? (
-                // Locked scope — show WHAT's being edited, read-only (not a
-                // disabled-looking control).
                 <Text style={styles.scopeLabel}>
                   Editing your review of <Text style={styles.scopeLabelStrong}>{scopeLabel}</Text>
                 </Text>
@@ -245,7 +258,7 @@ export default function ReviewComposer() {
               <RatingPicker value={score} onChange={setScore} />
 
               <TextField
-                label={isEdit ? 'Review' : 'Review (optional)'}
+                label={showDraftActions ? 'Review (optional)' : 'Review'}
                 value={body}
                 onChangeText={setBody}
                 placeholder="What did you think?"
@@ -261,10 +274,31 @@ export default function ReviewComposer() {
             </>
           )}
         </ScrollView>
+
+        {!editLoading && !editNotFound && (
+          <View style={styles.footer}>
+            {showDraftActions ? (
+              <>
+                <View style={styles.footerBtn}>
+                  <Button label="Save draft" variant="secondary" onPress={onSaveDraft} disabled={!canSaveDraft} loading={pending === 'draft'} />
+                </View>
+                <View style={styles.footerBtn}>
+                  <Button label="Publish" variant="primary" onPress={onPublish} disabled={!canPublish} loading={pending === 'publish'} />
+                </View>
+              </>
+            ) : (
+              <View style={styles.footerBtn}>
+                <Button label="Save" variant="primary" onPress={onSavePublished} disabled={!canSavePublished} loading={posting} />
+              </View>
+            )}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
+
+const FAIL_MSG = "Something went wrong. Your text is still here — check your connection and try again.";
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
@@ -276,7 +310,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   navTitle: { fontFamily: fonts.semibold, fontSize: 16, color: colors.ink },
-  post: { fontFamily: fonts.semibold, fontSize: 16 },
 
   body: { paddingHorizontal: pad24, paddingTop: 16, paddingBottom: 32 },
   showName: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, marginBottom: 16 },
@@ -313,4 +346,15 @@ const styles = StyleSheet.create({
   },
   checkboxOn: { backgroundColor: colors.purple, borderColor: colors.purple },
   spoilerLabel: { fontFamily: fonts.regular, fontSize: 14, color: colors.ink },
+
+  footer: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: pad24,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+  },
+  footerBtn: { flex: 1 },
 });

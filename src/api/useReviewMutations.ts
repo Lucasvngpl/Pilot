@@ -17,11 +17,16 @@ function useInvalidateReview(tmdbShowId: number) {
     qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
     qc.invalidateQueries({ queryKey: ['watched'] });
     qc.invalidateQueries({ queryKey: ['myReviews'] }); // Profile › Your record → Reviews
+    qc.invalidateQueries({ queryKey: ['drafts'] });    // …and Drafts (publish moves a row between them)
+    qc.invalidateQueries({ queryKey: ['review'] });    // the single-review cache the composer reads
   };
 }
 
-// Update one review's body + spoiler flag (by id). The body length>0 CHECK still
-// applies — the composer disables Save on an empty body, so we never send blank.
+// Update one review's body + spoiler flag + draft state (by id). Setting
+// `is_draft = false` IS the publish action (flip a draft live); `true` keeps it a
+// draft. Publishing is one-way in v1 — the composer never offers draft↔published
+// the other way for an already-published review. Body may be empty only while
+// it's a draft (the 0007 CHECK is `is_draft OR length(body) > 0`).
 export function useUpdateReview(tmdbShowId: number) {
   const { user } = useAuth();
   const requireAuth = useRequireAuth();
@@ -29,13 +34,13 @@ export function useUpdateReview(tmdbShowId: number) {
 
   const mutation = useMutation({
     mutationFn: async (
-      { reviewId, body, contains_spoilers }:
-        { reviewId: string; body: string; contains_spoilers: boolean },
+      { reviewId, body, contains_spoilers, is_draft }:
+        { reviewId: string; body: string; contains_spoilers: boolean; is_draft: boolean },
     ) => {
       if (!user) throw new Error('useUpdateReview: no authenticated user');
       const { error } = await supabase
         .from('reviews')
-        .update({ body: body.trim(), contains_spoilers })
+        .update({ body: body.trim(), contains_spoilers, is_draft })
         .eq('id', reviewId);
       if (error) throw error;
     },
@@ -44,11 +49,13 @@ export function useUpdateReview(tmdbShowId: number) {
 
   // Returns true if saved, false on dismissed login OR a write error (the composer
   // keeps the user's text + warns on false — mirrors usePostReview).
-  const update = async (reviewId: string, body: string, contains_spoilers: boolean): Promise<boolean> => {
+  const update = async (
+    reviewId: string, body: string, contains_spoilers: boolean, is_draft: boolean,
+  ): Promise<boolean> => {
     const allowed = await requireAuth();
     if (!allowed) return false;
     try {
-      await mutation.mutateAsync({ reviewId, body, contains_spoilers });
+      await mutation.mutateAsync({ reviewId, body, contains_spoilers, is_draft });
       return true;
     } catch {
       return false;

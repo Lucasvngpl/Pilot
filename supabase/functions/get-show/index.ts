@@ -149,7 +149,7 @@ async function fetchUserSocial(
     user.from('ratings').select('*')
       .eq('user_id', userId).eq('tmdb_show_id', tmdb_show_id),
     user.from('reviews').select('*')
-      .eq('user_id', userId).eq('tmdb_show_id', tmdb_show_id),
+      .eq('user_id', userId).eq('tmdb_show_id', tmdb_show_id).eq('is_draft', false),
   ]);
 
   return {

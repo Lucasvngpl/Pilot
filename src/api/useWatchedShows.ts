@@ -111,6 +111,7 @@ async function reviewedShowIds(userId: string, showIds: number[]): Promise<Set<n
     .from('reviews')
     .select('tmdb_show_id')
     .eq('user_id', userId)
+    .eq('is_draft', false) // a draft doesn't paint the "reviewed" badge
     .in('tmdb_show_id', showIds);
   if (error) throw error;
   for (const r of (data ?? []) as { tmdb_show_id: number }[]) out.add(r.tmdb_show_id);

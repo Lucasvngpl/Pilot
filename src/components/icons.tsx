@@ -185,17 +185,18 @@ export function ClockIcon({ color = '#000', size = 22 }: Props) {
   );
 }
 
-// Pencil-on-square for the "Review or log" action row.
+// Compose — a pencil on a rounded page, top-right corner left open so the pencil
+// reads as "exiting" it (the iOS square.and.pencil shape). Used for "Review or log".
 export function PencilSquareIcon({ color = '#000', size = 22 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 13 V20 H4 V5 H11"
-        stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" fill="none"
+        d="M13 4 H6.5 A2.5 2.5 0 0 0 4 6.5 V17.5 A2.5 2.5 0 0 0 6.5 20 H17.5 A2.5 2.5 0 0 0 20 17.5 V11"
+        stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
       />
       <Path
-        d="M15 3 L21 9 L12 18 L6 18 L6 12 Z"
-        stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" fill="none"
+        d="M18.7 3.3 L20.7 5.3 L11.5 14.5 L8.8 15.2 L9.5 12.5 Z"
+        stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
       />
     </Svg>
   );
@@ -321,6 +322,15 @@ export function CalendarIcon({ color = '#000', size = 22 }: Props) {
         d="M3.5 9.5 H20.5 M8 3.5 V6 M16 3.5 V6"
         stroke={color} strokeWidth={1.6} strokeLinecap="round"
       />
+    </Svg>
+  );
+}
+
+// Draft — a dashed page (an unfinished, unpublished review) for the Drafts row.
+export function DraftIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={4} y={4} width={16} height={16} rx={2} stroke={color} strokeWidth={1.6} strokeDasharray="3 3" />
     </Svg>
   );
 }
