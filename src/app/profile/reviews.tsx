@@ -1,27 +1,49 @@
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { useMyReviews } from '@/api/useMyReviews';
 import { useProfile } from '@/api/useProfile';
+import { useDeleteReview } from '@/api/useReviewMutations';
 import { ReviewRow } from '@/components/ReviewRow';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
+import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon } from '@/components/icons';
 import { colors, type, pad } from '@/theme';
-import { formatScope } from '@/types';
+import { formatScope, type MyReviewEntry } from '@/types';
 
 // Reviews = the signed-in user's own posted reviews, newest first. The "Reviews"
 // row in Profile › Your record. Reuses ReviewRow (same component the show screen
-// uses); the author is always you, so we pass your profile identity to every
-// row. Read-only here — edit/delete lives on the show's review screen (the
-// canonical place to manage a review). Posters tap through to each show.
+// uses); every review here is yours, so each row gets the ⋯ menu to edit (reuses
+// the show's review composer, scope locked) or delete. Posters tap to each show.
 export default function MyReviews() {
   const { user } = useAuth();
   const { data: reviews, isLoading } = useMyReviews(user?.id);
   const { data: myProfile } = useProfile(user?.id);
+  const { remove } = useDeleteReview();
+  // The review whose ⋯ menu is open (null = closed).
+  const [menuReview, setMenuReview] = useState<MyReviewEntry | null>(null);
 
   const profile = myProfile?.profile;
   const username = profile?.username ?? user?.email?.split('@')[0] ?? 'you';
+
+  const confirmDelete = (entry: MyReviewEntry) => {
+    Alert.alert('Delete review?', 'This permanently deletes your review.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await remove(entry.id, entry.tmdb_show_id);
+          } catch (e) {
+            Alert.alert("Couldn't delete", e instanceof Error ? e.message : 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -54,10 +76,34 @@ export default function MyReviews() {
               tmdbShowId={r.tmdb_show_id}
               posterPath={r.posterPath}
               posterPressable
+              onMenu={() => setMenuReview(r)}
             />
           ))}
         </ScrollView>
       )}
+
+      {/* Edit/Delete for the tapped review (all reviews here are yours). Edit
+          reuses the show's review composer with the scope locked. */}
+      <ActionMenuSheet
+        visible={!!menuReview}
+        onClose={() => setMenuReview(null)}
+        actions={
+          menuReview
+            ? [
+                {
+                  label: 'Edit review',
+                  onPress: () =>
+                    router.push(`/show/${menuReview.tmdb_show_id}/review?reviewId=${menuReview.id}` as any),
+                },
+                {
+                  label: 'Delete review',
+                  destructive: true,
+                  onPress: () => confirmDelete(menuReview),
+                },
+              ]
+            : []
+        }
+      />
     </SafeAreaView>
   );
 }

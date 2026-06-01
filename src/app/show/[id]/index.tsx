@@ -32,7 +32,7 @@ export default function ShowDetail() {
   const { data: myProfile } = useProfile(user?.id); // cached from the Profile screen
   const myAvatar = myProfile?.profile?.avatar_url ?? null;
   const myDisplayName = myProfile?.profile?.display_name ?? null;
-  const { remove } = useDeleteReview(tmdbShowId);
+  const { remove } = useDeleteReview();
   const [sheetOpen, setSheetOpen] = useState(false);
   // The own-review whose ⋯ menu is open (null = closed).
   const [menuReview, setMenuReview] = useState<ReviewItem | null>(null);
@@ -47,7 +47,7 @@ export default function ShowDetail() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await remove(reviewId);
+            await remove(reviewId, tmdbShowId);
           } catch (e) {
             Alert.alert("Couldn't delete", e instanceof Error ? e.message : 'Please try again.');
           }

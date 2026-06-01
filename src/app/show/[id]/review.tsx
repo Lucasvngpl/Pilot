@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, Pressable, ScrollView,
-  KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,6 +14,7 @@ import { useRequireAuth } from '@/lib/requireAuth';
 import { RatingPicker } from '@/components/RatingPicker';
 import { SeasonPills } from '@/components/SeasonPills';
 import { TextField } from '@/components/TextField';
+import { Skeleton } from '@/components/Skeleton';
 import { ChevronLeftIcon, CheckIcon } from '@/components/icons';
 import { colors, fonts, pad24, radius } from '@/theme';
 import { formatScope } from '@/types';
@@ -170,7 +171,19 @@ export default function ReviewComposer() {
           {data && <Text style={styles.showName}>{data.catalog.name}</Text>}
 
           {editLoading ? (
-            <ActivityIndicator color={colors.ink} style={{ paddingVertical: 24 }} />
+            // Skeleton mirroring the edit form: scope label · rating · review
+            // field · spoiler row — so the composer holds its shape while the
+            // existing review loads, instead of a spinner on blank.
+            <View>
+              <Skeleton width="55%" height={14} />
+              <Skeleton width={160} height={30} style={{ marginTop: 22 }} />
+              <Skeleton width={64} height={13} style={{ marginTop: 26 }} />
+              <Skeleton height={110} radius={radius.md} style={{ marginTop: 8 }} />
+              <View style={styles.editSkeletonSpoiler}>
+                <Skeleton width={22} height={22} radius={radius.sm} />
+                <Skeleton width={130} height={14} />
+              </View>
+            </View>
           ) : editNotFound ? (
             <Text style={styles.notFound}>Review not found.</Text>
           ) : (
@@ -269,6 +282,7 @@ const styles = StyleSheet.create({
   showName: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, marginBottom: 16 },
 
   scopeLabel: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, marginBottom: 16 },
+  editSkeletonSpoiler: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 26 },
   scopeLabelStrong: { fontFamily: fonts.semibold, color: colors.ink },
   notFound: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, paddingVertical: 24 },
 

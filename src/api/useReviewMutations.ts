@@ -58,19 +58,30 @@ export function useUpdateReview(tmdbShowId: number) {
   return { update, isPending: mutation.isPending };
 }
 
-// Delete one review (by id).
-export function useDeleteReview(tmdbShowId: number) {
+// Delete one review. The show id is a per-CALL arg (not per-hook) so a single
+// hook can delete reviews across DIFFERENT shows — the Profile "Reviews" list
+// spans many. The delete itself is by review id; the show id only targets which
+// ['reviews', id] / ['show', id] caches to invalidate.
+export function useDeleteReview() {
+  const qc = useQueryClient();
   const { user } = useAuth();
-  const invalidate = useInvalidateReview(tmdbShowId);
 
   const mutation = useMutation({
-    mutationFn: async (reviewId: string) => {
+    mutationFn: async ({ reviewId }: { reviewId: string; tmdbShowId: number }) => {
       if (!user) throw new Error('useDeleteReview: no authenticated user');
       const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
       if (error) throw error;
     },
-    onSettled: invalidate,
+    onSettled: (_data, _err, { tmdbShowId }) => {
+      qc.invalidateQueries({ queryKey: ['reviews', tmdbShowId] });
+      qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
+      qc.invalidateQueries({ queryKey: ['watched'] });
+      qc.invalidateQueries({ queryKey: ['myReviews'] });
+    },
   });
 
-  return { remove: mutation.mutateAsync, isPending: mutation.isPending };
+  const remove = (reviewId: string, tmdbShowId: number) =>
+    mutation.mutateAsync({ reviewId, tmdbShowId });
+
+  return { remove, isPending: mutation.isPending };
 }
