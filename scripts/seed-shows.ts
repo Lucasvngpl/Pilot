@@ -155,7 +155,12 @@ async function fetchPopularIds(targetCount: number): Promise<number[]> {
  * the all-in-one response can be huge for long-running shows.
  */
 async function fetchShowDetail(id: number): Promise<ShowDetail & { seasons: unknown[] }> {
-  const show = await tmdbGet<ShowDetail>(`/tv/${id}`);
+  // append_to_response folds credits + content ratings + watch providers +
+  // external_ids into the one /tv/{id} call (mirrors supabase/functions/_shared/
+  // tmdb.ts so seeded shows carry them from the start).
+  const show = await tmdbGet<ShowDetail>(`/tv/${id}`, {
+    append_to_response: 'credits,content_ratings,watch/providers,external_ids',
+  });
   await sleep(TMDB_DELAY_MS);
 
   const realSeasonNumbers = show.seasons

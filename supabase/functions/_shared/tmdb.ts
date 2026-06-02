@@ -46,9 +46,21 @@ export async function fetchShowDetail(id: number) {
     id: number;
     name: string;
     seasons: Array<{ season_number: number }>;
+    // append_to_response folds these sub-resources into the SAME /tv/{id} response
+    // (one request, not four extra calls) — they ride the `{ ...show }` spread
+    // into the cached payload:
+    //   credits         → cast/crew (Overview cast grid)
+    //   content_ratings → TV-MA / TV-14 etc. (the meta line)
+    //   watch/providers → where to stream, per country (JustWatch-sourced)
+    //   external_ids    → imdb_id, used to look up OMDb awards (see get-show)
+    credits?: { cast: unknown[]; crew: unknown[] };
+    content_ratings?: unknown;
+    external_ids?: { imdb_id?: string | null };
   };
 
-  const show = await tmdbGet<ShowDetail>(`/tv/${id}`);
+  const show = await tmdbGet<ShowDetail>(`/tv/${id}`, {
+    append_to_response: 'credits,content_ratings,watch/providers,external_ids',
+  });
   await sleep(DELAY_MS);
 
   const realSeasonNumbers = show.seasons

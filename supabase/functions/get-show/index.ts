@@ -50,10 +50,13 @@ Deno.serve(async (req) => {
 
     // 1. Catalog — admin client because we may need to write on stale.
     const admin = adminClient();
-    const catalog = await fetchOrRefresh(admin, tmdb_show_id);
-    if (!catalog) {
+    const baseCatalog = await fetchOrRefresh(admin, tmdb_show_id);
+    if (!baseCatalog) {
       return json({ error: 'show not found' }, 404);
     }
+    // Awards (OMDb) — TMDb's API has no awards, so we enrich the catalog with
+    // OMDb's freeform "Awards" string, looked up by IMDb id and cached in-place.
+    const catalog = await ensureAwards(admin, tmdb_show_id, baseCatalog);
 
     // 2. Social — caller's client, RLS-enforced.
     const user = userClient(req);
@@ -111,8 +114,16 @@ async function fetchOrRefresh(
     .eq('tmdb_show_id', tmdb_show_id)
     .maybeSingle();
 
+  // A payload cached before we appended the extra sub-resources lacks them; treat
+  // that as needing a refresh even if it's time-fresh, so they backfill on the
+  // FIRST view of each show (not whenever the 7-day window lapses). Self-healing:
+  // after one refetch the key is present, so it's fresh again. `external_ids` is
+  // the newest appended field, so its presence means "fetched with the current
+  // append shape" (credits + content_ratings + watch/providers + external_ids).
+  const hasLatest = !!(existing?.payload as { external_ids?: unknown } | null)?.external_ids;
   const isFresh = existing &&
-    Date.now() - new Date(existing.fetched_at).getTime() < STALE_AFTER_MS;
+    Date.now() - new Date(existing.fetched_at).getTime() < STALE_AFTER_MS &&
+    hasLatest;
 
   if (isFresh) return existing.payload;
 
@@ -133,6 +144,57 @@ async function fetchOrRefresh(
     // Better stale than broken.
     return existing?.payload ?? null;
   }
+}
+
+type OmdbState = { awards: string | null; tried: boolean };
+
+/**
+ * Enrich a catalog payload with OMDb's freeform "Awards" string — TMDb's API has
+ * no awards. Looked up by the show's IMDb id (from the appended external_ids) and
+ * cached IN the payload, so it's ~one OMDb call per show (not per view).
+ *
+ *  - Already attempted with a key (omdb.tried) → return as-is (no call).
+ *  - Key set → call OMDb, cache `{ awards, tried:true }`. "N/A"/errors → awards
+ *    null (still tried, so no pointless re-fetch for award-less shows).
+ *  - No OMDB_API_KEY yet → return a TRANSIENT `{tried:false}` WITHOUT persisting,
+ *    so it retries once the secret is set rather than caching "no awards".
+ *
+ * The omdb field is dropped whenever TMDb refreshes (7-day stale), so awards
+ * refresh alongside the catalog.
+ */
+async function ensureAwards(
+  admin: ReturnType<typeof adminClient>,
+  tmdb_show_id: number,
+  payload: unknown,
+): Promise<unknown> {
+  const p = payload as
+    | { omdb?: OmdbState; external_ids?: { imdb_id?: string | null } }
+    | null;
+  if (!p) return payload;
+  if (p.omdb?.tried) return payload;
+
+  const key = Deno.env.get('OMDB_API_KEY');
+  if (!key) {
+    // Not configured — surface no awards, but don't persist (retry once it's set).
+    return { ...p, omdb: { awards: null, tried: false } satisfies OmdbState };
+  }
+
+  const imdbId = p.external_ids?.imdb_id ?? null;
+  let awards: string | null = null;
+  if (imdbId) {
+    try {
+      const res = await fetch(`https://www.omdbapi.com/?i=${imdbId}&apikey=${key}`);
+      const data = await res.json();
+      awards = data?.Awards && data.Awards !== 'N/A' ? String(data.Awards) : null;
+    } catch (err) {
+      console.warn(`OMDb lookup failed for ${imdbId}:`, err);
+    }
+  }
+
+  const updated = { ...p, omdb: { awards, tried: true } satisfies OmdbState };
+  // Patch only this row's payload — no TMDb refetch needed.
+  await admin.from('shows_cache').update({ payload: updated }).eq('tmdb_show_id', tmdb_show_id);
+  return updated;
 }
 
 async function fetchUserSocial(
