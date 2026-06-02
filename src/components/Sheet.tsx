@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { type Palette } from '@/theme';
 import { useThemedStyles } from '@/lib/theme';
+import { useRegisterSheet } from '@/lib/sheetGesture';
 
 type Props = {
   visible: boolean;
@@ -29,6 +30,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // normally — fixing the old inner-Pressable interception.
 export function Sheet({ visible, onClose, children, height = 560 }: Props) {
   const styles = useThemedStyles(makeStyles);
+  // Count this sheet as open so the Stack drops back-swipe while it's up.
+  useRegisterSheet(visible);
   const progress = useRef(new Animated.Value(0)).current;
   // Lift the sheet above the on-screen keyboard. The sheet is pinned to
   // bottom:0, so without this the keyboard covers its lower half (the inputs +

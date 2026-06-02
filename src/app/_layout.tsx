@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { RequireAuthProvider } from '@/lib/requireAuth';
 import { ShowSheetProvider } from '@/lib/showSheet';
 import { ThemeProvider, useTheme } from '@/lib/theme';
+import { SheetGestureProvider, useAnySheetOpen } from '@/lib/sheetGesture';
 
 // One-way auth gate (Letterboxd-style): anonymous users browse the catalog
 // freely; we never force them into the auth group. When a session lands while
@@ -34,6 +35,7 @@ import { ThemeProvider, useTheme } from '@/lib/theme';
 function AuthGate() {
   const { session, loading } = useAuth();
   const { mode, hydrated } = useTheme();
+  const anySheetOpen = useAnySheetOpen();
   const segments = useSegments();
   const router = useRouter();
 
@@ -67,7 +69,11 @@ function AuthGate() {
           // every horizontal drag on the screen — the drag-to-rate star slider, the
           // genre-chip / season-pill horizontal scrolls. Edge-only is the standard
           // iOS gesture and conflicts with none of them.
-          gestureEnabled: true,
+          //
+          // …and even the edge gesture is dropped while ANY sheet is open, so a drag
+          // inside a sheet (the rating slider) can never be stolen by a page-back —
+          // covers per-screen AND the root-mounted (long-press / login) sheets.
+          gestureEnabled: !anySheetOpen,
         }}
       >
         {/* The five bottom tabs switch via replace() (see BottomNav), so they're
@@ -86,6 +92,11 @@ function AuthGate() {
         <Stack.Screen name="show/[id]/reviews" options={{ animation: 'none' }} />
         <Stack.Screen name="show/[id]/seasons" options={{ animation: 'none' }} />
         <Stack.Screen name="show/[id]/lists" options={{ animation: 'none' }} />
+        {/* Review composer: a focused write screen with a drag-to-rate slider —
+            NO back-swipe at all (dragging the stars would otherwise slide the page
+            back). Leave via the ‹ chevron / Save draft / Publish. This per-route
+            option overrides the dynamic screenOptions gesture. */}
+        <Stack.Screen name="show/[id]/review" options={{ gestureEnabled: false }} />
       </Stack>
     </>
   );
@@ -109,13 +120,18 @@ export default function RootLayout() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <RequireAuthProvider>
-              {/* One global ShowActionSheet, opened by long-pressing any poster.
-                  Inside RequireAuthProvider so its write actions can gate auth. */}
-              <ShowSheetProvider>
-                <AuthGate />
-              </ShowSheetProvider>
-            </RequireAuthProvider>
+            {/* Above ALL sheets (incl. the root-mounted LoginSheet / long-press
+                ShowActionSheet) AND the Stack, so any open sheet can drop the Stack's
+                back-swipe — AuthGate reads the count. */}
+            <SheetGestureProvider>
+              <RequireAuthProvider>
+                {/* One global ShowActionSheet, opened by long-pressing any poster.
+                    Inside RequireAuthProvider so its write actions can gate auth. */}
+                <ShowSheetProvider>
+                  <AuthGate />
+                </ShowSheetProvider>
+              </RequireAuthProvider>
+            </SheetGestureProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ThemeProvider>
