@@ -58,6 +58,53 @@ export type TmdbPayload = {
   vote_average?: number;
   vote_count?: number;
   seasons?: TmdbSeason[];
+  // Cast/crew from append_to_response=credits (see _shared/tmdb.ts). Optional —
+  // payloads cached before that change have no `credits` (get-show backfills on
+  // first view). The Overview tab reads `credits.cast`.
+  credits?: TmdbCredits;
+  // Per-country TV content ratings (TV-MA / TV-14 / ...). We read the US rating
+  // for the meta line. Appended alongside credits.
+  content_ratings?: { results?: TmdbContentRating[] };
+  // Where-to-watch, per country, sourced from JustWatch (attribution required when
+  // shown). The KEY literally contains a slash, so it's bracket-accessed:
+  // `payload['watch/providers']?.results?.US?.flatrate`.
+  'watch/providers'?: { results?: Record<string, WatchProviderCountry> };
+  external_ids?: { imdb_id?: string | null };
+  // OMDb enrichment (TMDb's API has no awards) — merged in by get-show. `awards`
+  // is OMDb's freeform string, e.g. "Won 16 Primetime Emmys. Another 90 wins…".
+  omdb?: { awards: string | null };
+};
+
+export type TmdbContentRating = { iso_3166_1: string; rating: string };
+
+// A streaming/buy/rent provider for one country (logo + name).
+export type WatchProvider = {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+  display_priority?: number; // TMDb's ordering hint; lower = show first
+};
+
+export type WatchProviderCountry = {
+  link?: string;             // JustWatch deep link for this title+country
+  flatrate?: WatchProvider[]; // subscription streaming ("where to watch")
+  rent?: WatchProvider[];
+  buy?: WatchProvider[];
+};
+
+// A billed cast member from TMDb /tv/{id}?append_to_response=credits. `order` is
+// TMDb's billing rank (0 = top-billed) — we show the first ~12.
+export type TmdbCastMember = {
+  id: number;
+  name: string;              // the actor
+  character?: string;        // the role they play
+  profile_path?: string | null; // headshot (→ tmdbImage)
+  order?: number;
+};
+
+export type TmdbCredits = {
+  cast?: TmdbCastMember[];
+  crew?: Array<{ id: number; name: string; job?: string }>;
 };
 
 // ----- DB rows (social graph) ----------------------------------------------
@@ -319,7 +366,7 @@ export function formatScope(
 // TMDb returns paths like "/abc.jpg" — the real URL needs a base + size.
 // w342 fits shelf posters; w500/w780 for the detail hero; original for zooms.
 
-export type ImageSize = 'w185' | 'w342' | 'w500' | 'w780' | 'original';
+export type ImageSize = 'w92' | 'w185' | 'w342' | 'w500' | 'w780' | 'original';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
 export function tmdbImage(
