@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useShow } from '@/api/useShow';
 import { usePopularReviews } from '@/api/usePopularReviews';
 import { useShowLists } from '@/api/useShowLists';
-import { useToggleEpisodeWatched } from '@/api/useToggleEpisodeWatched';
+import { useToggleEpisodeWatched, useMarkSeasonWatched } from '@/api/useToggleEpisodeWatched';
 import { Tabs } from '@/components/Tabs';
 import { SeasonPills } from '@/components/SeasonPills';
 import { EpisodeRow } from '@/components/EpisodeRow';
@@ -25,6 +25,7 @@ export default function Seasons() {
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { toggle } = useToggleEpisodeWatched(tmdbShowId);
+  const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
   // Real tab-count badges (cached, shared with the other tab screens).
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const { data: showLists } = useShowLists(tmdbShowId);
@@ -32,10 +33,10 @@ export default function Seasons() {
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
 
-  const initialSeason =
-    seasons.find((s) => s.season_number === 2)?.season_number ??
-    seasons[0]?.season_number ??
-    1;
+  // Default to the FIRST real season (the seeder already drops season 0/specials);
+  // a useState initializer runs once, and the show data is usually already cached
+  // when you arrive from Overview, so the initial value is what you actually see.
+  const initialSeason = seasons[0]?.season_number ?? 1;
   const [activeSeason, setActiveSeason] = useState<number>(initialSeason);
   const current = seasons.find((s) => s.season_number === activeSeason) ?? seasons[0];
   const episodes = (current?.episodes ?? []) as TmdbEpisode[];
@@ -97,8 +98,20 @@ export default function Seasons() {
                 {episodes.length} episodes
                 {current.air_date && ` · ${current.air_date.slice(0, 4)}`}
               </Text>
-              <Pressable hitSlop={8}>
-                <Text style={[type.markAll, { color: colors.purple }]}>Mark all watched ✓</Text>
+              <Pressable
+                hitSlop={8}
+                disabled={markingAll || episodes.length === 0}
+                onPress={() =>
+                  markAll({
+                    tmdb_show_id: tmdbShowId,
+                    season_number: current.season_number,
+                    episode_numbers: episodes.map((e) => e.episode_number),
+                  })
+                }
+              >
+                <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
+                  Mark all watched ✓
+                </Text>
               </Pressable>
             </View>
           )}
