@@ -4,15 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useShow } from '@/api/useShow';
+import { usePopularReviews } from '@/api/usePopularReviews';
+import { useShowLists } from '@/api/useShowLists';
 import { useToggleEpisodeWatched } from '@/api/useToggleEpisodeWatched';
-import { Poster } from '@/components/Poster';
 import { Tabs } from '@/components/Tabs';
 import { SeasonPills } from '@/components/SeasonPills';
 import { EpisodeRow } from '@/components/EpisodeRow';
 import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
-import { StarIcon } from '@/components/icons';
+import { ShowCompactHeader } from '@/components/ShowCompactHeader';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { TmdbSeason, TmdbEpisode } from '@/types';
@@ -24,6 +25,9 @@ export default function Seasons() {
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { toggle } = useToggleEpisodeWatched(tmdbShowId);
+  // Real tab-count badges (cached, shared with the other tab screens).
+  const { data: reviewsData } = usePopularReviews(tmdbShowId);
+  const { data: showLists } = useShowLists(tmdbShowId);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
@@ -62,7 +66,7 @@ export default function Seasons() {
 
       {data && (
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-          <CompactHeader
+          <ShowCompactHeader
             name={data.catalog.name}
             rating={data.catalog.vote_average}
             seasonsCount={seasons.length}
@@ -75,9 +79,9 @@ export default function Seasons() {
             showId={tmdbShowId}
             active="seasons"
             counts={{
-              reviews: 248,
+              reviews: reviewsData?.reviews.length,
               seasons: seasons.length,
-              lists: 0,
+              lists: showLists?.length,
             }}
           />
 
@@ -131,46 +135,8 @@ export default function Seasons() {
   );
 }
 
-function CompactHeader({
-  name, rating, seasonsCount, episodesCount, posterPath, tmdbShowId,
-}: {
-  name: string;
-  rating?: number;
-  seasonsCount: number;
-  episodesCount: number;
-  posterPath?: string | null;
-  tmdbShowId: number;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
-  return (
-    <View style={styles.compact}>
-      <Poster
-        tmdbShowId={tmdbShowId}
-        posterPath={posterPath}
-        name={name}
-        width={58}
-        pressable={false}
-      />
-      <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center' }}>
-        <Text style={[type.compactH, { color: colors.ink }]} numberOfLines={1}>
-          {name.toUpperCase()}
-        </Text>
-        <View style={styles.compactSub}>
-          <StarIcon color={colors.gold} size={12} />
-          <Text style={[type.epRuntime, { color: colors.muted, marginLeft: 4 }]}>
-            {rating?.toFixed(1) ?? '—'} · {seasonsCount} seasons · {episodesCount} episodes
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  compact: { flexDirection: 'row', paddingHorizontal: pad, paddingBottom: 12 },
-  compactSub: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

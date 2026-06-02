@@ -11,12 +11,17 @@ type Props = {
   counts: Partial<Record<TabKey, number>>;
 };
 
-// Each tab pushes a route — Reviews is the index, the rest live at /show/[id]/<tab>.
-// (Overview / Lists aren't built yet; pushing them will 404 until then.)
+// Each tab is a route — Reviews is the index, the rest live at /show/[id]/<tab>.
+// Tabs REPLACE (not push) so switching between them doesn't stack onto the
+// back-history (you'd otherwise "swipe back" through tabs) — same treatment as the
+// bottom nav. Paired with `animation: 'none'` on these routes (see _layout) so a
+// tab tap swaps content instantly instead of sliding like a page turn.
+// Order = info-first: Overview is the landing (the index route), then Seasons
+// (Pilot's episode-tracking core), then the social tabs Reviews + Lists.
 const TABS: { key: TabKey; label: string; route: (id: string) => string }[] = [
-  { key: 'reviews',  label: 'Reviews',  route: (id) => `/show/${id}` },
-  { key: 'overview', label: 'Overview', route: (id) => `/show/${id}/overview` },
+  { key: 'overview', label: 'Overview', route: (id) => `/show/${id}` },
   { key: 'seasons',  label: 'Seasons',  route: (id) => `/show/${id}/seasons` },
+  { key: 'reviews',  label: 'Reviews',  route: (id) => `/show/${id}/reviews` },
   { key: 'lists',    label: 'Lists',    route: (id) => `/show/${id}/lists` },
 ];
 
@@ -33,7 +38,10 @@ export function Tabs({ showId, active, counts }: Props) {
             <Pressable
               key={key}
               style={styles.tab}
-              onPress={() => router.push(route(String(showId)) as any)}
+              onPress={() => {
+                if (isActive) return; // already here — no-op (avoids a self-replace)
+                router.replace(route(String(showId)) as any);
+              }}
             >
               <Text style={[
                 isActive ? type.tabActive : type.tabInactive,

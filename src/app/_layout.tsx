@@ -78,6 +78,14 @@ function AuthGate() {
         <Stack.Screen name="activity" options={{ animation: 'none' }} />
         <Stack.Screen name="search" options={{ animation: 'none' }} />
         <Stack.Screen name="profile/index" options={{ animation: 'none' }} />
+        {/* Show Detail's four sub-tabs (Reviews/Overview/Seasons/Lists) REPLACE each
+            other (see Tabs.tsx), so kill their slide too — switching tabs should feel
+            instant, not like a page turn. The trade: arriving at the show from Home is
+            also instant (no slide-in), consistent with the app's instant-tab feel. */}
+        <Stack.Screen name="show/[id]/index" options={{ animation: 'none' }} />
+        <Stack.Screen name="show/[id]/reviews" options={{ animation: 'none' }} />
+        <Stack.Screen name="show/[id]/seasons" options={{ animation: 'none' }} />
+        <Stack.Screen name="show/[id]/lists" options={{ animation: 'none' }} />
       </Stack>
     </>
   );
