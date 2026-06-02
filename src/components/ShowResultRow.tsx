@@ -18,7 +18,7 @@ export function ShowResultRow({
 }: {
   item: SearchShowResult;
   onActivate?: () => void; // fired before navigation — used to record a recent search
-  logMode?: boolean; // "pick a show to log" → route straight to the composer, not show detail
+  logMode?: boolean; // "pick a show to log" → route to the scoped Log screen, not show detail
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
@@ -28,7 +28,9 @@ export function ShowResultRow({
       style={styles.row}
       onPress={() => {
         onActivate?.();
-        router.push(logMode ? `/show/${item.tmdb_show_id}/review` : `/show/${item.tmdb_show_id}`);
+        // logMode → the Log screen (pick scope → Rate/Review/Add/Watched);
+        // otherwise the show detail page.
+        router.push(logMode ? `/log/${item.tmdb_show_id}` : `/show/${item.tmdb_show_id}`);
       }}
     >
       <Poster

@@ -36,9 +36,18 @@ type ScopeKind = 'show' | 'season' | 'episode';
 export default function ReviewComposer() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
-  const { id, reviewId } = useLocalSearchParams<{ id: string; reviewId?: string }>();
+  const { id, reviewId, season: seasonParam, episode: episodeParam } =
+    useLocalSearchParams<{ id: string; reviewId?: string; season?: string; episode?: string }>();
   const tmdbShowId = Number(id);
   const isEdit = !!reviewId;
+
+  // A PRESET scope (a new review opened from a specific scope's "Review" action,
+  // e.g. ScopeActions on a season/episode) is preselected + LOCKED, the same way
+  // an edit locks to its review's scope — you already chose what you're logging.
+  // "0" is a valid season (specials), so test the string, not Number() truthiness.
+  const presetSeason = !isEdit && seasonParam ? Number(seasonParam) : null;
+  const presetEpisode = !isEdit && episodeParam ? Number(episodeParam) : null;
+  const hasPreset = presetSeason != null;
   const { data } = useShow(tmdbShowId);
   // Edit loads the review directly by id (works for drafts, which get-reviews now hides).
   const { data: existingData, isLoading: reviewLoading } = useReview(reviewId);
@@ -71,22 +80,28 @@ export default function ReviewComposer() {
     }
   }, [isEdit, existing, seeded]);
 
-  const lockedScope = {
-    season_number: existing?.season_number ?? null,
-    episode_number: existing?.episode_number ?? null,
-  };
-  const scopeLabel = existing
-    ? existing.season_number == null
-      ? 'the whole show'
-      : formatScope(existing.season_number, existing.episode_number)
-    : '';
+  // Scope is locked when editing OR when a preset scope was passed in. The free
+  // Show/Season/Episode selector only renders when neither holds.
+  const scopeLocked = isEdit || hasPreset;
+  const lockedScope = isEdit
+    ? { season_number: existing?.season_number ?? null, episode_number: existing?.episode_number ?? null }
+    : { season_number: presetSeason, episode_number: presetEpisode };
+  const scopeLabel = isEdit
+    ? existing
+      ? existing.season_number == null
+        ? 'the whole show'
+        : formatScope(existing.season_number, existing.episode_number)
+      : ''
+    : hasPreset
+      ? formatScope(presetSeason!, presetEpisode)
+      : '';
 
   const isDraftEdit = isEdit && existing?.is_draft === true;
   // New review OR editing a draft → offer Save draft + Publish. Editing an
   // already-published review → a single Save (stays published).
   const showDraftActions = !isEdit || isDraftEdit;
 
-  const episodeReady = isEdit ? true : scopeKind !== 'episode' || episode !== null;
+  const episodeReady = scopeLocked ? true : scopeKind !== 'episode' || episode !== null;
   const hasContent = body.trim().length > 0 || score !== null; // review-or-log
   const canSaveDraft = hasContent && episodeReady && !posting;
   const canPublish = hasContent && episodeReady && !posting;
@@ -111,7 +126,7 @@ export default function ReviewComposer() {
     setPending('draft');
     try {
       if (!(await requireAuth())) return;
-      const scope = isEdit ? lockedScope : resolveScope();
+      const scope = scopeLocked ? lockedScope : resolveScope();
       let ok = await writeRating(scope);
       if (ok) {
         ok = isEdit
@@ -130,7 +145,7 @@ export default function ReviewComposer() {
     setPending('publish');
     try {
       if (!(await requireAuth())) return;
-      const scope = isEdit ? lockedScope : resolveScope();
+      const scope = scopeLocked ? lockedScope : resolveScope();
       let ok = await writeRating(scope);
       if (ok) {
         if (body.trim()) {
@@ -206,9 +221,10 @@ export default function ReviewComposer() {
             <Text style={styles.notFound}>Review not found.</Text>
           ) : (
             <>
-              {isEdit ? (
+              {scopeLocked ? (
                 <Text style={styles.scopeLabel}>
-                  Editing your review of <Text style={styles.scopeLabelStrong}>{scopeLabel}</Text>
+                  {isEdit ? 'Editing your review of ' : 'Reviewing '}
+                  <Text style={styles.scopeLabelStrong}>{scopeLabel}</Text>
                 </Text>
               ) : (
                 <>

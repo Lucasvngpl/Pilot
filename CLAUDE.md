@@ -175,6 +175,7 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 - Draft reviews
 - Should be able to track what Im curerntly watching and hwta others are currently watching and what I and others have liked, watched
 - Should be able to specify watched/watching on not just show but also season and episode scope.
+- **Pressing:** should be able to create **lists and reviews at season/episode scope**, not just whole-show. Reviews/ratings/watch already work at all 3 scopes — episode/season-scoped **list items** are the remaining gap (see "Down the road").
 - Eventually more social of course like comment section and recommednations and recommending to your friends and sharing taste profile to insta
 - Should be hyper clear that you can have lists and keep track of shows across ALL 3 scopes not just show scope and eventually even including actors/characters to lists (also behind premium)
 
@@ -189,6 +190,10 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
 - **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
+- **Bulk mark-watched** _(retention · medium effort)_ — a Settings action to mark many shows watched at once (multi-select search → one batched `watch_status` upsert), not one search-and-tap at a time. The Serializd reviewer's #1 love: a new user's backlog is hundreds of shows, and one-at-a-time is where they bounce before the profile feels like theirs. Manual only — distinct from the MCP streaming-import item.
+- **Pin reviews & lists to the profile** _(parity · low effort)_ — let a user pin a few reviews/lists to the top of their profile (a `pinned` flag + profile render), the way Top-4 pins favorite shows. Curation that makes a profile feel authored — called out by name in the review.
+- **Milestone badges** _(retention · medium effort)_ — badges earned from real watch data (100 / 1,000 episodes, a finished long-runner), shown on the profile. A free engagement loop the reviewer values; computed from existing `watch_status`, no new logging. Keep it editorial, not gamified-noisy.
+- **Custom banners (profile / lists / reviews)** _(personalization · high effort)_ — let users pick their own banner image per surface (the `lib/uploadAvatar` → Storage flow is the template; the List detail already renders a `bannerUrl` seam, profile + reviews need a column + render). Free personalization is a core part of what Serializd users praise. (This is the structured version of the raw "Ultimate Customization" line further down — dedupe that when picked up.)
 - episode/season-scoped list items
 - Tell the people which network to watch it on
 - Be able to change to a different poster of the show like they rcently added on Letterboxd for free

@@ -1,19 +1,4 @@
-import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
-import { Sheet } from '@/components/Sheet';
-import { AddToListSheet } from '@/components/AddToListSheet';
-import { StatusPill } from '@/components/StatusPill';
-import { RatingPicker } from '@/components/RatingPicker';
-import {
-  CheckIcon, PlayIcon, ClockIcon,
-  PencilSquareIcon, ListPlusIcon,
-} from '@/components/icons';
-import { useRequireAuth } from '@/lib/requireAuth';
-import { useRate } from '@/api/useRate';
-import { useSetWatchStatus } from '@/api/useSetWatchStatus';
-import { fonts, pad, type Palette } from '@/theme';
-import { useThemedStyles, useTheme } from '@/lib/theme';
+import { ScopeActionSheet } from '@/components/ScopeActionSheet';
 import type { WatchStatus } from '@/types';
 
 type Props = {
@@ -24,91 +9,18 @@ type Props = {
   currentRating: number | null;
 };
 
-// Bottom sheet for per-show actions. Anonymous users see the sheet; the gate
-// is per-action via useRequireAuth.
-export function ShowActionSheet({
-  visible, onClose, tmdbShowId, currentStatus, currentRating,
-}: Props) {
-  const styles = useThemedStyles(makeStyles);
-  const requireAuth = useRequireAuth();
-  const { setStatus } = useSetWatchStatus(tmdbShowId);
-  const { rate } = useRate(tmdbShowId);
-  const [addToListOpen, setAddToListOpen] = useState(false);
-
-  // "Review or log" → gate, close the sheet, push the composer route.
-  const onReviewOrLog = async () => {
-    const allowed = await requireAuth();
-    if (!allowed) return;
-    onClose();
-    router.push(`/show/${tmdbShowId}/review`);
-  };
-
-  // "Add to lists…" → gate, then open the add-to-list sheet OVER this one.
-  const onAddToList = async () => {
-    const allowed = await requireAuth();
-    if (!allowed) return;
-    setAddToListOpen(true);
-  };
-
+// The WHOLE-SHOW entry point into the scoped action sheet — a thin wrapper that
+// feeds <ScopeActionSheet> the show-scope tuple (season/episode null). Kept as its
+// own name because the show-detail screens + the long-press provider open it by
+// show id; sub-scope callers use ScopeActionSheet / the scope sheet directly.
+export function ShowActionSheet({ visible, onClose, tmdbShowId, currentStatus, currentRating }: Props) {
   return (
-    <>
-      <Sheet visible={visible} onClose={onClose} height={560}>
-        <View style={styles.pillsRow}>
-          <StatusPill Icon={CheckIcon} label="Watched"
-            active={currentStatus === 'watched'} onPress={() => setStatus('watched')} />
-          <StatusPill Icon={PlayIcon} label="Watching"
-            active={currentStatus === 'watching'} onPress={() => setStatus('watching')} />
-          <StatusPill Icon={ClockIcon} label="Watchlist"
-            active={currentStatus === 'watchlist'} onPress={() => setStatus('watchlist')} />
-        </View>
-
-        <RatingPicker value={currentRating} onChange={(score) => rate(score)} />
-
-        <ActionRow Icon={PencilSquareIcon} label="Review or log" onPress={onReviewOrLog} />
-        <ActionRow Icon={ListPlusIcon} label="Add to lists" onPress={onAddToList} />
-
-        <View style={styles.hairline} />
-
-        <Pressable style={styles.close} onPress={onClose}>
-          <Text style={styles.closeText}>Close</Text>
-        </Pressable>
-      </Sheet>
-
-      {/* Sibling sheet — stacks above the action sheet by render order. */}
-      <AddToListSheet
-        visible={addToListOpen}
-        onClose={() => setAddToListOpen(false)}
-        tmdbShowId={tmdbShowId}
-      />
-    </>
+    <ScopeActionSheet
+      visible={visible}
+      onClose={onClose}
+      scope={{ tmdb_show_id: tmdbShowId, season_number: null, episode_number: null }}
+      currentStatus={currentStatus}
+      currentRating={currentRating}
+    />
   );
 }
-
-function ActionRow({
-  Icon, label, onPress,
-}: {
-  Icon: React.ComponentType<{ color?: string; size?: number }>;
-  label: string;
-  onPress: () => void;
-}) {
-  const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
-  return (
-    <Pressable style={styles.row} onPress={onPress}>
-      <Icon color={colors.ink} size={22} />
-      <Text style={styles.rowText}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const makeStyles = (colors: Palette) => StyleSheet.create({
-  pillsRow: { flexDirection: 'row', paddingVertical: 16, paddingHorizontal: pad },
-  hairline: { height: 1, backgroundColor: colors.hairline },
-  row: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 14, paddingHorizontal: pad, gap: 16,
-  },
-  rowText: { fontFamily: fonts.medium, fontSize: 15, color: colors.ink },
-  close: { paddingVertical: 18, alignItems: 'center' },
-  closeText: { fontFamily: fonts.medium, fontSize: 15, color: colors.muted },
-});

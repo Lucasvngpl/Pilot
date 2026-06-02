@@ -11,18 +11,29 @@ import { CheckIcon } from '@/components/icons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 
-type Props = { visible: boolean; onClose: () => void; tmdbShowId: number };
+type Scope = { season_number: number | null; episode_number: number | null };
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  tmdbShowId: number;
+  // The scope being added (defaults to the whole show). A season/episode scope
+  // adds that exact item and the checkmarks reflect membership AT that scope.
+  scope?: Scope;
+};
 
-// Stacks OVER ShowActionSheet (sibling Sheets, the overlay convention). Toggling
+// Stacks OVER the host sheet (sibling Sheets, the overlay convention). Toggling
 // a list is optimistic: the check flips instantly and rolls back on failure.
-export function AddToListSheet({ visible, onClose, tmdbShowId }: Props) {
+export function AddToListSheet({
+  visible, onClose, tmdbShowId, scope = { season_number: null, episode_number: null },
+}: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const { user } = useAuth();
   const myId = user?.id;
   const { data: lists, isLoading } = useMyLists(myId);
   const listIds = (lists ?? []).map((l) => l.id);
-  const { data: serverMembership } = useMembership(tmdbShowId, listIds);
+  const { season_number, episode_number } = scope;
+  const { data: serverMembership } = useMembership(tmdbShowId, season_number, episode_number, listIds);
   const { add, remove } = useListItemMutations();
 
   // Local optimistic copy of "which of my lists contain this show".
@@ -40,8 +51,8 @@ export function AddToListSheet({ visible, onClose, tmdbShowId }: Props) {
       return next;
     });
     try {
-      if (has) await remove(listId, tmdbShowId);
-      else await add(listId, tmdbShowId);
+      if (has) await remove(listId, tmdbShowId, scope);
+      else await add(listId, tmdbShowId, scope);
     } catch (e) {
       // Roll back the optimistic flip.
       setMembership((prev) => {
@@ -101,17 +112,27 @@ export function AddToListSheet({ visible, onClose, tmdbShowId }: Props) {
   );
 }
 
-// Which of my lists already contain this show (drives the checkmarks).
-function useMembership(tmdbShowId: number, listIds: string[]) {
+// Which of my lists already contain this scope (drives the checkmarks). Matches
+// the EXACT scope — `.is(null)` vs `.eq(n)` per field — so the whole-show sheet
+// doesn't tick lists that only hold one of its seasons/episodes, and vice versa.
+function useMembership(
+  tmdbShowId: number,
+  season: number | null,
+  episode: number | null,
+  listIds: string[],
+) {
   return useQuery<Set<string>>({
-    queryKey: ['listMembership', tmdbShowId, listIds],
+    queryKey: ['listMembership', tmdbShowId, season, episode, listIds],
     enabled: listIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('list_items')
         .select('list_id')
         .eq('tmdb_show_id', tmdbShowId)
         .in('list_id', listIds);
+      q = season === null ? q.is('season_number', null) : q.eq('season_number', season);
+      q = episode === null ? q.is('episode_number', null) : q.eq('episode_number', episode);
+      const { data, error } = await q;
       if (error) throw error;
       return new Set((data ?? []).map((r) => (r as { list_id: string }).list_id));
     },

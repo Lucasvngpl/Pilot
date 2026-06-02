@@ -13,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { RequireAuthProvider } from '@/lib/requireAuth';
-import { ShowSheetProvider } from '@/lib/showSheet';
+import { ScopeSheetProvider } from '@/lib/scopeSheet';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 import { SheetGestureProvider, useAnySheetOpen } from '@/lib/sheetGesture';
 
@@ -97,6 +97,9 @@ function AuthGate() {
             back). Leave via the ‹ chevron / Save draft / Publish. This per-route
             option overrides the dynamic screenOptions gesture. */}
         <Stack.Screen name="show/[id]/review" options={{ gestureEnabled: false }} />
+        {/* Log screen: same drag-to-rate slider as the composer → kill back-swipe
+            so dragging the first star doesn't slide the page back. Leave via ‹. */}
+        <Stack.Screen name="log/[id]" options={{ gestureEnabled: false }} />
       </Stack>
     </>
   );
@@ -125,11 +128,12 @@ export default function RootLayout() {
                 back-swipe — AuthGate reads the count. */}
             <SheetGestureProvider>
               <RequireAuthProvider>
-                {/* One global ShowActionSheet, opened by long-pressing any poster.
-                    Inside RequireAuthProvider so its write actions can gate auth. */}
-                <ShowSheetProvider>
+                {/* One global scoped action sheet, opened by long-pressing any
+                    poster (show scope) or episode row (episode scope). Inside
+                    RequireAuthProvider so its write actions can gate auth. */}
+                <ScopeSheetProvider>
                   <AuthGate />
-                </ShowSheetProvider>
+                </ScopeSheetProvider>
               </RequireAuthProvider>
             </SheetGestureProvider>
           </AuthProvider>

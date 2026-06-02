@@ -14,6 +14,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
+import { useScopeSheet } from '@/lib/scopeSheet';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { TmdbSeason, TmdbEpisode } from '@/types';
@@ -26,6 +27,7 @@ export default function Seasons() {
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { toggle } = useToggleEpisodeWatched(tmdbShowId);
   const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
+  const openScope = useScopeSheet(); // tap/long-press an episode → its scope actions
   // Real tab-count badges (cached, shared with the other tab screens).
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const { data: showLists } = useShowLists(tmdbShowId);
@@ -90,6 +92,8 @@ export default function Seasons() {
             seasons={seasons.map((s) => s.season_number)}
             active={activeSeason}
             onChange={setActiveSeason}
+            // Long-press a season → that whole season's scope actions.
+            onLongPress={(n) => openScope({ tmdb_show_id: tmdbShowId, season_number: n, episode_number: null })}
           />
 
           {current && (
@@ -129,6 +133,11 @@ export default function Seasons() {
                 season_number: ep.season_number,
                 episode_number: ep.episode_number,
                 currentlyWatched: watchedKeys.has(`${ep.season_number}:${ep.episode_number}`),
+              })}
+              onOpen={() => openScope({
+                tmdb_show_id: tmdbShowId,
+                season_number: ep.season_number,
+                episode_number: ep.episode_number,
               })}
             />
           ))}

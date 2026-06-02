@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { router } from 'expo-router';
-import { useShowSheet } from '@/lib/showSheet';
+import { useScopeSheet } from '@/lib/scopeSheet';
 import { Skeleton } from '@/components/Skeleton';
 import { fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles } from '@/lib/theme';
@@ -27,7 +27,7 @@ function sizeFor(width: number): 'w185' | 'w342' | 'w500' {
 
 export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }: Props) {
   const styles = useThemedStyles(makeStyles);
-  const openSheet = useShowSheet(); // long-press → quick actions, no navigation
+  const openSheet = useScopeSheet(); // long-press → quick actions, no navigation
   const height = width * 1.5;
   const uri = tmdbImage(posterPath, sizeFor(width));
 
@@ -50,7 +50,7 @@ export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }
       onPress={() => router.push(`/show/${tmdbShowId}`)}
       // Long-press = quick actions for this show WITHOUT leaving the page. When
       // onLongPress fires, RN suppresses onPress, so the hold doesn't also navigate.
-      onLongPress={() => openSheet(tmdbShowId)}
+      onLongPress={() => openSheet({ tmdb_show_id: tmdbShowId, season_number: null, episode_number: null })}
       delayLongPress={280}
     >
       {inner}

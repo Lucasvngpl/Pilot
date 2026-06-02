@@ -7,9 +7,12 @@ type Props = {
   seasons: number[];
   active: number;
   onChange: (n: number) => void;
+  // Optional: long-press a season pill → that season's scope actions. Only the
+  // Seasons browser passes this; the composer / log scope-pickers leave it off.
+  onLongPress?: (n: number) => void;
 };
 
-export function SeasonPills({ seasons, active, onChange }: Props) {
+export function SeasonPills({ seasons, active, onChange, onLongPress }: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
@@ -24,6 +27,8 @@ export function SeasonPills({ seasons, active, onChange }: Props) {
           <Pressable
             key={n}
             onPress={() => onChange(n)}
+            onLongPress={onLongPress ? () => onLongPress(n) : undefined}
+            delayLongPress={280}
             style={[styles.pill, isActive ? styles.active : styles.inactive]}
           >
             <Text style={[

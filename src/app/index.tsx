@@ -12,6 +12,8 @@ import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { FAB } from '@/components/FAB';
 import { HomeSkeleton } from '@/components/Skeletons';
 import { StarIcon, ChevronRightIcon } from '@/components/icons';
+import { logMenuActions } from '@/lib/logMenu';
+import { useAuth } from '@/lib/auth';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { SearchShowResult, ActivityActor, ActivityItem } from '@/types';
@@ -28,6 +30,7 @@ export default function Home() {
   // ~16MB payload blob per shelf load. Shared with Search's trending state.
   const { data, isLoading, error } = useTrendingShows(20);
   const { data: activity } = useActivityFeed();
+  const { session } = useAuth(); // gates "Continue a draft" in the log menu
   const [logMenuOpen, setLogMenuOpen] = useState(false); // purple FAB → same log/list menu
 
   // Watched/reviewed events from people you follow, deduped to one tile per show.
@@ -49,50 +52,55 @@ export default function Home() {
         <Text style={[type.wordmark, { color: colors.ink, fontSize: 20, letterSpacing: 3 }]}>PILOT</Text>
       </View>
 
-      {isLoading && <HomeSkeleton />}
-      {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load shows.</Text>}
+      {/* flex:1 so the content region ALWAYS fills the gap between the wordmark
+          and BottomNav — in every state. Without it, the loading skeleton (a
+          short, non-flexing View) lets the column pack from the top and BottomNav
+          floats up to the middle for a frame before `data` lands. Mirrors the
+          Activity screen's wrapper. */}
+      <View style={{ flex: 1 }}>
+        {isLoading && <HomeSkeleton />}
+        {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load shows.</Text>}
 
-      {data && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 140 }}>
-          {/* Honest label: this is TMDb world-popularity, not in-app activity. */}
-          <Section title="Popular on TV">
-            <PosterRow shows={data.slice(0, 8)} />
-          </Section>
+        {data && (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 140 }}>
+            {/* Honest label: this is TMDb world-popularity, not in-app activity. */}
+            <Section title="Popular on TV">
+              <PosterRow shows={data.slice(0, 8)} />
+            </Section>
 
-          <Section title="New From Friends">
-            {friendShows.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
-                {friendShows.map((item) => (
-                  <View key={item.key} style={{ width: 118 }}>
-                    <Poster
-                      tmdbShowId={item.show.tmdb_show_id}
-                      posterPath={item.show.poster_path}
-                      name={item.show.name}
-                      width={118}
-                    />
-                    <FriendInfo actor={item.actor} rating={item.rating} />
-                  </View>
-                ))}
-              </ScrollView>
-            ) : (
-              <FollowPrompt />
-            )}
-          </Section>
-        </ScrollView>
-      )}
+            <Section title="New From Friends">
+              {friendShows.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
+                  {friendShows.map((item) => (
+                    <View key={item.key} style={{ width: 118 }}>
+                      <Poster
+                        tmdbShowId={item.show.tmdb_show_id}
+                        posterPath={item.show.poster_path}
+                        name={item.show.name}
+                        width={118}
+                      />
+                      <FriendInfo actor={item.actor} rating={item.rating} />
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <FollowPrompt />
+              )}
+            </Section>
+          </ScrollView>
+        )}
+      </View>
 
       <FAB onPress={() => setLogMenuOpen(true)} />
       <BottomNav active="home" />
 
       {/* Same log/list menu as the nav's "Log" tab — the FAB is a second, more
-          prominent entry point on Home (kept deliberately, redundant by design). */}
+          prominent entry point on Home (kept deliberately, redundant by design).
+          Both share logMenuActions so the rows can't drift. */}
       <ActionMenuSheet
         visible={logMenuOpen}
         onClose={() => setLogMenuOpen(false)}
-        actions={[
-          { label: 'Review or log', onPress: () => router.push('/search?log=1' as any) },
-          { label: 'New list', onPress: () => router.push('/list/new' as any) },
-        ]}
+        actions={logMenuActions(!!session)}
       />
     </SafeAreaView>
   );

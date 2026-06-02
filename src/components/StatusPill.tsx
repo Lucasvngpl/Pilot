@@ -28,7 +28,9 @@ export function StatusPill({ Icon, label, active, onPress }: Props) {
 }
 
 const makeStyles = (colors: Palette) => StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 8, flex: 1 },
+  // Size to content (NOT flex:1) so the row can center the pills as a group — with
+  // flex:1, two pills each fill half the row and drift to the quarter points.
+  wrap: { alignItems: 'center', gap: 8 },
   circle: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',

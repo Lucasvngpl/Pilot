@@ -6,6 +6,10 @@ import { useRequireAuth } from '@/lib/requireAuth';
 
 type CreateArgs = { title: string; description: string | null; showIds: number[] };
 
+// Optional scope for a list item (defaults to whole show — both null). Pass
+// season/episode to add a season or episode to a list (0009's polymorphic scope).
+type ItemScope = { season_number?: number | null; episode_number?: number | null };
+
 /** Create a list + its items (position = index). Returns the new id (or null if login dismissed). */
 export function useCreateList() {
   const qc = useQueryClient();
@@ -108,7 +112,12 @@ export function useListItemMutations() {
     if (user) qc.invalidateQueries({ queryKey: ['lists', user.id] });
   };
 
-  const add = async (listId: string, tmdbShowId: number) => {
+  // Scope defaults to the whole show (both null) — so existing show-scope callers
+  // (AddToListSheet from a show page) are unchanged. Pass season/episode to add a
+  // scoped item (a season or an episode) to the list.
+  const add = async (listId: string, tmdbShowId: number, scope: ItemScope = {}) => {
+    const season = scope.season_number ?? null;
+    const episode = scope.episode_number ?? null;
     // Append at the end: next position = current max + 1 (0 if empty).
     const { data: last } = await supabase
       .from('list_items')
@@ -120,17 +129,20 @@ export function useListItemMutations() {
     const position = ((last as { position: number } | null)?.position ?? -1) + 1;
     const { error } = await supabase
       .from('list_items')
-      .insert({ list_id: listId, tmdb_show_id: tmdbShowId, position });
+      .insert({ list_id: listId, tmdb_show_id: tmdbShowId, season_number: season, episode_number: episode, position });
     if (error) throw error;
     invalidate(listId);
   };
 
-  const remove = async (listId: string, tmdbShowId: number) => {
-    const { error } = await supabase
-      .from('list_items')
-      .delete()
-      .eq('list_id', listId)
-      .eq('tmdb_show_id', tmdbShowId);
+  const remove = async (listId: string, tmdbShowId: number, scope: ItemScope = {}) => {
+    const season = scope.season_number ?? null;
+    const episode = scope.episode_number ?? null;
+    // Match the EXACT scope row — `.is(null)` vs `.eq(n)` per field, so removing
+    // the whole-show item doesn't also delete its season/episode items.
+    let q = supabase.from('list_items').delete().eq('list_id', listId).eq('tmdb_show_id', tmdbShowId);
+    q = season === null ? q.is('season_number', null) : q.eq('season_number', season);
+    q = episode === null ? q.is('episode_number', null) : q.eq('episode_number', episode);
+    const { error } = await q;
     if (error) throw error;
     invalidate(listId);
   };
@@ -140,6 +152,11 @@ export function useListItemMutations() {
   // no gaps or collisions. Safe to do per-row: list_items has NO
   // UNIQUE(list_id, position) (0001), specifically so a reorder can pass through
   // transient duplicate positions. RLS scopes the writes to the list owner.
+  //
+  // NOTE: keys by tmdb_show_id, so it's correct only while a list holds each show
+  // ONCE (the show-scope-only case — all lists today). When the list detail
+  // starts rendering + reordering scoped items (a show at multiple scopes), this
+  // must renumber by the surrogate `id` (0009). Revisit with that UI in TASK 4.
   const reorder = async (listId: string, orderedShowIds: number[]) => {
     for (let i = 0; i < orderedShowIds.length; i++) {
       const { error } = await supabase

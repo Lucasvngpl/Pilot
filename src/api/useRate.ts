@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
+import { markShowWatched } from '@/api/markShowWatched';
 import type { GetShowResponse, RatingRow } from '@/types';
 
 // Scope defaults to whole show (both null). Pass season/episode for narrower scopes.
@@ -52,6 +53,13 @@ export function useRate(tmdbShowId: number) {
         const { error } = await q;
         if (error) throw error;
       } else {
+        // TASK 1: a SHOW-scope rating materializes watched. Written BEFORE the
+        // rating so the only possible partial-failure state is the harmless one
+        // (watched, no star) — never the bad one (rated but missing from the
+        // strict Watched filter). Season/episode ratings never touch show status.
+        if (args.season_number === null && args.episode_number === null) {
+          await markShowWatched(userId, args.tmdb_show_id);
+        }
         const { error } = await supabase.from('ratings').upsert(
           {
             user_id: userId,
@@ -111,12 +119,18 @@ export function useRate(tmdbShowId: number) {
       }
     },
 
-    onSettled: () => {
+    onSettled: (_d, _e, args) => {
       qc.refetchQueries({ queryKey });
       // A show-scope rating both includes the show in the Profile "Shows" grid and
       // paints its gold star, so that grid must refetch on next open. (Season/episode
       // ratings don't change the grid — invalidating then is a harmless no-op.)
       qc.invalidateQueries({ queryKey: ['watched'] });
+      // Materializing 'watched' (TASK 1) can supersede a prior watching/watchlist
+      // row → those Profile shelves must refetch too (show scope only).
+      if (args.season_number === null && args.episode_number === null) {
+        qc.invalidateQueries({ queryKey: ['watching'] });
+        qc.invalidateQueries({ queryKey: ['watchlist'] });
+      }
     },
   });
 

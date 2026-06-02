@@ -11,13 +11,17 @@ type Props = {
   rating?: number | null;
   watched: boolean;
   onToggle?: () => void;
+  // Tap or long-press the row → open this episode's scope actions (rate / review
+  // / add-to-list / watched). The checkmark stays a separate one-tap watched
+  // toggle (it's a nested Pressable, so it claims its own touches).
+  onOpen?: () => void;
 };
 
-export function EpisodeRow({ number, title, runtimeMin, rating, watched, onToggle }: Props) {
+export function EpisodeRow({ number, title, runtimeMin, rating, watched, onToggle, onOpen }: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
-    <View style={styles.row}>
+    <Pressable style={styles.row} onPress={onOpen} onLongPress={onOpen} delayLongPress={280}>
       <Text style={[type.epNum, { color: watched ? colors.ink : colors.faint, width: 24 }]}>
         {number}
       </Text>
@@ -47,7 +51,7 @@ export function EpisodeRow({ number, title, runtimeMin, rating, watched, onToggl
           {watched && <CheckIcon color={colors.white} size={14} />}
         </View>
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 

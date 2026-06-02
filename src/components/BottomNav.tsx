@@ -5,6 +5,7 @@ import { type, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import { HomeIcon, ActivityIcon, LogIcon, SearchIcon, ProfileIcon } from '@/components/icons';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
+import { logMenuActions } from '@/lib/logMenu';
 import { useAuth } from '@/lib/auth';
 
 export type NavTab = 'home' | 'activity' | 'log' | 'search' | 'profile';
@@ -60,15 +61,13 @@ export function BottomNav({ active }: { active: NavTab }) {
         })}
       </View>
 
-      {/* "+" menu — pick a show to log/review, or start a new list. Rendered as a
-          sibling of the bar so the Sheet overlay fills the screen, not the bar. */}
+      {/* "+" menu — the log/list picker (shared with the Home FAB via
+          logMenuActions). Rendered as a sibling of the bar so the Sheet overlay
+          fills the screen, not the bar. */}
       <ActionMenuSheet
         visible={logMenuOpen}
         onClose={() => setLogMenuOpen(false)}
-        actions={[
-          { label: 'Review or log', onPress: () => router.push('/search?log=1' as any) },
-          { label: 'New list', onPress: () => router.push('/list/new' as any) },
-        ]}
+        actions={logMenuActions(!!session)}
       />
     </>
   );

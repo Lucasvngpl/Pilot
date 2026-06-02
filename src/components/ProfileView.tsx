@@ -8,7 +8,8 @@ import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { useProfile } from '@/api/useProfile';
 import { useCurrentlyWatching } from '@/api/useCurrentlyWatching';
-import { useWatchedShows } from '@/api/useWatchedShows';
+import { useWatchedShows, type WatchedFilter } from '@/api/useWatchedShows';
+import { useShowsFilter } from '@/lib/showsFilterPref';
 import { useWatchlist } from '@/api/useWatchlist';
 import { useMyLists } from '@/api/useLists';
 import { useTopShows } from '@/api/useTopShows';
@@ -22,7 +23,7 @@ import { ListCard } from '@/components/ListCard';
 import { ProfileTabs, type ProfileTabKey } from '@/components/ProfileTabs';
 import { PosterGrid } from '@/components/PosterGrid';
 import { DashedSlot } from '@/components/DashedSlot';
-import { ProfileSkeleton } from '@/components/Skeletons';
+import { ProfileSkeleton, PosterGridSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
   CalendarIcon, ReviewBadgeIcon, DraftIcon, SunIcon, MoonIcon,
@@ -50,6 +51,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   const isOwn = variant === 'own';
 
   const [tab, setTab] = useState<ProfileTabKey>('profile');
+  const [showsFilter, setShowsFilter] = useShowsFilter(); // Shows-tab segment, persisted
   const [avatarOpen, setAvatarOpen] = useState(false);
 
   const { data: profileData, isLoading: profileLoading } = useProfile(userId);
@@ -59,7 +61,15 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   // the queries are already in flight (or cached) before you tap a tab. Watchlist
   // and Lists used to be lazy (fetch-on-tab); we trade a little upfront work for
   // zero per-tab spinner.
-  const { data: watched } = useWatchedShows(userId);
+  // Two reads, deduped by React Query when the filter is 'watched' (one fetch):
+  //  - watchedShows: the fixed 'watched' set → the tab badge + "Your record" count.
+  //  - gridShows:    the active filter → what the Shows grid renders.
+  const { data: watchedShows } = useWatchedShows(userId, 'watched');
+  // gridLoading is true only while an UNCACHED filter is fetching (switching to a
+  // not-yet-loaded segment). Switching back to a cached one is instant (false),
+  // so we show the skeleton on the genuine load, never on the empty result.
+  const { data: gridShows, isLoading: gridLoading } = useWatchedShows(userId, showsFilter);
+  const watchedCount = watchedShows?.length ?? 0;
   const { data: watchlist } = useWatchlist(userId);
   const { data: topShows, isLoading: topLoading } = useTopShows(userId);
   const { data: lists, isLoading: listsLoading } = useMyLists(userId);
@@ -95,7 +105,12 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
             </Pressable>
           )}
         </View>
-        <ProfileSkeleton />
+        {/* flex:1 so the skeleton fills the screen and BottomNav stays pinned to
+            the bottom during the load — a bare <ProfileSkeleton/> is short, which
+            would let BottomNav float up to the middle for a frame. */}
+        <View style={{ flex: 1 }}>
+          <ProfileSkeleton />
+        </View>
         {isOwn && <BottomNav active="profile" />}
       </SafeAreaView>
     );
@@ -128,7 +143,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: isOwn ? 120 : 32 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: isOwn ? 120 : 32 }}>
         {/* Top action row — differs by variant. */}
         <View style={styles.actionRow}>
           {isOwn ? (
@@ -201,7 +216,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         <ProfileTabs
           active={tab}
           onChange={setTab}
-          counts={{ shows: watched?.length, watchlist: watchlist?.length }}
+          counts={{ shows: watchedCount, watchlist: watchlist?.length }}
         />
 
         {tab === 'profile' && (
@@ -211,9 +226,22 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
             topLoading={topLoading}
             isOwn={isOwn}
             draftCount={draftCount}
+            watchedCount={watchedCount}
+            // "Watched — N shows" summary deep-links here: same Shows tab, filter
+            // forced to Watched (no second screen — see TASK 2).
+            onOpenWatched={() => { setShowsFilter('watched'); setTab('shows'); }}
           />
         )}
-        {tab === 'shows' && <PosterGrid items={watched ?? []} emptyText="No watched shows yet." />}
+        {tab === 'shows' && (
+          <>
+            <ShowsFilterChips value={showsFilter} onChange={setShowsFilter} />
+            {gridLoading ? (
+              <PosterGridSkeleton />
+            ) : (
+              <PosterGrid items={gridShows ?? []} emptyText={emptyTextFor(showsFilter)} />
+            )}
+          </>
+        )}
         {tab === 'lists' && <ListsBody lists={lists ?? []} isLoading={listsLoading} isOwn={isOwn} />}
         {tab === 'watchlist' && (
           <PosterGrid items={watchlist ?? []} emptyText="Nothing on the watchlist yet." />
@@ -249,12 +277,16 @@ function ProfileBody({
   topLoading,
   isOwn,
   draftCount,
+  watchedCount,
+  onOpenWatched,
 }: {
   watching: CurrentlyWatchingCard[];
   topShows: ShowCard[];
   topLoading: boolean;
   isOwn: boolean;
   draftCount: number;
+  watchedCount: number;
+  onOpenWatched: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
@@ -333,16 +365,23 @@ function ProfileBody({
         </ScrollView>
       )}
 
-      {/* "Your record" — the expressive / archive surfaces (Diary, Reviews; Stats
-          later) grouped under one borderless headed section, beneath the showcase
-          blocks above. Own-profile only: these are *your* activity surfaces. The
-          Shows grid (a tab) stays the sole door to watched shows — deliberately no
-          "Watched" row here, so nothing has two entry points. `as any`: typed-route
-          union regenerates only when Metro runs. */}
+      {/* "Your record" — the expressive / archive surfaces (Watched, Diary,
+          Reviews; Stats later) grouped under one borderless headed section,
+          beneath the showcase blocks above. Own-profile only: these are *your*
+          surfaces. The "Watched — N shows" row is a SUMMARY + shortcut: it doesn't
+          open a second screen, it jumps to the Shows tab pre-filtered to Watched
+          (so the Shows grid is still the sole watched-shows destination — TASK 2).
+          `as any`: typed-route union regenerates only when Metro runs. */}
       {isOwn && (
         <>
           <SectionHeader title="Your record" />
           <View style={styles.record}>
+            <RecordRow
+              icon={<CheckIcon color={colors.ink} size={20} />}
+              label="Watched"
+              count={watchedCount}
+              onPress={onOpenWatched}
+            />
             <RecordRow
               icon={<CalendarIcon color={colors.ink} size={22} />}
               label="Diary"
@@ -387,6 +426,56 @@ function WatchingCard({ card }: { card: CurrentlyWatchingCard }) {
       )}
     </View>
   );
+}
+
+// Shows-tab segment chips (Option A): Watched / Watching, at most one active.
+// Tapping the ACTIVE chip clears it → null → the loose "everything" pile. There
+// is no dedicated "All" chip — the everything-view is the deselected state.
+function ShowsFilterChips({
+  value,
+  onChange,
+}: {
+  value: WatchedFilter;
+  onChange: (f: WatchedFilter) => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
+  const chips: { key: 'watched' | 'watching'; label: string }[] = [
+    { key: 'watched', label: 'Watched' },
+    { key: 'watching', label: 'Watching' },
+  ];
+  return (
+    <View style={styles.chipRow}>
+      {chips.map((c) => {
+        const active = value === c.key;
+        return (
+          <Pressable
+            key={c.key}
+            onPress={() => onChange(active ? null : c.key)} // tap active → clear → all
+            style={[styles.chip, active ? styles.chipActive : styles.chipInactive]}
+          >
+            <Text
+              style={[
+                active ? type.pillActive : type.pillInactive,
+                // Active chip is ink-filled (inverts to light in dark), so its
+                // label tracks `background` to stay contrasting in both modes.
+                { color: active ? colors.background : colors.ink },
+              ]}
+            >
+              {c.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// Empty-state copy per Shows-tab segment.
+function emptyTextFor(filter: WatchedFilter): string {
+  if (filter === 'watched') return 'No watched shows yet.';
+  if (filter === 'watching') return 'Nothing in progress right now.';
+  return 'No shows yet.';
 }
 
 function SectionHeader({ title, right }: { title: string; right?: React.ReactNode }) {
@@ -500,6 +589,12 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   },
   topRow: { flexDirection: 'row', gap: GAP, paddingHorizontal: pad, marginTop: 12 },
   editLink: { fontFamily: fonts.semibold, fontSize: 14, color: colors.purple },
+
+  // Shows-tab segment chips (mirror SeasonPills: ink-filled active, outlined idle).
+  chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: pad, paddingTop: 12, paddingBottom: 4 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill },
+  chipActive: { backgroundColor: colors.ink },
+  chipInactive: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.hairline },
   shelf: { gap: 12, paddingHorizontal: pad, paddingTop: 12 },
   checkBubble: {
     position: 'absolute',

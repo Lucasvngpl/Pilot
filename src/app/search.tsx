@@ -77,7 +77,11 @@ export default function Search() {
       />
       <SegmentTabs tabs={SEARCH_TABS} active={tab} onChange={setTab} />
 
+      {/* flex:1 keeps this scroll region filling the space above BottomNav in
+          every state — otherwise a short body (loading skeleton, empty results,
+          "Lists coming soon") lets BottomNav float up to the middle for a frame. */}
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 120 }}
         keyboardShouldPersistTaps="handled"
       >
