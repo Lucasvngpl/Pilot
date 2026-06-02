@@ -57,14 +57,14 @@ Because SELECT is `USING (true)`, queries return _every_ user's rows by default.
 
 Four of them, all under `supabase/functions/`:
 
-- `get-show` — catalog + caller's social rows for one show; refreshes stale cache.
+- `get-show` — catalog + caller's social rows for one show; refreshes stale cache. The cached `/tv/{id}` payload appends `credits,content_ratings,watch/providers,external_ids`, and is enriched with an `omdb` field (awards, by IMDb id) — TMDb's API has **no** awards, so we read OMDb's freeform "Awards" string. Backfill-on-view: a payload missing `external_ids` triggers a TMDb refetch; one missing `omdb.tried` triggers a one-off OMDb lookup, cached in-place.
 - `get-popular` — the `is_popular` shelf set from `shows_cache`.
 - `refresh-popular` — batched re-seed (`?batch=25&offset=N`). Meant for scheduled invocation; one call ≠ all 200 shows (Edge Function execution timeout).
 - `get-reviews` — all reviews for a show, enriched with reviewer profile + like count + the reviewer's rating (merged in JS — see the scope-merge rule above). Public read.
 
 Shared code in `_shared/`. **Always use the `userClient(req)` / `adminClient()` factories from `_shared/clients.ts`** — they encode the RLS-respect vs RLS-bypass distinction. Constructing clients inline loses that signal.
 
-Auto-injected env vars in every function: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — don't set them via `supabase secrets`. Only `TMDB_API_KEY` is a manual secret.
+Auto-injected env vars in every function: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — don't set them via `supabase secrets`. Manual secrets: `TMDB_API_KEY` (catalog) and `OMDB_API_KEY` (awards string in `get-show`; omit it and the Awards row just doesn't render). Awards data comes from OMDb, not TMDb — the one non-TMDb catalog source.
 
 ## Client data layer
 
