@@ -28,16 +28,14 @@ export function ActionMenuSheet({ visible, onClose, actions }: Props) {
   const { colors } = useTheme();
 
   // If any action carries an icon/description, render the whole sheet rich so
-  // the rows align consistently. A rich menu is a "picker", so its dismiss row
-  // reads "Close" (vs "Cancel" for the contextual bare menus).
+  // the rows align consistently.
   const rich = actions.some((a) => a.icon || a.description);
-  const dismissLabel = rich ? 'Close' : 'Cancel';
 
-  // Size the sheet to its rows (+ the dismiss row) instead of the 560 default.
-  // Rich rows are taller (two lines of text). The trailing constant covers the
-  // grabber + the breathing room above the home indicator.
+  // Size the sheet to its rows instead of the 560 default. Rich rows are taller
+  // (two lines of text). The trailing constant covers the grabber + a little
+  // breathing room above the home indicator. No Close row — tap the scrim.
   const rowH = rich ? 72 : 58;
-  const height = actions.length * rowH + 58 + 96;
+  const height = actions.length * rowH + 70;
 
   const run = (fn: () => void) => {
     onClose();
@@ -70,10 +68,6 @@ export function ActionMenuSheet({ visible, onClose, actions }: Props) {
           </Pressable>
         );
       })}
-      <View style={styles.hairline} />
-      <Pressable style={rich ? styles.dismissRich : styles.row} onPress={onClose}>
-        <Text style={[styles.label, { color: colors.muted }]}>{dismissLabel}</Text>
-      </Pressable>
     </Sheet>
   );
 }
@@ -94,8 +88,4 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   richText: { flex: 1 },
   title: { fontFamily: fonts.semibold, fontSize: 18 },
   desc: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, marginTop: 2 },
-  // Dismiss row in rich mode stays centered (it's a "Close", not a list item).
-  dismissRich: { paddingVertical: 17, paddingHorizontal: pad, alignItems: 'center' },
-
-  hairline: { height: 1, backgroundColor: colors.hairline },
 });

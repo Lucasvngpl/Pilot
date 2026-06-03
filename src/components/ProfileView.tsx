@@ -406,18 +406,11 @@ function ProfileBody({
 }
 
 function WatchingCard({ card }: { card: CurrentlyWatchingCard }) {
-  const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
     <View style={{ width: 112 }}>
-      <View>
-        <Poster tmdbShowId={card.tmdb_show_id} posterPath={card.poster_path} name={card.name} width={112} />
-        {/* Watched-check overlay. pointerEvents:'none' so taps fall through to
-            the Poster's own press → /show/[id]. */}
-        <View style={styles.checkBubble}>
-          <CheckIcon color={colors.white} size={12} />
-        </View>
-      </View>
+      {/* No watched-check overlay — these are in-progress, not watched. */}
+      <Poster tmdbShowId={card.tmdb_show_id} posterPath={card.poster_path} name={card.name} width={112} />
       <Text style={[type.reviewUser, { color: colors.ink, marginTop: 6 }]} numberOfLines={1}>
         {card.name}
       </Text>
@@ -596,18 +589,6 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   chipActive: { backgroundColor: colors.ink },
   chipInactive: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.hairline },
   shelf: { gap: 12, paddingHorizontal: pad, paddingTop: 12 },
-  checkBubble: {
-    position: 'absolute',
-    left: 8,
-    bottom: 8,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-  },
 
   // "Your record" — borderless rows (no dividers), generous height.
   record: { marginTop: 4 },

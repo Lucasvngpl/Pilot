@@ -1,8 +1,8 @@
 // /show/[id] — Show Detail LANDING = the Overview tab: hero (poster, metadata,
 // community stats, your rating card) + summary + principal cast. Reviews/Seasons/
 // Lists are sibling tab routes. Summary + cast come from the cached TMDb payload
-// (cast via append_to_response=credits). Cast is display-only for v1.
-import { ScrollView, View, Text, StyleSheet, useWindowDimensions } from 'react-native';
+// (cast via append_to_response=credits). Tapping a cast member → /person/[id].
+import { ScrollView, View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -216,7 +216,7 @@ export default function ShowDetail() {
             {overview || 'No summary available.'}
           </Text>
 
-          {/* Cast — the full billed cast as a wrapping grid. Non-tappable for v1. */}
+          {/* Cast — the full billed cast as a wrapping grid; each tile → the actor's page. */}
           <Text style={[type.subhead, styles.sectionTitle, { color: colors.ink }]}>Cast</Text>
           {cast.length === 0 ? (
             <Text style={[styles.muted, { paddingHorizontal: pad, paddingBottom: 8 }]}>
@@ -246,14 +246,15 @@ export default function ShowDetail() {
 }
 
 // One cast member: headshot (placeholder when TMDb has none) + actor + character.
-// `width` is the grid cell width; the photo keeps a 2:3 poster-ish ratio.
+// `width` is the grid cell width; the photo keeps a 2:3 poster-ish ratio. Tap →
+// the actor's page (/person/[id]) with their bio + TV appearances.
 function CastCard({ member, width }: { member: TmdbCastMember; width: number }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const photo = tmdbImage(member.profile_path, 'w185');
   const photoStyle = { width, height: Math.round(width * 1.5), borderRadius: radius.md };
   return (
-    <View style={{ width }}>
+    <Pressable style={{ width }} onPress={() => router.push(`/person/${member.id}` as any)}>
       {photo ? (
         <Image source={{ uri: photo }} style={[styles.castPhoto, photoStyle]} contentFit="cover" transition={150} />
       ) : (
@@ -269,7 +270,7 @@ function CastCard({ member, width }: { member: TmdbCastMember; width: number }) 
           {member.character}
         </Text>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 

@@ -141,6 +141,24 @@ export type ReviewRow = {
   created_at: string;
 };
 
+// A TV show a person appears in (from get-person's tv_credits mapping).
+export type PersonShow = {
+  tmdb_show_id: number;
+  name: string;
+  poster_path: string | null;
+  character: string | null;
+  year: string | null;
+};
+
+// Actor/cast page (get-person): bio + headshot + the shows they appear in.
+export type Person = {
+  id: number;
+  name: string;
+  biography: string | null;
+  profile_path: string | null;
+  shows: PersonShow[];
+};
+
 // ----- Edge Function responses ---------------------------------------------
 
 export type GetPopularResponse = {

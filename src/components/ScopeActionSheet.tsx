@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Sheet } from '@/components/Sheet';
 import { ScopeActions, type Scope } from '@/components/ScopeActions';
 import { AddToListSheet } from '@/components/AddToListSheet';
-import { fonts, type Palette } from '@/theme';
-import { useThemedStyles } from '@/lib/theme';
 import type { WatchStatus } from '@/types';
 
 type Props = {
@@ -17,17 +14,20 @@ type Props = {
 };
 
 // The bottom-sheet host for <ScopeActions> at ANY scope (show / season / episode).
-// Owns only the chrome (Sheet + Close) and the AddToListSheet overlay — which is a
+// Owns only the chrome (the Sheet) and the AddToListSheet overlay — which is a
 // SIBLING of the Sheet (full-screen overlay; never nest it inside the panel, per
-// "Sheets are overlays" in CLAUDE.md). Anonymous users see the sheet; the gate is
-// per-action inside ScopeActions. ShowActionSheet is the whole-show wrapper of this.
+// "Sheets are overlays" in CLAUDE.md). Dismiss by tapping the scrim — no Close
+// row (it's redundant with the tap-to-dismiss). ShowActionSheet wraps this for
+// whole-show. Anonymous users see the sheet; the gate is per-action in ScopeActions.
 export function ScopeActionSheet({ visible, onClose, scope, currentStatus, currentRating }: Props) {
-  const styles = useThemedStyles(makeStyles);
   const [addToListOpen, setAddToListOpen] = useState(false);
 
   return (
     <>
-      <Sheet visible={visible} onClose={onClose} height={560}>
+      {/* Sized to the content (pills · rating · 2 rows ≈ 330pt) + a little
+          breathing room above the home indicator. Content height is the same at
+          every scope — 1/2/3 status pills are all one row — so one height fits all. */}
+      <Sheet visible={visible} onClose={onClose} height={380}>
         <ScopeActions
           scope={scope}
           currentStatus={currentStatus}
@@ -35,11 +35,6 @@ export function ScopeActionSheet({ visible, onClose, scope, currentStatus, curre
           onRequestClose={onClose}
           onAddToList={() => setAddToListOpen(true)}
         />
-
-        <View style={styles.hairline} />
-        <Pressable style={styles.close} onPress={onClose}>
-          <Text style={styles.closeText}>Close</Text>
-        </Pressable>
       </Sheet>
 
       <AddToListSheet
@@ -51,9 +46,3 @@ export function ScopeActionSheet({ visible, onClose, scope, currentStatus, curre
     </>
   );
 }
-
-const makeStyles = (colors: Palette) => StyleSheet.create({
-  hairline: { height: 1, backgroundColor: colors.hairline },
-  close: { paddingVertical: 18, alignItems: 'center' },
-  closeText: { fontFamily: fonts.medium, fontSize: 15, color: colors.muted },
-});

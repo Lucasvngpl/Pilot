@@ -1,15 +1,16 @@
 // EpisodeRow — rich episode list item for the Seasons/browse surface: lazy still
 // thumbnail, shared scope label + title + air date, the USER'S OWN rating (if any),
-// and stacked inline actions (eye = watched toggle, pencil = review/log).
+// and stacked inline actions (eye = quick watched toggle, ••• = the full
+// ScopeActions sheet — rate / review / add to list / watched).
 //
 // Row identity (still + label + title) is reusable across surfaces; the trailing
-// eye+pencil are SPECIFIC to this browse surface — other surfaces (add-to-list,
-// list-detail) swap the trailing actions. Tap = Episode Detail, long-press = the
-// full ScopeActions menu; the inline buttons claim their own touches so a button
-// tap never also triggers the row's navigation.
+// eye+••• are SPECIFIC to this browse surface — other surfaces (add-to-list,
+// list-detail) swap the trailing actions. Tap = Episode Detail; ••• AND long-press
+// open the full ScopeActions sheet; the inline buttons claim their own touches so a
+// button tap never also triggers the row's navigation.
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { EyeIcon, PencilSquareIcon, StarIcon } from '@/components/icons';
+import { EyeIcon, DotsIcon, StarIcon } from '@/components/icons';
 import { tmdbImage, formatScopeShort, formatAirDate } from '@/types';
 import { type, pad, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -25,14 +26,14 @@ type Props = {
   watched: boolean;
   rating?: number | null; // the user's OWN episode-scope rating; hidden when null
   onToggleWatched: () => void;
-  onReview: () => void;
   onOpenDetail: () => void;
-  onLongPress: () => void;
+  // The ••• button AND a long-press both open the full ScopeActions sheet.
+  onOpenSheet: () => void;
 };
 
 export function EpisodeRow({
   seasonNumber, episodeNumber, title, airDate, stillPath, fallbackPosterPath,
-  watched, rating, onToggleWatched, onReview, onOpenDetail, onLongPress,
+  watched, rating, onToggleWatched, onOpenDetail, onOpenSheet,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
@@ -42,7 +43,7 @@ export function EpisodeRow({
   const ratingText = rating != null ? (rating % 1 === 0 ? String(rating) : rating.toFixed(1)) : null;
 
   return (
-    <Pressable style={styles.row} onPress={onOpenDetail} onLongPress={onLongPress} delayLongPress={280}>
+    <Pressable style={styles.row} onPress={onOpenDetail} onLongPress={onOpenSheet} delayLongPress={280}>
       {/* Lazy still — expo-image fetches async + caches, so it never blocks scroll. */}
       <View style={styles.still}>
         {stillUri ? (
@@ -74,8 +75,8 @@ export function EpisodeRow({
           {/* Distinct ON/OFF: filled purple (the app's watched accent) vs grey outline. */}
           <EyeIcon color={watched ? colors.purple : colors.faint} size={22} filled={watched} />
         </Pressable>
-        <Pressable onPress={onReview} hitSlop={8} style={styles.actionBtn}>
-          <PencilSquareIcon color={colors.muted} size={20} />
+        <Pressable onPress={onOpenSheet} hitSlop={8} style={styles.actionBtn}>
+          <DotsIcon color={colors.muted} size={20} />
         </Pressable>
       </View>
     </Pressable>

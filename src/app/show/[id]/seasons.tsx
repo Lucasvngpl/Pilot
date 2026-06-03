@@ -15,7 +15,6 @@ import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
 import { useScopeSheet } from '@/lib/scopeSheet';
-import { useRequireAuth } from '@/lib/requireAuth';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { TmdbSeason, TmdbEpisode } from '@/types';
@@ -28,8 +27,7 @@ export default function Seasons() {
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { toggle } = useToggleEpisodeWatched(tmdbShowId);
   const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
-  const openScope = useScopeSheet(); // long-press an episode → its scope actions
-  const requireAuth = useRequireAuth(); // gate the inline pencil before the composer
+  const openScope = useScopeSheet(); // ••• / long-press an episode → its scope actions
   // Real tab-count badges (cached, shared with the other tab screens).
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const { data: showLists } = useShowLists(tmdbShowId);
@@ -150,15 +148,12 @@ export default function Seasons() {
                   episode_number: ep.episode_number,
                   currentlyWatched: watched,
                 })}
-                onReview={async () => {
-                  if (await requireAuth()) {
-                    router.push(`/show/${tmdbShowId}/review?season=${ep.season_number}&episode=${ep.episode_number}` as any);
-                  }
-                }}
                 onOpenDetail={() =>
                   router.push(`/show/${tmdbShowId}/episode?season=${ep.season_number}&episode=${ep.episode_number}` as any)
                 }
-                onLongPress={() => openScope({
+                // ••• button AND long-press → the full ScopeActions sheet (review
+                // lives inside it as "Review or log"); auth is gated per-action there.
+                onOpenSheet={() => openScope({
                   tmdb_show_id: tmdbShowId,
                   season_number: ep.season_number,
                   episode_number: ep.episode_number,

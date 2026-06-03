@@ -75,7 +75,7 @@ export function AddToListSheet({
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} height={460}>
+    <Sheet visible={visible} onClose={onClose} height={420}>
       <Text style={styles.header}>Add to list</Text>
 
       <Pressable style={styles.newRow} onPress={onNewList}>
@@ -107,11 +107,6 @@ export function AddToListSheet({
           })}
         </ScrollView>
       )}
-
-      <View style={styles.hairline} />
-      <Pressable style={styles.close} onPress={onClose}>
-        <Text style={styles.closeText}>Close</Text>
-      </Pressable>
     </Sheet>
   );
 }
@@ -165,8 +160,6 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     justifyContent: 'center',
   },
   checkOn: { backgroundColor: colors.purple, borderColor: colors.purple },
-  close: { paddingVertical: 18, alignItems: 'center' },
-  closeText: { fontFamily: fonts.medium, fontSize: 15, color: colors.muted },
   empty: {
     fontFamily: type.reviewBody.fontFamily,
     fontSize: type.reviewBody.fontSize,
