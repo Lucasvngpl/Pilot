@@ -12,7 +12,7 @@ import { ScopeActions } from '@/components/ScopeActions';
 import { ScopePicker, type ScopeValue } from '@/components/ScopePicker';
 import { AddToListSheet } from '@/components/AddToListSheet';
 import { ChevronLeftIcon } from '@/components/icons';
-import { tmdbImage } from '@/types';
+import { tmdbImage, formatScopeShort } from '@/types';
 import { type, pad, radius, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 
@@ -64,9 +64,8 @@ export default function LogShow() {
   const scopeText =
     scope.scopeKind === 'show'
       ? catalog?.name ?? 'this show'
-      : scope.scopeKind === 'season'
-        ? `Season ${season}`
-        : `S${season} · E${scope.episode}${episodeTitle ? ` ‘${episodeTitle}’` : ''}`;
+      : (formatScopeShort(resolved.season_number, resolved.episode_number) ?? '') +
+        (scope.scopeKind === 'episode' && episodeTitle ? ` ‘${episodeTitle}’` : '');
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>

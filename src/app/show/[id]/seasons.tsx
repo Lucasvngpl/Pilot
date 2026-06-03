@@ -1,7 +1,7 @@
 // /show/[id]/seasons — season + episode browser for a show: season pills, per-episode rows with watched toggles.
 import { ScrollView, View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useShow } from '@/api/useShow';
 import { usePopularReviews } from '@/api/usePopularReviews';
@@ -15,6 +15,7 @@ import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
 import { useScopeSheet } from '@/lib/scopeSheet';
+import { useRequireAuth } from '@/lib/requireAuth';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { TmdbSeason, TmdbEpisode } from '@/types';
@@ -27,7 +28,8 @@ export default function Seasons() {
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { toggle } = useToggleEpisodeWatched(tmdbShowId);
   const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
-  const openScope = useScopeSheet(); // tap/long-press an episode → its scope actions
+  const openScope = useScopeSheet(); // long-press an episode → its scope actions
+  const requireAuth = useRequireAuth(); // gate the inline pencil before the composer
   // Real tab-count badges (cached, shared with the other tab screens).
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const { data: showLists } = useShowLists(tmdbShowId);
@@ -47,6 +49,14 @@ export default function Seasons() {
     (data?.mySocial.watch_statuses ?? [])
       .filter((r) => r.season_number != null && r.episode_number != null)
       .map((r) => `${r.season_number}:${r.episode_number}`),
+  );
+
+  // The user's OWN episode-scope ratings, keyed by "season:episode" — feeds each
+  // row's rating badge (shown only where the user actually rated; no community avg).
+  const episodeRatings = new Map<string, number>(
+    (data?.mySocial.ratings ?? [])
+      .filter((r) => r.season_number != null && r.episode_number != null)
+      .map((r) => [`${r.season_number}:${r.episode_number}`, r.score] as const),
   );
 
   // Show-scope status + rating — both feed `engaged` and the action sheet.
@@ -120,27 +130,42 @@ export default function Seasons() {
             </View>
           )}
 
-          {episodes.map((ep) => (
-            <EpisodeRow
-              key={`${ep.season_number}-${ep.episode_number}`}
-              number={ep.episode_number}
-              title={ep.name}
-              runtimeMin={ep.runtime ?? undefined}
-              rating={undefined}
-              watched={watchedKeys.has(`${ep.season_number}:${ep.episode_number}`)}
-              onToggle={() => toggle({
-                tmdb_show_id: tmdbShowId,
-                season_number: ep.season_number,
-                episode_number: ep.episode_number,
-                currentlyWatched: watchedKeys.has(`${ep.season_number}:${ep.episode_number}`),
-              })}
-              onOpen={() => openScope({
-                tmdb_show_id: tmdbShowId,
-                season_number: ep.season_number,
-                episode_number: ep.episode_number,
-              })}
-            />
-          ))}
+          {episodes.map((ep) => {
+            const key = `${ep.season_number}:${ep.episode_number}`;
+            const watched = watchedKeys.has(key);
+            return (
+              <EpisodeRow
+                key={`${ep.season_number}-${ep.episode_number}`}
+                seasonNumber={ep.season_number}
+                episodeNumber={ep.episode_number}
+                title={ep.name}
+                airDate={ep.air_date}
+                stillPath={ep.still_path}
+                fallbackPosterPath={current?.poster_path ?? data?.catalog.poster_path}
+                watched={watched}
+                rating={episodeRatings.get(key) ?? null}
+                onToggleWatched={() => toggle({
+                  tmdb_show_id: tmdbShowId,
+                  season_number: ep.season_number,
+                  episode_number: ep.episode_number,
+                  currentlyWatched: watched,
+                })}
+                onReview={async () => {
+                  if (await requireAuth()) {
+                    router.push(`/show/${tmdbShowId}/review?season=${ep.season_number}&episode=${ep.episode_number}` as any);
+                  }
+                }}
+                onOpenDetail={() =>
+                  router.push(`/show/${tmdbShowId}/episode?season=${ep.season_number}&episode=${ep.episode_number}` as any)
+                }
+                onLongPress={() => openScope({
+                  tmdb_show_id: tmdbShowId,
+                  season_number: ep.season_number,
+                  episode_number: ep.episode_number,
+                })}
+              />
+            );
+          })}
         </ScrollView>
       )}
 

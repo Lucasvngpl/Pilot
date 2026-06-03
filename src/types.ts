@@ -187,6 +187,18 @@ export type ShowCard = {
   name: string;
   poster_path: string | null;
   backdrop_path?: string | null;
+  // Per-scope art (season posters, episode stills + names), populated ONLY when
+  // fetchShowCards is asked for it ({ withScopeArt }). Lets resolveScope render a
+  // season/episode's own art + identity without a new fetch — it's data the
+  // payload already carried. Absent on the slim cards everyone else uses.
+  scopeArt?: ScopeArt;
+};
+
+export type ScopeArt = {
+  seasons: Record<number, {
+    poster_path: string | null;
+    episodes: Record<number, { name: string; still_path: string | null }>;
+  }>;
 };
 
 export type WatchedCard = ShowCard & {
@@ -332,6 +344,11 @@ export type ListSummary = {
 // A list item enriched for the ranked detail rows: the card + a year and network
 // for the subtitle line ("HBO · 2019").
 export type ListShowItem = ShowCard & {
+  // Scope of this list row (a list can hold a show, a season, or an episode).
+  // `name`/`poster_path` are already resolved to THIS scope (resolveScope).
+  season_number: number | null;
+  episode_number: number | null;
+  scopeKey: string;       // unique per row — a show can appear at multiple scopes
   year: string | null;    // first_air_date's year, e.g. "2019"
   network: string | null; // primary broadcaster, e.g. "HBO"
 };
@@ -360,6 +377,78 @@ export function formatScope(
   if (season === null) return undefined;
   if (episode === null) return `Season ${season}`;
   return `Season ${season} · E${episode}`;
+}
+
+// Compact scope label shared by the Log confirmation line AND the rich episode
+// rows, so the same scope reads identically everywhere. Whole show → undefined
+// (callers use the show name); season → "Season 2"; episode → "S01 · E03"
+// (zero-padded so list rows align).
+export function formatScopeShort(
+  season: number | null,
+  episode: number | null,
+): string | undefined {
+  if (season === null) return undefined;
+  if (episode === null) return `Season ${season}`;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `S${pad(season)} · E${pad(episode)}`;
+}
+
+// "2020-10-23" → "Oct 23, 2020". Manual (no Intl — Hermes ships without it).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+export function formatAirDate(d?: string | null): string | null {
+  if (!d) return null;
+  const [y, m, day] = d.split('-').map(Number);
+  if (!y || !m || !day) return null;
+  return `${MONTHS[m - 1]} ${day}, ${y}`;
+}
+
+export type ScopeTuple = { tmdb_show_id: number; season_number: number | null; episode_number: number | null };
+export type ResolvedScope = { posterPath: string | null; title: string; key: string };
+
+// THE single source of a scoped row's poster + identity + React key, for every
+// surface that shows a scope (list rows, review cards, …). Reuses formatScopeShort
+// for the label (no second formatter) and falls back UP the hierarchy for art:
+// episode still → season poster → show poster. `card.scopeArt` is present only
+// when fetched with { withScopeArt }; without it, art falls back to the show
+// poster but the title/key are still correct from the tuple. Returns a `posterPath`
+// (a TMDb path the existing Poster/Image components turn into a URL), not a URL.
+export function resolveScope(tuple: ScopeTuple, card: ShowCard | undefined): ResolvedScope {
+  const { tmdb_show_id, season_number, episode_number } = tuple;
+  const key = `${tmdb_show_id}-${season_number ?? 'x'}-${episode_number ?? 'x'}`;
+  const showPoster = card?.poster_path ?? null;
+
+  if (season_number === null) {
+    return { posterPath: showPoster, title: card?.name ?? 'Untitled', key };
+  }
+
+  const season = card?.scopeArt?.seasons[season_number];
+  if (episode_number === null) {
+    return { posterPath: season?.poster_path ?? showPoster, title: `Season ${season_number}`, key };
+  }
+
+  const ep = season?.episodes[episode_number];
+  const label = formatScopeShort(season_number, episode_number)!; // "S01 · E03"
+  return {
+    posterPath: ep?.still_path ?? season?.poster_path ?? showPoster,
+    title: ep?.name ? `${label} ‘${ep.name}’` : label,
+    key,
+  };
+}
+
+// Build the slim per-scope art lookup (season posters + episode stills/names)
+// from a cached TMDb payload. Used by fetchShowCards (withScopeArt) and by
+// surfaces that already hold the full catalog (the show Reviews tab) to feed
+// resolveScope without a refetch.
+export function buildScopeArt(payload: TmdbPayload | undefined): ScopeArt {
+  const seasons: ScopeArt['seasons'] = {};
+  for (const s of payload?.seasons ?? []) {
+    const episodes: ScopeArt['seasons'][number]['episodes'] = {};
+    for (const e of s.episodes ?? []) {
+      episodes[e.episode_number] = { name: e.name, still_path: e.still_path ?? null };
+    }
+    seasons[s.season_number] = { poster_path: s.poster_path ?? null, episodes };
+  }
+  return { seasons };
 }
 
 // ----- TMDb image URL helper -----------------------------------------------

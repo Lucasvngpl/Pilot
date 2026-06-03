@@ -67,7 +67,11 @@ export function AddToListSheet({
 
   const onNewList = () => {
     onClose();
-    router.push(`/list/new?showId=${tmdbShowId}` as any);
+    // Carry the scope so the new list stages the season/episode, not the show.
+    const scopeQ =
+      (season_number != null ? `&season=${season_number}` : '') +
+      (episode_number != null ? `&episode=${episode_number}` : '');
+    router.push(`/list/new?showId=${tmdbShowId}${scopeQ}` as any);
   };
 
   return (

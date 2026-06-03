@@ -9,6 +9,7 @@ import { useList } from '@/api/useLists';
 import { useSearchShows } from '@/api/useSearchShows';
 import { useDebounce } from '@/lib/useDebounce';
 import { fetchShowCards } from '@/api/showCards';
+import { resolveScope } from '@/types';
 import { SearchInput } from '@/components/SearchInput';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
@@ -18,7 +19,16 @@ import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { SearchShowResult } from '@/types';
 
-type Staged = { tmdb_show_id: number; name: string; poster_path: string | null };
+// A staged item is a scope tuple (show / season / episode). `name`/`poster_path`
+// are already resolved to THAT scope (resolveScope); `scopeKey` is the unique key.
+type Staged = {
+  tmdb_show_id: number;
+  season_number: number | null;
+  episode_number: number | null;
+  name: string;
+  poster_path: string | null;
+  scopeKey: string;
+};
 
 // One screen, two modes:
 //  - CREATE (default, or with ?showId pre-stage): make a new list.
@@ -28,7 +38,8 @@ type Staged = { tmdb_show_id: number; name: string; poster_path: string | null }
 export default function NewOrEditList() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
-  const { showId, edit } = useLocalSearchParams<{ showId?: string; edit?: string }>();
+  const { showId, season, episode, edit } =
+    useLocalSearchParams<{ showId?: string; season?: string; episode?: string; edit?: string }>();
   const isEdit = !!edit;
 
   const { create, isPending: creating } = useCreateList();
@@ -39,52 +50,72 @@ export default function NewOrEditList() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [staged, setStaged] = useState<Staged[]>([]);
-  const [originalIds, setOriginalIds] = useState<number[]>([]); // edit baseline for the diff
+  const [originalItems, setOriginalItems] = useState<Staged[]>([]); // edit baseline for the diff
   const [seeded, setSeeded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState('');
   const debounced = useDebounce(query, 300);
   const search = useSearchShows(debounced);
 
-  // CREATE: pre-seed a show passed via ?showId (from "Add to lists… → New list").
+  // CREATE: pre-seed the scope passed via ?showId (+ optional season/episode) from
+  // "Add to lists… → New list". Resolves to the season/episode's own art + identity.
   useEffect(() => {
     if (isEdit) return;
     const sid = showId ? Number(showId) : NaN;
     if (!Number.isInteger(sid) || sid <= 0) return;
+    const seasonN = season ? Number(season) : null;
+    const episodeN = episode ? Number(episode) : null;
     let alive = true;
-    fetchShowCards([sid]).then((cards) => {
-      const c = cards.get(sid);
-      if (alive && c) {
-        setStaged([{ tmdb_show_id: c.tmdb_show_id, name: c.name, poster_path: c.poster_path }]);
-      }
+    fetchShowCards([sid], { withScopeArt: true }).then((cards) => {
+      if (!alive) return;
+      const scoped = resolveScope(
+        { tmdb_show_id: sid, season_number: seasonN, episode_number: episodeN },
+        cards.get(sid),
+      );
+      setStaged([{
+        tmdb_show_id: sid, season_number: seasonN, episode_number: episodeN,
+        name: scoped.title, poster_path: scoped.posterPath, scopeKey: scoped.key,
+      }]);
     });
     return () => { alive = false; };
-  }, [showId, isEdit]);
+  }, [showId, season, episode, isEdit]);
 
-  // EDIT: pre-fill title/description/shows once, and snapshot the original ids
-  // so onSave can diff against them.
+  // EDIT: pre-fill title/description/items once, and snapshot the originals (with
+  // scope) so onSave can diff against them. items already carry resolved scope.
   useEffect(() => {
     if (isEdit && editList && !seeded) {
       setTitle(editList.title);
       setDescription(editList.description ?? '');
-      const items = editList.items.map((i) => ({
-        tmdb_show_id: i.tmdb_show_id, name: i.name, poster_path: i.poster_path,
+      const items: Staged[] = editList.items.map((i) => ({
+        tmdb_show_id: i.tmdb_show_id,
+        season_number: i.season_number,
+        episode_number: i.episode_number,
+        name: i.name,
+        poster_path: i.poster_path,
+        scopeKey: i.scopeKey,
       }));
       setStaged(items);
-      setOriginalIds(items.map((i) => i.tmdb_show_id));
+      setOriginalItems(items);
       setSeeded(true);
     }
   }, [isEdit, editList, seeded]);
 
-  const stagedIds = new Set(staged.map((s) => s.tmdb_show_id));
+  const stagedKeys = new Set(staged.map((s) => s.scopeKey));
 
+  // Search adds WHOLE-SHOW items (the list search is show-only); scoped items
+  // arrive only via the pre-seed above. Dedup by scopeKey so the same scope isn't
+  // staged twice (a show and one of its seasons are different keys — both allowed).
   const addStaged = (r: SearchShowResult) => {
-    if (stagedIds.has(r.tmdb_show_id)) return;
-    setStaged((prev) => [...prev, { tmdb_show_id: r.tmdb_show_id, name: r.name, poster_path: r.poster_path }]);
+    const key = `${r.tmdb_show_id}-x-x`;
+    if (stagedKeys.has(key)) return;
+    setStaged((prev) => [...prev, {
+      tmdb_show_id: r.tmdb_show_id, season_number: null, episode_number: null,
+      name: r.name, poster_path: r.poster_path, scopeKey: key,
+    }]);
     setQuery(''); // clear the search after adding
   };
-  const removeStaged = (id: number) =>
-    setStaged((prev) => prev.filter((s) => s.tmdb_show_id !== id));
+  const removeStaged = (key: string) =>
+    setStaged((prev) => prev.filter((s) => s.scopeKey !== key));
 
   // Reorder via arrows (no drag/PanResponder — same call as Top 4): swap a row
   // with its neighbor. The staged order is the source of truth; onSave renumbers
@@ -107,14 +138,18 @@ export default function NewOrEditList() {
   const busy = isEdit ? saving : creating;
   const canSubmit = title.trim().length > 0 && !busy;
   const searching = debounced.trim().length > 0;
-  const results = (search.data?.results ?? []).filter((r) => !stagedIds.has(r.tmdb_show_id));
+  const results = (search.data?.results ?? []).filter((r) => !stagedKeys.has(`${r.tmdb_show_id}-x-x`));
 
   const onCreate = async () => {
     try {
       const id = await create({
         title: title.trim(),
         description: description.trim() || null,
-        showIds: staged.map((s) => s.tmdb_show_id),
+        items: staged.map((s) => ({
+          tmdb_show_id: s.tmdb_show_id,
+          season_number: s.season_number,
+          episode_number: s.episode_number,
+        })),
       });
       if (id) router.replace(`/list/${id}` as any);
     } catch (e) {
@@ -133,18 +168,22 @@ export default function NewOrEditList() {
       });
       if (!ok) return; // login dismissed
 
-      // True set-difference: only touch genuine adds/removes (positions of
-      // unchanged shows stay put — no remove-all-then-add-all churn).
-      const stagedNow = staged.map((s) => s.tmdb_show_id);
-      const stagedSet = new Set(stagedNow);
-      const originalSet = new Set(originalIds);
-      const added = stagedNow.filter((id) => !originalSet.has(id));
-      const removed = originalIds.filter((id) => !stagedSet.has(id));
-      for (const sid of added) await addItem(editId, sid);
-      for (const sid of removed) await removeItem(editId, sid);
+      // True set-difference BY SCOPE KEY (a show can appear at multiple scopes):
+      // only touch genuine adds/removes, each at its exact scope.
+      const stagedKeySet = new Set(staged.map((s) => s.scopeKey));
+      const originalKeySet = new Set(originalItems.map((o) => o.scopeKey));
+      const added = staged.filter((s) => !originalKeySet.has(s.scopeKey));
+      const removed = originalItems.filter((o) => !stagedKeySet.has(o.scopeKey));
+      for (const s of added) {
+        await addItem(editId, s.tmdb_show_id, { season_number: s.season_number, episode_number: s.episode_number });
+      }
+      for (const o of removed) {
+        await removeItem(editId, o.tmdb_show_id, { season_number: o.season_number, episode_number: o.episode_number });
+      }
 
-      // Renumber positions to the staged order (covers reorder + where new adds
-      // land). Sequential 0..n-1, gap-free.
+      // Renumber positions to the staged order. NOTE: keys by show id, so a list
+      // holding the SAME show at multiple scopes can't be reordered precisely yet
+      // (the deferred reorder-by-row-id item); correct for the common case.
       await reorderItems(editId, staged.map((s) => s.tmdb_show_id));
 
       router.back();
@@ -217,7 +256,7 @@ export default function NewOrEditList() {
           ) : (
             <View style={styles.stagedWrap}>
               {staged.map((s, i) => (
-                <View key={s.tmdb_show_id} style={styles.row}>
+                <View key={s.scopeKey} style={styles.row}>
                   <Text style={styles.stagedRank}>{i + 1}</Text>
                   <Poster tmdbShowId={s.tmdb_show_id} posterPath={s.poster_path} name={s.name} width={40} pressable={false} />
                   <Text style={[type.creator, { color: colors.ink, flex: 1 }]} numberOfLines={1}>{s.name}</Text>
@@ -228,7 +267,7 @@ export default function NewOrEditList() {
                     <Pressable onPress={() => moveDown(i)} hitSlop={6} disabled={i === staged.length - 1}>
                       <ChevronDownIcon color={i === staged.length - 1 ? colors.hairline : colors.muted} size={20} />
                     </Pressable>
-                    <Pressable onPress={() => removeStaged(s.tmdb_show_id)} hitSlop={6}>
+                    <Pressable onPress={() => removeStaged(s.scopeKey)} hitSlop={6}>
                       <CloseIcon color={colors.muted} size={18} />
                     </Pressable>
                   </View>

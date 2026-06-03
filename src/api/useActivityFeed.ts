@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { fetchShowCards } from '@/api/showCards';
-import { formatScope } from '@/types';
+import { formatScope, resolveScope } from '@/types';
 import type { ActivityActor, ActivityItem } from '@/types';
 
 const SRC_LIMIT = 30; // newest N per source — the merged feed can only contain a
@@ -104,7 +104,7 @@ export function useActivityFeed() {
 
       const [profilesRes, cards, ratingsRes] = await Promise.all([
         supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', [...actorIds]),
-        fetchShowCards([...showIds]),
+        fetchShowCards([...showIds], { withScopeArt: true }), // scope art for scoped reviews
         ratedShowIds.length
           ? supabase.from('ratings').select('user_id, tmdb_show_id, season_number, episode_number, score')
               .in('user_id', followees).in('tmdb_show_id', ratedShowIds)
@@ -152,12 +152,18 @@ export function useActivityFeed() {
         });
       }
       for (const r of reviews) {
+        // A scoped review shows its season/episode poster; the card's name stays
+        // the show name (the row already prints the scopeLabel separately).
+        const scoped = resolveScope(
+          { tmdb_show_id: r.tmdb_show_id, season_number: r.season_number, episode_number: r.episode_number },
+          cards.get(r.tmdb_show_id),
+        );
         items.push({
           type: 'reviewed',
           key: `review:${r.id}`,
           actor: actor(r.user_id),
           at: r.created_at,
-          show: card(r.tmdb_show_id),
+          show: { ...card(r.tmdb_show_id), poster_path: scoped.posterPath },
           scopeLabel: formatScope(r.season_number, r.episode_number) ?? null,
           rating: ratingByScope.get(ratingKey(r.user_id, r.tmdb_show_id, r.season_number, r.episode_number)) ?? null,
           body: r.body,

@@ -153,7 +153,7 @@ export default function ListDetailScreen() {
         ) : (
           // Strictly in position order (useList orders by position, then added_at),
           // so the rank is just the row's 1-based index — stable across reloads.
-          list.items.map((item, i) => <RankedRow key={item.tmdb_show_id} rank={i + 1} item={item} />)
+          list.items.map((item, i) => <RankedRow key={item.scopeKey} rank={i + 1} item={item} />)
         )}
       </ScrollView>
 

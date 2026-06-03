@@ -100,6 +100,8 @@ function AuthGate() {
         {/* Log screen: same drag-to-rate slider as the composer → kill back-swipe
             so dragging the first star doesn't slide the page back. Leave via ‹. */}
         <Stack.Screen name="log/[id]" options={{ gestureEnabled: false }} />
+        {/* Episode Detail: also carries the drag-to-rate slider (ScopeActions). */}
+        <Stack.Screen name="show/[id]/episode" options={{ gestureEnabled: false }} />
       </Stack>
     </>
   );

@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
+import { resolveScope } from '@/types';
 import type { ReviewDetail } from '@/types';
 
 // The PostgREST embed shape. `profiles!reviews_user_id_fkey` is REQUIRED, not
@@ -66,9 +67,15 @@ export function useReviewDetail(reviewId: string | undefined) {
       // carries backdrop_path for the hero.
       const [{ data: ratingRow }, cards] = await Promise.all([
         q.maybeSingle(),
-        fetchShowCards([r.tmdb_show_id]),
+        fetchShowCards([r.tmdb_show_id], { withScopeArt: true }),
       ]);
       const card = cards.get(r.tmdb_show_id);
+      // Poster resolves to this review's scope (season poster / episode still);
+      // the hero backdrop stays show-level.
+      const scoped = resolveScope(
+        { tmdb_show_id: r.tmdb_show_id, season_number: r.season_number, episode_number: r.episode_number },
+        card,
+      );
 
       return {
         id: r.id,
@@ -85,7 +92,7 @@ export function useReviewDetail(reviewId: string | undefined) {
         likes: r.review_likes?.[0]?.count ?? 0,
         rating: (ratingRow as { score: number } | null)?.score ?? null,
         showName: card?.name ?? 'Untitled',
-        posterPath: card?.poster_path ?? null,
+        posterPath: scoped.posterPath,
         backdropPath: card?.backdrop_path ?? null,
       };
     },

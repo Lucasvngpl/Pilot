@@ -4,7 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
 
-type CreateArgs = { title: string; description: string | null; showIds: number[] };
+// Each created item is a scope tuple — a list can hold shows, seasons, episodes.
+type CreateItem = { tmdb_show_id: number; season_number: number | null; episode_number: number | null };
+type CreateArgs = { title: string; description: string | null; items: CreateItem[] };
 
 // Optional scope for a list item (defaults to whole show — both null). Pass
 // season/episode to add a season or episode to a list (0009's polymorphic scope).
@@ -17,7 +19,7 @@ export function useCreateList() {
   const requireAuth = useRequireAuth();
 
   const mutation = useMutation({
-    mutationFn: async ({ title, description, showIds }: CreateArgs) => {
+    mutationFn: async ({ title, description, items }: CreateArgs) => {
       if (!user) throw new Error('useCreateList: no authenticated user');
       const { data, error } = await supabase
         .from('lists')
@@ -26,8 +28,14 @@ export function useCreateList() {
         .single();
       if (error) throw error;
       const listId = (data as { id: string }).id;
-      if (showIds.length > 0) {
-        const rows = showIds.map((sid, i) => ({ list_id: listId, tmdb_show_id: sid, position: i }));
+      if (items.length > 0) {
+        const rows = items.map((it, i) => ({
+          list_id: listId,
+          tmdb_show_id: it.tmdb_show_id,
+          season_number: it.season_number,
+          episode_number: it.episode_number,
+          position: i,
+        }));
         const { error: e2 } = await supabase.from('list_items').insert(rows);
         if (e2) throw e2;
       }

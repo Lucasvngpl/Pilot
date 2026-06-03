@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
+import { resolveScope } from '@/types';
 import type { MyReviewEntry } from '@/types';
 
 const LIMIT = 100; // newest 100 — pagination deferred
@@ -38,7 +39,7 @@ async function fetchUserReviews(userId: string, drafts: boolean): Promise<MyRevi
   const reviewIds = reviews.map((r) => r.id);
 
   const [cards, ratingRes, likesRes] = await Promise.all([
-    fetchShowCards(showIds), // name + poster (lazy-caches any uncached show)
+    fetchShowCards(showIds, { withScopeArt: true }), // + season/episode art for scoped reviews
     supabase.from('ratings').select('tmdb_show_id, season_number, episode_number, score').eq('user_id', userId).in('tmdb_show_id', showIds),
     supabase.from('review_likes').select('review_id').in('review_id', reviewIds),
   ]);
@@ -59,6 +60,13 @@ async function fetchUserReviews(userId: string, drafts: boolean): Promise<MyRevi
 
   return reviews.map((r): MyReviewEntry => {
     const card = cards.get(r.tmdb_show_id);
+    // Poster resolves to the review's scope art (season poster / episode still);
+    // showName stays the SHOW name so the row keeps show context (the consumer
+    // adds the scope label as a subtitle).
+    const scoped = resolveScope(
+      { tmdb_show_id: r.tmdb_show_id, season_number: r.season_number, episode_number: r.episode_number },
+      card,
+    );
     return {
       id: r.id,
       tmdb_show_id: r.tmdb_show_id,
@@ -67,7 +75,7 @@ async function fetchUserReviews(userId: string, drafts: boolean): Promise<MyRevi
       body: r.body,
       contains_spoilers: r.contains_spoilers,
       showName: card?.name ?? 'Untitled',
-      posterPath: card?.poster_path ?? null,
+      posterPath: scoped.posterPath,
       rating: ratingByScope.get(scopeKey(r.tmdb_show_id, r.season_number, r.episode_number)) ?? null,
       likes: likesByReview.get(r.id) ?? 0,
     };

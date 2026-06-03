@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
+import { resolveScope } from '@/types';
 import type { ListSummary, ListDetail } from '@/types';
 
 type ListRow = { id: string; title: string; description: string | null };
-type ItemRow = { list_id: string; tmdb_show_id: number };
+type ItemRow = {
+  list_id: string;
+  tmdb_show_id: number;
+  season_number: number | null;
+  episode_number: number | null;
+};
 
 /**
  * A user's lists (any user) for the profile Lists tab — newest first, each with
@@ -28,30 +34,38 @@ export function useMyLists(userId: string | undefined) {
       const ids = rows.map((l) => l.id);
       const { data: items, error: iErr } = await supabase
         .from('list_items')
-        .select('list_id, tmdb_show_id, position, added_at')
+        .select('list_id, tmdb_show_id, season_number, episode_number, position, added_at')
         .in('list_id', ids)
         .order('position', { ascending: true })
         .order('added_at', { ascending: true });
       if (iErr) throw iErr;
 
-      const byList = new Map<string, number[]>(); // list_id → ordered show ids
+      // list_id → ordered scope tuples (a row may be a show, season, or episode).
+      const byList = new Map<string, ItemRow[]>();
       for (const it of (items ?? []) as ItemRow[]) {
         const arr = byList.get(it.list_id) ?? [];
-        arr.push(it.tmdb_show_id);
+        arr.push(it);
         byList.set(it.list_id, arr);
       }
 
-      const previewIds = [...new Set(rows.flatMap((l) => (byList.get(l.id) ?? []).slice(0, 4)))];
-      const cards = await fetchShowCards(previewIds);
+      // Cards WITH scope art so the preview posters match the list-detail banner
+      // (resolveScope picks the season/episode's own poster).
+      const previewIds = [...new Set(rows.flatMap((l) => (byList.get(l.id) ?? []).slice(0, 4).map((t) => t.tmdb_show_id)))];
+      const cards = await fetchShowCards(previewIds, { withScopeArt: true });
 
       return rows.map((l) => {
-        const showIds = byList.get(l.id) ?? [];
+        const tuples = byList.get(l.id) ?? [];
         return {
           id: l.id,
           title: l.title,
           description: l.description,
-          itemCount: showIds.length,
-          posters: showIds.slice(0, 4).map((sid) => cards.get(sid)?.poster_path ?? null),
+          itemCount: tuples.length,
+          posters: tuples.slice(0, 4).map((t) =>
+            resolveScope(
+              { tmdb_show_id: t.tmdb_show_id, season_number: t.season_number, episode_number: t.episode_number },
+              cards.get(t.tmdb_show_id),
+            ).posterPath,
+          ),
         };
       });
     },
@@ -82,7 +96,7 @@ export function useList(listId: string | undefined) {
       const [itemsRes, ownerRes] = await Promise.all([
         supabase
           .from('list_items')
-          .select('tmdb_show_id, position, added_at')
+          .select('tmdb_show_id, season_number, episode_number, position, added_at')
           .eq('list_id', listId!)
           .order('position', { ascending: true })
           .order('added_at', { ascending: true }),
@@ -90,13 +104,20 @@ export function useList(listId: string | undefined) {
       ]);
       if (itemsRes.error) throw itemsRes.error;
 
-      const showIds = (itemsRes.data ?? []).map((i) => (i as { tmdb_show_id: number }).tmdb_show_id);
+      // The list_items rows, in order — each is a scope tuple (show / season /
+      // episode). Distinct show ids for the card fetch (a show can appear at more
+      // than one scope now).
+      const itemRows = (itemsRes.data ?? []) as {
+        tmdb_show_id: number; season_number: number | null; episode_number: number | null;
+      }[];
+      const showIds = [...new Set(itemRows.map((i) => i.tmdb_show_id))];
 
-      // Cards (name + poster) + a light meta read for the row subtitle. The meta
-      // pulls year + the primary network straight out of the cached TMDb payload
-      // via JSON operators (->>, ->) — no extra round-trip to TMDb.
+      // Cards WITH scope art (season posters + episode stills/names) so a scoped
+      // row renders its own art, + a light meta read for the row subtitle. Meta
+      // pulls year + the primary network from the cached payload via JSON
+      // operators (->>, ->) — no extra round-trip to TMDb.
       const [cards, metaRes] = await Promise.all([
-        fetchShowCards(showIds),
+        fetchShowCards(showIds, { withScopeArt: true }),
         supabase
           .from('shows_cache')
           .select('tmdb_show_id, year:payload->>first_air_date, networks:payload->networks')
@@ -123,10 +144,26 @@ export function useList(listId: string | undefined) {
         ownerAvatarUrl: owner?.avatar_url ?? null,
         createdAt: row.created_at,
         bannerUrl: null, // no custom-banner column yet; the detail screen still renders the seam
-        items: showIds.map((sid) => {
-          const card = cards.get(sid) ?? { tmdb_show_id: sid, name: 'Untitled', poster_path: null };
-          const meta = metaById.get(sid);
-          return { ...card, year: meta?.year ?? null, network: meta?.network ?? null };
+        // Each row resolved to its OWN scope art + identity + key (resolveScope),
+        // not the show's. year/network stay show-level (a season belongs to the show).
+        items: itemRows.map((it) => {
+          const card = cards.get(it.tmdb_show_id);
+          const scoped = resolveScope(
+            { tmdb_show_id: it.tmdb_show_id, season_number: it.season_number, episode_number: it.episode_number },
+            card,
+          );
+          const meta = metaById.get(it.tmdb_show_id);
+          return {
+            tmdb_show_id: it.tmdb_show_id,
+            season_number: it.season_number,
+            episode_number: it.episode_number,
+            name: scoped.title,
+            poster_path: scoped.posterPath,
+            backdrop_path: card?.backdrop_path ?? null,
+            scopeKey: scoped.key,
+            year: meta?.year ?? null,
+            network: meta?.network ?? null,
+          };
         }),
       };
     },

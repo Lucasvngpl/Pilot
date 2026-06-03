@@ -103,6 +103,20 @@ export function CheckIcon({ color = '#fff', size = 14 }: Props) {
   );
 }
 
+// Eye — the inline "mark watched" toggle on rich episode rows. `filled` is the
+// ON (watched) state: a solid eye with a light pupil; off is a grey outline.
+export function EyeIcon({ color = '#000', size = 22, filled = false }: Props & { filled?: boolean }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M2 12 C5 6 9 5 12 5 C15 5 19 6 22 12 C19 18 15 19 12 19 C9 19 5 18 2 12 Z"
+        stroke={color} strokeWidth={1.6} strokeLinejoin="round" fill={filled ? color : 'none'}
+      />
+      <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={1.6} fill={filled ? '#fff' : 'none'} />
+    </Svg>
+  );
+}
+
 // ----- Top-bar / nav-row glyphs --------------------------------------------
 
 export function HamburgerIcon({ color = '#000', size = 22 }: Props) {

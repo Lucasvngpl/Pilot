@@ -20,7 +20,7 @@ import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import { formatScope, type GetReviewsResponse, type TmdbSeason } from '@/types';
+import { formatScope, resolveScope, buildScopeArt, type GetReviewsResponse, type TmdbSeason } from '@/types';
 
 type ReviewItem = GetReviewsResponse['reviews'][number];
 
@@ -66,6 +66,18 @@ export default function ShowReviews() {
   )?.score ?? null;
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
+
+  // A scope-art-bearing card from the catalog we already hold, so each review row
+  // can resolve its season/episode poster (resolveScope) — no extra fetch.
+  const showCard = data
+    ? {
+        tmdb_show_id: tmdbShowId,
+        name: data.catalog.name,
+        poster_path: data.catalog.poster_path ?? null,
+        backdrop_path: data.catalog.backdrop_path ?? null,
+        scopeArt: buildScopeArt(data.catalog),
+      }
+    : undefined;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -120,7 +132,10 @@ export default function ShowReviews() {
                 containsSpoilers={r.contains_spoilers}
                 likes={r.likes}
                 tmdbShowId={tmdbShowId}
-                posterPath={data.catalog.poster_path}
+                posterPath={resolveScope(
+                  { tmdb_show_id: tmdbShowId, season_number: r.season_number, episode_number: r.episode_number },
+                  showCard,
+                ).posterPath}
                 onPress={() => router.push(`/review/${r.id}` as any)}
                 onMenu={user && r.user_id === user.id ? () => setMenuReview(r) : undefined}
               />

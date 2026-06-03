@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { buildScopeArt } from '@/types';
 import type { ShowCard, TmdbPayload, GetShowResponse } from '@/types';
 
 /**
@@ -16,9 +17,13 @@ import type { ShowCard, TmdbPayload, GetShowResponse } from '@/types';
  * path, so the TMDb *key* stays server-side. That function caches the payload as
  * a side effect, so the miss self-heals for next time.
  */
-export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCard>> {
+export async function fetchShowCards(
+  ids: number[],
+  opts?: { withScopeArt?: boolean },
+): Promise<Map<number, ShowCard>> {
   const map = new Map<number, ShowCard>();
   if (ids.length === 0) return map;
+  const withArt = opts?.withScopeArt ?? false;
 
   const { data, error } = await supabase
     .from('shows_cache')
@@ -34,6 +39,7 @@ export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCar
       poster_path: payload?.poster_path ?? null,
       // Surfaced for the review-detail hero. Harmless elsewhere (optional field).
       backdrop_path: payload?.backdrop_path ?? null,
+      scopeArt: withArt ? buildScopeArt(payload) : undefined,
     });
   }
 
@@ -63,6 +69,7 @@ export async function fetchShowCards(ids: number[]): Promise<Map<number, ShowCar
         name: f.catalog?.name ?? 'Untitled',
         poster_path: f.catalog?.poster_path ?? null,
         backdrop_path: f.catalog?.backdrop_path ?? null,
+        scopeArt: withArt ? buildScopeArt(f.catalog) : undefined,
       });
     }
   }
