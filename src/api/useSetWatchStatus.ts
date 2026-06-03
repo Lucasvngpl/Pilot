@@ -101,6 +101,10 @@ export function useSetWatchStatus(tmdbShowId: number) {
       qc.invalidateQueries({ queryKey: ['watchlist'] });
       qc.invalidateQueries({ queryKey: ['watched'] });
       qc.invalidateQueries({ queryKey: ['watching'] });
+      // The Diary lists every show/season-scope `watched` event. Switching this
+      // scope TO `watched` adds an entry; switching it AWAY (to watching/watchlist)
+      // must drop it. Prefix matches ['diary', userId].
+      qc.invalidateQueries({ queryKey: ['diary'] });
     },
   });
 

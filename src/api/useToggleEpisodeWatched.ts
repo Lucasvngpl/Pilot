@@ -106,6 +106,11 @@ export function useToggleEpisodeWatched(tmdbShowId: number) {
       // "S2 E5" line — so both Profile queries must refetch on next open.
       qc.invalidateQueries({ queryKey: ['watched'] });
       qc.invalidateQueries({ queryKey: ['watching'] });
+      // The Diary is event-level: each episode-watched row is its own entry, so
+      // toggling one ON adds an entry and toggling it OFF (delete) must remove it.
+      // Prefix key matches ['diary', userId]. Without this, an un-watched episode
+      // lingers in the Diary until staleTime lapses (the bug we're fixing).
+      qc.invalidateQueries({ queryKey: ['diary'] });
     },
   });
 
@@ -213,6 +218,8 @@ export function useMarkSeasonWatched(tmdbShowId: number) {
       qc.refetchQueries({ queryKey });
       qc.invalidateQueries({ queryKey: ['watched'] });
       qc.invalidateQueries({ queryKey: ['watching'] });
+      // Each newly-watched episode is its own Diary entry — refresh it too.
+      qc.invalidateQueries({ queryKey: ['diary'] });
     },
   });
 
