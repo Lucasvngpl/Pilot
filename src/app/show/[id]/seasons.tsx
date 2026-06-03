@@ -1,5 +1,5 @@
 // /show/[id]/seasons — season + episode browser for a show: season pills, per-episode rows with watched toggles.
-import { ScrollView, View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
+import { ShowTabSkeleton, EpisodeRowsSkeleton } from '@/components/Skeletons';
 import { useScopeSheet } from '@/lib/scopeSheet';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -72,7 +73,7 @@ export default function Seasons() {
         onCheckPress={() => setSheetOpen(true)}
       />
 
-      {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}
+      {isLoading && <ShowTabSkeleton><EpisodeRowsSkeleton /></ShowTabSkeleton>}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
       {data && (

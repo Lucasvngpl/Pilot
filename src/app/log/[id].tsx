@@ -3,7 +3,7 @@
 // optional progressive narrowing to a season then an episode. The resolved tuple
 // drives <ScopeActions> (Rate · Review · Add to list · Mark watched).
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -11,6 +11,7 @@ import { useShow } from '@/api/useShow';
 import { ScopeActions } from '@/components/ScopeActions';
 import { ScopePicker, type ScopeValue } from '@/components/ScopePicker';
 import { AddToListSheet } from '@/components/AddToListSheet';
+import { LogShowSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
 import { tmdbImage, formatScopeShort } from '@/types';
 import { type, pad, radius, fonts, type Palette } from '@/theme';
@@ -78,7 +79,7 @@ export default function LogShow() {
       </View>
 
       {isLoading || !catalog ? (
-        <ActivityIndicator style={{ marginTop: 48 }} color={colors.ink} />
+        <LogShowSkeleton />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
           <View style={styles.hero}>

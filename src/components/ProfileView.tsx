@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions,
+  ScrollView, View, Text, Pressable, StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -23,7 +23,7 @@ import { ListCard } from '@/components/ListCard';
 import { ProfileTabs, type ProfileTabKey } from '@/components/ProfileTabs';
 import { PosterGrid } from '@/components/PosterGrid';
 import { DashedSlot } from '@/components/DashedSlot';
-import { ProfileSkeleton, PosterGridSkeleton } from '@/components/Skeletons';
+import { ProfileSkeleton, PosterGridSkeleton, ListCardsSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
   CalendarIcon, ReviewBadgeIcon, DraftIcon, SunIcon, MoonIcon,
@@ -534,7 +534,7 @@ function ListsBody({
         </Pressable>
       )}
       {isLoading ? (
-        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        <ListCardsSkeleton />
       ) : items.length === 0 ? (
         <Text style={styles.emptyInline}>{isOwn ? 'No lists yet.' : 'No lists.'}</Text>
       ) : (

@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
@@ -6,6 +6,7 @@ import { useDiary } from '@/api/useDiary';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { ChevronLeftIcon, ReviewBadgeIcon } from '@/components/icons';
+import { DiaryRowsSkeleton } from '@/components/Skeletons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { DiaryEntry } from '@/types';
@@ -31,7 +32,7 @@ export default function Diary() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        <DiaryRowsSkeleton />
       ) : !sections || sections.length === 0 ? (
         <Text style={styles.empty}>Your diary is empty — nothing watched yet.</Text>
       ) : (

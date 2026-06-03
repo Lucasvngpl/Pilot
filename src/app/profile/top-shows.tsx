@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, Alert,
+  ScrollView, View, Text, Pressable, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -12,6 +12,7 @@ import { useDebounce } from '@/lib/useDebounce';
 import { SearchInput } from '@/components/SearchInput';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
+import { SearchResultRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon, CloseIcon } from '@/components/icons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -122,7 +123,7 @@ export default function TopShowsEdit() {
             />
             {searching &&
               (search.isLoading ? (
-                <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+                <SearchResultRowsSkeleton />
               ) : results.length === 0 ? (
                 <Text style={styles.muted}>No shows found.</Text>
               ) : (

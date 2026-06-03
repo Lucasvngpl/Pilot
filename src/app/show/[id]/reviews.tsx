@@ -1,7 +1,7 @@
 // /show/[id]/reviews — the Reviews tab: every review for the show, newest first.
 // (The big hero + your rating card live on the Overview landing; this tab uses the
 // compact header like Seasons/Lists.) Reads via usePopularReviews (get-reviews).
-import { ScrollView, View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -18,6 +18,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
+import { ShowTabSkeleton, ReviewRowsSkeleton } from '@/components/Skeletons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import { formatScope, resolveScope, buildScopeArt, type GetReviewsResponse, type TmdbSeason } from '@/types';
@@ -83,7 +84,7 @@ export default function ShowReviews() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ShowNavRow status={showScopeStatus} onCheckPress={() => setSheetOpen(true)} />
 
-      {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}
+      {isLoading && <ShowTabSkeleton><ReviewRowsSkeleton /></ShowTabSkeleton>}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
       {data && (

@@ -1,8 +1,9 @@
-import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useFollowList } from '@/api/useFollowList';
 import { PersonRow } from '@/components/PersonRow';
+import { PersonRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
 import { type, pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -29,7 +30,7 @@ export function FollowList({ userId, kind }: { userId: string; kind: Kind }) {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        <PersonRowsSkeleton />
       ) : isError ? (
         <Text style={styles.muted}>Couldn&apos;t load {title.toLowerCase()}.</Text>
       ) : people.length === 0 ? (

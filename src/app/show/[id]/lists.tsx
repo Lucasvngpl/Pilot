@@ -2,7 +2,7 @@
 // Pilot's own social data (direct RLS query via useShowLists — no Edge Function);
 // only public lists surface (the no-leak filter lives in the hook). Rows reuse the
 // shared ListCard, which already taps through to /list/[id].
-import { ScrollView, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -15,13 +15,13 @@ import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
+import { ShowTabSkeleton, ListCardsSkeleton } from '@/components/Skeletons';
 import { type, pad, fonts, type Palette } from '@/theme';
-import { useThemedStyles, useTheme } from '@/lib/theme';
+import { useThemedStyles } from '@/lib/theme';
 import type { TmdbSeason } from '@/types';
 
 export default function ShowLists() {
   const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
@@ -42,7 +42,7 @@ export default function ShowLists() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ShowNavRow status={showScopeStatus} onCheckPress={() => setSheetOpen(true)} />
 
-      {isLoading && <ActivityIndicator style={styles.center} color={colors.ink} />}
+      {isLoading && <ShowTabSkeleton><ListCardsSkeleton /></ShowTabSkeleton>}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
       {data && (
@@ -67,7 +67,7 @@ export default function ShowLists() {
           />
 
           {listsLoading ? (
-            <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+            <ListCardsSkeleton />
           ) : (lists ?? []).length === 0 ? (
             // The common case at launch (zero users) — never a blank tab.
             <Text style={[styles.muted, styles.empty]}>No lists include this show yet.</Text>

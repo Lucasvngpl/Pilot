@@ -1,4 +1,4 @@
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import { useActivityFeed } from '@/api/useActivityFeed';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { BottomNav } from '@/components/BottomNav';
+import { ActivityRowsSkeleton } from '@/components/Skeletons';
 import { tmdbImage } from '@/types';
 import { timeAgo } from '@/lib/timeAgo';
 import { type, pad, fonts, type Palette } from '@/theme';
@@ -34,7 +35,7 @@ export default function Activity() {
         {!user ? (
           <Text style={styles.empty}>Log in to see what the people you follow are watching.</Text>
         ) : isLoading ? (
-          <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+          <ActivityRowsSkeleton />
         ) : !items || items.length === 0 ? (
           <Text style={styles.empty}>Follow people to see their activity here.</Text>
         ) : (

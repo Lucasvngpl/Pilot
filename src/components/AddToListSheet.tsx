@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useMyLists } from '@/api/useLists';
 import { useListItemMutations } from '@/api/useListMutations';
 import { Sheet } from '@/components/Sheet';
+import { ListRowsSkeleton } from '@/components/Skeletons';
 import { CheckIcon } from '@/components/icons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -84,7 +85,7 @@ export function AddToListSheet({
       <View style={styles.hairline} />
 
       {isLoading ? (
-        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        <ListRowsSkeleton />
       ) : (lists ?? []).length === 0 ? (
         <Text style={styles.empty}>Create your first list above.</Text>
       ) : (

@@ -4,12 +4,13 @@
 // Overview; tapping a show poster here goes on to that show. TV-only ("Appears in
 // N shows"); data comes from the get-person Edge Function via the usePerson hook.
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { usePerson } from '@/api/usePerson';
 import { PosterGrid } from '@/components/PosterGrid';
+import { PersonDetailSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
 import { tmdbImage } from '@/types';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
@@ -42,10 +43,11 @@ export default function PersonScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Conditional render: while loading (or no data yet) show a spinner, else
-          the page. `||` short-circuits — if isLoading is true we never touch data. */}
+      {/* Conditional render: while loading (or no data yet) show a layout-shaped
+          skeleton, else the page. `||` short-circuits — if isLoading is true we
+          never touch data. */}
       {isLoading || !data ? (
-        <ActivityIndicator style={{ marginTop: 48 }} color={colors.ink} />
+        <PersonDetailSkeleton />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
           <View style={styles.head}>

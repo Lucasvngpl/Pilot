@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, Alert,
+  ScrollView, View, Text, Pressable, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,6 +14,8 @@ import { SearchInput } from '@/components/SearchInput';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
+import { Skeleton } from '@/components/Skeleton';
+import { SearchResultRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon, CloseIcon, ChevronUpIcon, ChevronDownIcon } from '@/components/icons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -214,7 +216,17 @@ export default function NewOrEditList() {
       </View>
 
       {editLoading ? (
-        <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+        // Form-shaped skeleton (Title + Description fields, then staged rows) —
+        // mirrors the body below so the screen holds its shape while useList
+        // hydrates. (Usually instant: the cache is warm from the list detail.)
+        <View style={styles.body}>
+          <Skeleton width={50} height={12} />
+          <Skeleton height={44} style={{ marginTop: 8 }} />
+          <Skeleton width={90} height={12} style={{ marginTop: 20 }} />
+          <Skeleton height={44} style={{ marginTop: 8 }} />
+          <Skeleton width={70} height={12} style={{ marginTop: 24 }} />
+          <SearchResultRowsSkeleton count={3} />
+        </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <TextField label="Title" value={title} onChangeText={setTitle} placeholder="List title" />
@@ -238,7 +250,7 @@ export default function NewOrEditList() {
 
           {searching &&
             (search.isLoading ? (
-              <ActivityIndicator style={{ padding: pad }} color={colors.ink} />
+              <SearchResultRowsSkeleton />
             ) : results.length === 0 ? (
               <Text style={styles.muted}>No shows found.</Text>
             ) : (

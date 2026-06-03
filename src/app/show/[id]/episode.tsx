@@ -3,13 +3,14 @@
 // instead). Still hero + identity + overview, with the full <ScopeActions> for the
 // episode tuple. No new data: reads the episode out of the cached show payload.
 import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { ScrollView, View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useShow } from '@/api/useShow';
 import { ScopeActions } from '@/components/ScopeActions';
 import { AddToListSheet } from '@/components/AddToListSheet';
+import { EpisodeDetailSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
 import { tmdbImage, formatScopeShort, formatAirDate } from '@/types';
 import { type, pad, fonts, type Palette } from '@/theme';
@@ -53,7 +54,7 @@ export default function EpisodeDetail() {
       </View>
 
       {isLoading || !catalog ? (
-        <ActivityIndicator style={{ marginTop: 48 }} color={colors.ink} />
+        <EpisodeDetailSkeleton />
       ) : !ep ? (
         <Text style={styles.notFound}>Episode not found.</Text>
       ) : (
