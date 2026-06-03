@@ -22,12 +22,16 @@ type Props = {
 export function ScopeActionSheet({ visible, onClose, scope, currentStatus, currentRating }: Props) {
   const [addToListOpen, setAddToListOpen] = useState(false);
 
+  // Sized to the content (pills · rating · action rows) + breathing room above the
+  // home indicator. Show/episode scope = 2 action rows (Review · Add to list) ≈
+  // 380pt; SEASON scope adds a 3rd row ("Mark all episodes watched"), so it needs
+  // one row (~52pt) more — the Sheet is fixed-height with no inner scroll, so an
+  // under-sized height would clip that row off the bottom.
+  const isSeason = scope.season_number != null && scope.episode_number == null;
+
   return (
     <>
-      {/* Sized to the content (pills · rating · 2 rows ≈ 330pt) + a little
-          breathing room above the home indicator. Content height is the same at
-          every scope — 1/2/3 status pills are all one row — so one height fits all. */}
-      <Sheet visible={visible} onClose={onClose} height={380}>
+      <Sheet visible={visible} onClose={onClose} height={isSeason ? 432 : 380}>
         <ScopeActions
           scope={scope}
           currentStatus={currentStatus}

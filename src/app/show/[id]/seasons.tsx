@@ -1,4 +1,10 @@
-// /show/[id]/seasons — season + episode browser for a show: season pills, per-episode rows with watched toggles.
+// /show/[id]/seasons — the Seasons TAB: a vertical list of season ROWS (poster ·
+// "Season N" · N episodes · year · eye + •••). NO horizontal pills/dropdown — one
+// row per season. Tapping a row BODY drills into that season's episode list
+// (/show/[id]/season). The eye is a SEASON-scope watched toggle (set/clear one
+// season-level status row), DISTINCT from the ••• sheet's "Mark all episodes
+// watched" bulk action (one row per episode). Reuses resolveScope (poster/title/
+// key), <ScopeActions> (the ••• sheet), and the existing watched mutations.
 import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -6,29 +12,29 @@ import { useState } from 'react';
 import { useShow } from '@/api/useShow';
 import { usePopularReviews } from '@/api/usePopularReviews';
 import { useShowLists } from '@/api/useShowLists';
-import { useToggleEpisodeWatched, useMarkSeasonWatched } from '@/api/useToggleEpisodeWatched';
+import { useSetWatchStatus } from '@/api/useSetWatchStatus';
 import { Tabs } from '@/components/Tabs';
-import { SeasonPills } from '@/components/SeasonPills';
-import { EpisodeRow } from '@/components/EpisodeRow';
+import { Poster } from '@/components/Poster';
 import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
-import { ShowTabSkeleton, EpisodeRowsSkeleton } from '@/components/Skeletons';
+import { ShowTabSkeleton, ListCardsSkeleton } from '@/components/Skeletons';
+import { EyeIcon, DotsIcon } from '@/components/icons';
 import { useScopeSheet } from '@/lib/scopeSheet';
+import { resolveScope, buildScopeArt, type ShowCard, type TmdbSeason } from '@/types';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import type { TmdbSeason, TmdbEpisode } from '@/types';
 
 export default function Seasons() {
   const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const tmdbShowId = Number(id);
   const { data, isLoading, error } = useShow(tmdbShowId);
-  const { toggle } = useToggleEpisodeWatched(tmdbShowId);
-  const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
-  const openScope = useScopeSheet(); // ••• / long-press an episode → its scope actions
+  // Season eye → set 'watched' / clear at SEASON scope (toggle-off). Forks on
+  // scope: this is the season path, not useToggleEpisodeWatched (episodes).
+  const { setStatus, clearStatus } = useSetWatchStatus(tmdbShowId);
+  const openScope = useScopeSheet(); // ••• / long-press a season → its ScopeActions
   // Real tab-count badges (cached, shared with the other tab screens).
   const { data: reviewsData } = usePopularReviews(tmdbShowId);
   const { data: showLists } = useShowLists(tmdbShowId);
@@ -36,29 +42,16 @@ export default function Seasons() {
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
 
-  // Default to the FIRST real season (the seeder already drops season 0/specials);
-  // a useState initializer runs once, and the show data is usually already cached
-  // when you arrive from Overview, so the initial value is what you actually see.
-  const initialSeason = seasons[0]?.season_number ?? 1;
-  const [activeSeason, setActiveSeason] = useState<number>(initialSeason);
-  const current = seasons.find((s) => s.season_number === activeSeason) ?? seasons[0];
-  const episodes = (current?.episodes ?? []) as TmdbEpisode[];
-
-  const watchedKeys = new Set(
+  // Which seasons have a season-scope `watched` row (season set, episode null) →
+  // each eye's filled state. Across the list, the filled eyes read at a glance as
+  // "seasons I've completed".
+  const seasonWatched = new Set(
     (data?.mySocial.watch_statuses ?? [])
-      .filter((r) => r.season_number != null && r.episode_number != null)
-      .map((r) => `${r.season_number}:${r.episode_number}`),
+      .filter((r) => r.season_number != null && r.episode_number === null && r.status === 'watched')
+      .map((r) => r.season_number),
   );
 
-  // The user's OWN episode-scope ratings, keyed by "season:episode" — feeds each
-  // row's rating badge (shown only where the user actually rated; no community avg).
-  const episodeRatings = new Map<string, number>(
-    (data?.mySocial.ratings ?? [])
-      .filter((r) => r.season_number != null && r.episode_number != null)
-      .map((r) => [`${r.season_number}:${r.episode_number}`, r.score] as const),
-  );
-
-  // Show-scope status + rating — both feed `engaged` and the action sheet.
+  // Show-scope status + rating — feed the nav check + the show ••• ShowActionSheet.
   const showScopeStatus = data?.mySocial.watch_statuses.find(
     (r) => r.season_number === null && r.episode_number === null,
   )?.status ?? null;
@@ -66,14 +59,29 @@ export default function Seasons() {
     (r) => r.season_number === null && r.episode_number === null,
   )?.score ?? null;
 
+  // A card carrying per-scope art so resolveScope returns each season's OWN poster.
+  // resolveScope is the SOLE source of the season poster/title/key — it already
+  // falls back up the hierarchy (season poster → show poster), so no ad-hoc
+  // show-poster fallback is baked in here.
+  const showCard: ShowCard | undefined = data
+    ? {
+        tmdb_show_id: tmdbShowId,
+        name: data.catalog.name,
+        poster_path: data.catalog.poster_path ?? null,
+        scopeArt: buildScopeArt(data.catalog),
+      }
+    : undefined;
+
+  const onToggleSeason = (seasonNumber: number, watched: boolean) =>
+    watched
+      ? clearStatus({ season_number: seasonNumber })
+      : setStatus('watched', { season_number: seasonNumber });
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <ShowNavRow
-        status={showScopeStatus}
-        onCheckPress={() => setSheetOpen(true)}
-      />
+      <ShowNavRow status={showScopeStatus} onCheckPress={() => setSheetOpen(true)} />
 
-      {isLoading && <ShowTabSkeleton><EpisodeRowsSkeleton /></ShowTabSkeleton>}
+      {isLoading && <ShowTabSkeleton><ListCardsSkeleton /></ShowTabSkeleton>}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
       {data && (
@@ -97,68 +105,27 @@ export default function Seasons() {
             }}
           />
 
-          <SeasonPills
-            seasons={seasons.map((s) => s.season_number)}
-            active={activeSeason}
-            onChange={setActiveSeason}
-            // Long-press a season → that whole season's scope actions.
-            onLongPress={(n) => openScope({ tmdb_show_id: tmdbShowId, season_number: n, episode_number: null })}
-          />
-
-          {current && (
-            <View style={styles.metaRow}>
-              <Text style={[type.epRating, { color: colors.muted }]}>
-                {episodes.length} episodes
-                {current.air_date && ` · ${current.air_date.slice(0, 4)}`}
-              </Text>
-              <Pressable
-                hitSlop={8}
-                disabled={markingAll || episodes.length === 0}
-                onPress={() =>
-                  markAll({
-                    tmdb_show_id: tmdbShowId,
-                    season_number: current.season_number,
-                    episode_numbers: episodes.map((e) => e.episode_number),
-                  })
-                }
-              >
-                <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
-                  Mark all watched ✓
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {episodes.map((ep) => {
-            const key = `${ep.season_number}:${ep.episode_number}`;
-            const watched = watchedKeys.has(key);
+          {seasons.map((s) => {
+            // resolveScope at SEASON scope → season poster + "Season N" title + key.
+            const resolved = resolveScope(
+              { tmdb_show_id: tmdbShowId, season_number: s.season_number, episode_number: null },
+              showCard,
+            );
+            const watched = seasonWatched.has(s.season_number);
             return (
-              <EpisodeRow
-                key={`${ep.season_number}-${ep.episode_number}`}
-                seasonNumber={ep.season_number}
-                episodeNumber={ep.episode_number}
-                title={ep.name}
-                airDate={ep.air_date}
-                stillPath={ep.still_path}
-                fallbackPosterPath={current?.poster_path ?? data?.catalog.poster_path}
+              <SeasonRow
+                key={resolved.key}
+                tmdbShowId={tmdbShowId}
+                posterPath={resolved.posterPath}
+                title={resolved.title}
+                episodeCount={s.episodes?.length ?? 0}
+                year={s.air_date ? s.air_date.slice(0, 4) : null}
                 watched={watched}
-                rating={episodeRatings.get(key) ?? null}
-                onToggleWatched={() => toggle({
-                  tmdb_show_id: tmdbShowId,
-                  season_number: ep.season_number,
-                  episode_number: ep.episode_number,
-                  currentlyWatched: watched,
-                })}
-                onOpenDetail={() =>
-                  router.push(`/show/${tmdbShowId}/episode?season=${ep.season_number}&episode=${ep.episode_number}` as any)
+                onToggleWatched={() => onToggleSeason(s.season_number, watched)}
+                onOpenSheet={() =>
+                  openScope({ tmdb_show_id: tmdbShowId, season_number: s.season_number, episode_number: null })
                 }
-                // ••• button AND long-press → the full ScopeActions sheet (review
-                // lives inside it as "Review or log"); auth is gated per-action there.
-                onOpenSheet={() => openScope({
-                  tmdb_show_id: tmdbShowId,
-                  season_number: ep.season_number,
-                  episode_number: ep.episode_number,
-                })}
+                onOpenDetail={() => router.push(`/show/${tmdbShowId}/season?season=${s.season_number}` as any)}
               />
             );
           })}
@@ -178,17 +145,69 @@ export default function Seasons() {
   );
 }
 
+// One season row. BODY tap → that season's episode list; long-press → the season
+// ScopeActions sheet. Eye = season-scope watched toggle (filled when watched);
+// ••• = same ScopeActions sheet. Nested Pressables (eye / •••) capture their own
+// touch, so a button tap never also fires the row's onPress — the tap-conflict
+// guard, exactly as EpisodeRow does it.
+function SeasonRow({
+  tmdbShowId, posterPath, title, episodeCount, year, watched,
+  onToggleWatched, onOpenSheet, onOpenDetail,
+}: {
+  tmdbShowId: number;
+  posterPath: string | null;
+  title: string;
+  episodeCount: number;
+  year: string | null;
+  watched: boolean;
+  onToggleWatched: () => void;
+  onOpenSheet: () => void;
+  onOpenDetail: () => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
+  const meta = `${episodeCount} ${episodeCount === 1 ? 'episode' : 'episodes'}${year ? ` · ${year}` : ''}`;
+  return (
+    <Pressable style={styles.seasonRow} onPress={onOpenDetail} onLongPress={onOpenSheet} delayLongPress={280}>
+      {/* Lazy season poster — Poster shows a skeleton until the image loads, so it
+          never blocks scroll. pressable={false}: the ROW owns the tap. */}
+      <Poster tmdbShowId={tmdbShowId} posterPath={posterPath} name={title} width={58} pressable={false} />
+
+      <View style={styles.body}>
+        <Text style={[type.reviewTitle, { color: colors.ink }]} numberOfLines={1}>{title}</Text>
+        <Text style={[type.epRuntime, { color: colors.muted, marginTop: 2 }]}>{meta}</Text>
+      </View>
+
+      {/* Stacked inline actions (eye over •••), same as EpisodeRow. */}
+      <View style={styles.actions}>
+        <Pressable onPress={onToggleWatched} hitSlop={8} style={styles.actionBtn}>
+          {/* Filled purple = season watched (the app's watched accent, same eye the
+              episodes use), hollow grey = not — visible season-completion at a glance. */}
+          <EyeIcon color={watched ? colors.purple : colors.faint} size={22} filled={watched} />
+        </Pressable>
+        <Pressable onPress={onOpenSheet} hitSlop={8} style={styles.actionBtn}>
+          <DotsIcon color={colors.muted} size={20} />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+}
+
 const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: pad,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
   muted: { fontFamily: fonts.regular, color: colors.muted },
   center: { padding: pad, textAlign: 'center' },
+
+  seasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: pad,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+    gap: 12,
+  },
+  body: { flex: 1 },
+  actions: { alignItems: 'center', gap: 14 },
+  actionBtn: { padding: 2 },
 });

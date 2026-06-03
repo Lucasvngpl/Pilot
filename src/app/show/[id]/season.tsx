@@ -1,0 +1,151 @@
+// /show/[id]/season?season=N — one season's EPISODE list. Reached by tapping a
+// season ROW on the Seasons tab (the only "see episodes" path). Same episode rows
+// as before (lazy still · scope label · title · own rating · eye + •••): the eye is
+// the EPISODE-scope toggle (useToggleEpisodeWatched, delete-on-unwatch), the •••
+// opens the episode ScopeActions sheet. "Mark all watched" (season-bulk) lives in
+// the meta row AND the season row's ••• — both call useMarkSeasonWatched. No new
+// data: reads the season out of the cached show payload.
+import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useShow } from '@/api/useShow';
+import { useToggleEpisodeWatched, useMarkSeasonWatched } from '@/api/useToggleEpisodeWatched';
+import { EpisodeRow } from '@/components/EpisodeRow';
+import { EpisodeRowsSkeleton } from '@/components/Skeletons';
+import { ChevronLeftIcon } from '@/components/icons';
+import { useScopeSheet } from '@/lib/scopeSheet';
+import { type, pad, fonts, type Palette } from '@/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
+import type { TmdbEpisode, TmdbSeason } from '@/types';
+
+export default function SeasonEpisodes() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
+  const { id, season } = useLocalSearchParams<{ id: string; season: string }>();
+  const tmdbShowId = Number(id);
+  const seasonNumber = Number(season);
+  const { data, isLoading, error } = useShow(tmdbShowId);
+  const { toggle } = useToggleEpisodeWatched(tmdbShowId);
+  const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
+  const openScope = useScopeSheet(); // ••• / long-press an episode → its scope actions
+
+  const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
+  const current = seasons.find((s) => s.season_number === seasonNumber);
+  const episodes = (current?.episodes ?? []) as TmdbEpisode[];
+
+  // Watched episodes for THIS user, keyed "season:episode" — feeds each row's eye.
+  const watchedKeys = new Set(
+    (data?.mySocial.watch_statuses ?? [])
+      .filter((r) => r.season_number != null && r.episode_number != null)
+      .map((r) => `${r.season_number}:${r.episode_number}`),
+  );
+
+  // The user's OWN episode-scope ratings, keyed "season:episode" — each row's badge.
+  const episodeRatings = new Map<string, number>(
+    (data?.mySocial.ratings ?? [])
+      .filter((r) => r.season_number != null && r.episode_number != null)
+      .map((r) => [`${r.season_number}:${r.episode_number}`, r.score] as const),
+  );
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <View style={styles.nav}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
+          <ChevronLeftIcon color={colors.ink} size={24} />
+        </Pressable>
+        <Text style={[type.subhead, { color: colors.ink }]} numberOfLines={1}>
+          Season {seasonNumber}
+        </Text>
+        <View style={{ width: 24 }} />
+      </View>
+
+      {isLoading && <EpisodeRowsSkeleton />}
+      {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
+
+      {data && !current && (
+        <Text style={[styles.muted, styles.center]}>Season not found.</Text>
+      )}
+
+      {data && current && (
+        <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+          <View style={styles.metaRow}>
+            <Text style={[type.epRating, { color: colors.muted }]}>
+              {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
+              {current.air_date && ` · ${current.air_date.slice(0, 4)}`}
+            </Text>
+            <Pressable
+              hitSlop={8}
+              disabled={markingAll || episodes.length === 0}
+              onPress={() =>
+                markAll({
+                  tmdb_show_id: tmdbShowId,
+                  season_number: current.season_number,
+                  episode_numbers: episodes.map((e) => e.episode_number),
+                })
+              }
+            >
+              <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
+                Mark all watched ✓
+              </Text>
+            </Pressable>
+          </View>
+
+          {episodes.map((ep) => {
+            const key = `${ep.season_number}:${ep.episode_number}`;
+            const watched = watchedKeys.has(key);
+            return (
+              <EpisodeRow
+                key={`${ep.season_number}-${ep.episode_number}`}
+                seasonNumber={ep.season_number}
+                episodeNumber={ep.episode_number}
+                title={ep.name}
+                airDate={ep.air_date}
+                stillPath={ep.still_path}
+                fallbackPosterPath={current.poster_path ?? data.catalog.poster_path}
+                watched={watched}
+                rating={episodeRatings.get(key) ?? null}
+                onToggleWatched={() => toggle({
+                  tmdb_show_id: tmdbShowId,
+                  season_number: ep.season_number,
+                  episode_number: ep.episode_number,
+                  currentlyWatched: watched,
+                })}
+                onOpenDetail={() =>
+                  router.push(`/show/${tmdbShowId}/episode?season=${ep.season_number}&episode=${ep.episode_number}` as any)
+                }
+                // ••• AND long-press → the full ScopeActions sheet for this episode.
+                onOpenSheet={() => openScope({
+                  tmdb_show_id: tmdbShowId,
+                  season_number: ep.season_number,
+                  episode_number: ep.episode_number,
+                })}
+              />
+            );
+          })}
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}
+
+const makeStyles = (colors: Palette) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  nav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: pad,
+    paddingVertical: 8,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: pad,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  muted: { fontFamily: fonts.regular, color: colors.muted },
+  center: { padding: pad, textAlign: 'center' },
+});

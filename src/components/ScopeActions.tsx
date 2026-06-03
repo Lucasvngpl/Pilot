@@ -2,11 +2,12 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { StatusPill } from '@/components/StatusPill';
 import { RatingPicker } from '@/components/RatingPicker';
-import { CheckIcon, PlayIcon, ClockIcon, PencilSquareIcon, ListPlusIcon } from '@/components/icons';
+import { CheckIcon, PlayIcon, ClockIcon, PencilSquareIcon, ListPlusIcon, EyeIcon } from '@/components/icons';
 import { useRequireAuth } from '@/lib/requireAuth';
+import { useShow } from '@/api/useShow';
 import { useRate } from '@/api/useRate';
 import { useSetWatchStatus } from '@/api/useSetWatchStatus';
-import { useToggleEpisodeWatched } from '@/api/useToggleEpisodeWatched';
+import { useToggleEpisodeWatched, useMarkSeasonWatched } from '@/api/useToggleEpisodeWatched';
 import { fonts, pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { WatchStatus } from '@/types';
@@ -74,10 +75,22 @@ export function ScopeActions({
   const { setStatus } = useSetWatchStatus(tmdb_show_id);
   const { rate } = useRate(tmdb_show_id);
   const { toggle: toggleEpisode } = useToggleEpisodeWatched(tmdb_show_id);
+  const { markAll } = useMarkSeasonWatched(tmdb_show_id);
 
   // The scope passed through to every mutation (the show id is the hook arg).
   const scopeArg = { season_number, episode_number };
   const isEpisode = episode_number != null; // episodes are binary watched/not
+  const isSeason = season_number != null && episode_number == null;
+
+  // Season-scope only: the episode numbers in THIS season, read from the cached
+  // show payload (no extra fetch — the host already holds ['show', id]). Feeds the
+  // "Mark all episodes watched" bulk action, which is DISTINCT from the season eye
+  // (one season-scope row) — this writes a watched row per episode.
+  const { data: showData } = useShow(isSeason ? tmdb_show_id : undefined);
+  const seasonEpisodeNumbers = isSeason
+    ? (showData?.catalog.seasons?.find((s) => s.season_number === season_number)?.episodes ?? [])
+        .map((e) => e.episode_number)
+    : [];
 
   // "Review or log" → gate, close the host, open the composer for this scope.
   // The season/episode params preset + lock the composer's scope (it reads them
@@ -97,6 +110,16 @@ export function ScopeActions({
     const allowed = await requireAuth();
     if (!allowed) return;
     onAddToList(); // host opens its sibling AddToListSheet with this scope
+  };
+
+  // "Mark all episodes watched" — one batched upsert of every episode-scope row
+  // in the season (idempotent). Separate from the season eye (which sets/clears a
+  // single season-scope status row); keep the two distinct so they don't merge.
+  const onMarkAllEpisodes = async () => {
+    const allowed = await requireAuth();
+    if (!allowed || season_number == null || seasonEpisodeNumbers.length === 0) return;
+    onRequestClose();
+    markAll({ tmdb_show_id, season_number, episode_numbers: seasonEpisodeNumbers });
   };
 
   return (
@@ -128,6 +151,12 @@ export function ScopeActions({
 
       <ActionRow Icon={PencilSquareIcon} label="Review or log" onPress={onReviewOrLog} />
       <ActionRow Icon={ListPlusIcon} label="Add to lists" onPress={onAddToListPress} />
+      {/* Season-only bulk action. Hidden until the episode list is known (so we
+          never fire an empty upsert), and distinct from the season "Watched" pill
+          above — that's one season-scope row; this writes one row per episode. */}
+      {isSeason && seasonEpisodeNumbers.length > 0 && (
+        <ActionRow Icon={EyeIcon} label="Mark all episodes watched" onPress={onMarkAllEpisodes} />
+      )}
     </>
   );
 }
