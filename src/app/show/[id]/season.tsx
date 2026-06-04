@@ -5,7 +5,7 @@
 // opens the episode ScopeActions sheet. "Mark all watched" (season-bulk) lives in
 // the meta row AND the season row's ••• — both call useMarkSeasonWatched. No new
 // data: reads the season out of the cached show payload.
-import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
+import { FlatList, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useShow } from '@/api/useShow';
@@ -59,6 +59,9 @@ export default function SeasonEpisodes() {
         <View style={{ width: 24 }} />
       </View>
 
+      {/* Skeleton ONLY on a genuine fetch (cold deep-link). Arriving from the
+          Seasons tab the show is cached → isLoading is false → no skeleton flash
+          for the common case, regardless of season size. */}
       {isLoading && <EpisodeRowsSkeleton />}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
@@ -67,35 +70,50 @@ export default function SeasonEpisodes() {
       )}
 
       {data && current && (
-        <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-          <View style={styles.metaRow}>
-            <Text style={[type.epRating, { color: colors.muted }]}>
-              {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
-              {current.air_date && ` · ${current.air_date.slice(0, 4)}`}
-            </Text>
-            <Pressable
-              hitSlop={8}
-              disabled={markingAll || episodes.length === 0}
-              onPress={() =>
-                markAll({
-                  tmdb_show_id: tmdbShowId,
-                  season_number: current.season_number,
-                  episode_numbers: episodes.map((e) => e.episode_number),
-                })
-              }
-            >
-              <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
-                Mark all watched ✓
+        // FlatList, NOT ScrollView + episodes.map(): virtualized, so only the
+        // ~visible rows render on mount. A season with hundreds of episodes opens
+        // as fast as a short one — no synchronous render of every row blocking the
+        // push transition (that was the "takes a second to load" hang). flex:1 +
+        // the screen's bounded height is what lets virtualization kick in. The meta
+        // row is the list header so it scrolls away with the episodes.
+        <FlatList
+          style={{ flex: 1 }}
+          data={episodes}
+          // FlatList is a PureComponent: an episode-watched / rating optimistic
+          // update changes `mySocial` but NOT `catalog`, so `episodes` keeps the
+          // same reference and the visible rows wouldn't re-render (stale eye / star).
+          // extraData on mySocial (a fresh ref after each social write) forces it.
+          extraData={data.mySocial}
+          keyExtractor={(ep) => `${ep.season_number}-${ep.episode_number}`}
+          contentContainerStyle={{ paddingBottom: 80 }}
+          ListHeaderComponent={
+            <View style={styles.metaRow}>
+              <Text style={[type.epRating, { color: colors.muted }]}>
+                {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
+                {current.air_date && ` · ${current.air_date.slice(0, 4)}`}
               </Text>
-            </Pressable>
-          </View>
-
-          {episodes.map((ep) => {
+              <Pressable
+                hitSlop={8}
+                disabled={markingAll || episodes.length === 0}
+                onPress={() =>
+                  markAll({
+                    tmdb_show_id: tmdbShowId,
+                    season_number: current.season_number,
+                    episode_numbers: episodes.map((e) => e.episode_number),
+                  })
+                }
+              >
+                <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
+                  Mark all watched ✓
+                </Text>
+              </Pressable>
+            </View>
+          }
+          renderItem={({ item: ep }) => {
             const key = `${ep.season_number}:${ep.episode_number}`;
             const watched = watchedKeys.has(key);
             return (
               <EpisodeRow
-                key={`${ep.season_number}-${ep.episode_number}`}
                 seasonNumber={ep.season_number}
                 episodeNumber={ep.episode_number}
                 title={ep.name}
@@ -121,8 +139,8 @@ export default function SeasonEpisodes() {
                 })}
               />
             );
-          })}
-        </ScrollView>
+          }}
+        />
       )}
     </SafeAreaView>
   );
