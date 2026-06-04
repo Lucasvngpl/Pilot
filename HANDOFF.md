@@ -31,7 +31,7 @@ _Snapshot as of 2026-06-01. **Current state only** — durable architecture rule
 - **Lists** (`useListMutations.ts`): `useCreateList` (insert `lists` + bulk `list_items` at `position=index`), `useUpdateList` (title/description), `useDeleteList` (cascade), `useListItemMutations` (`add` at max+1 / `remove`). Reads in `useLists.ts`: `useMyLists(userId)` (`['lists', userId]`) + `useList(listId)` (`['list', listId]`), both ordered `position, added_at`. The **AddToListSheet** toggle is optimistic (local membership `Set`, instant check flip, rollback on failure). Edit reuses `/list/new?edit=` (set-difference item reconcile).
 - **Reviews** (`useReviewMutations.ts`): `useUpdateReview` (body/spoiler) + `useDeleteReview` (by id) — both invalidate `['reviews']`/`['show']`/`['watched']`. `usePostReview` still does the INSERT. Edit reuses the composer (`review.tsx?reviewId=`, scope locked); the `⋯` menu (owner-only) is the shared `ActionMenuSheet`.
 
-**Edge Functions** (`supabase/functions/`) — `get-show`, `get-popular`, `refresh-popular`, `get-reviews`, `search-shows`.
+**Edge Functions** (`supabase/functions/`) — `get-show`, `get-popular`, `refresh-popular`, `get-reviews`, `search-shows`, `get-person` (actor pages → `usePerson`).
 
 **Supabase Storage** — `avatars` bucket (public read; write only your own `{user_id}/…` folder, RLS-verified). Profile avatars live here; `profiles.avatar_url` stores the cache-busted public URL.
 

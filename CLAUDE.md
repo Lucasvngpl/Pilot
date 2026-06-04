@@ -55,12 +55,14 @@ Because SELECT is `USING (true)`, queries return _every_ user's rows by default.
 
 ## Edge Functions
 
-Four of them, all under `supabase/functions/`:
+Six of them, all under `supabase/functions/`:
 
 - `get-show` — catalog + caller's social rows for one show; refreshes stale cache. The cached `/tv/{id}` payload appends `credits,content_ratings,watch/providers,external_ids`, and is enriched with an `omdb` field (awards, by IMDb id) — TMDb's API has **no** awards, so we read OMDb's freeform "Awards" string. Backfill-on-view: a payload missing `external_ids` triggers a TMDb refetch; one missing `omdb.tried` triggers a one-off OMDb lookup, cached in-place.
 - `get-popular` — the `is_popular` shelf set from `shows_cache`.
 - `refresh-popular` — batched re-seed (`?batch=25&offset=N`). Meant for scheduled invocation; one call ≠ all 200 shows (Edge Function execution timeout).
 - `get-reviews` — all reviews for a show, enriched with reviewer profile + like count + the reviewer's rating (merged in JS — see the scope-merge rule above). Public read.
+- `search-shows` — TMDb `/search/tv` proxy → slim results (`tmdb_show_id`, `name`, `poster_path`, `first_air_date`); keeps the key server-side for the client's live search. Public read.
+- `get-person` — actor/cast page: TMDb `/person/{id}?append_to_response=tv_credits` proxied to a slim `{ id, name, biography, profile_path, shows[] }`. **TV-only** (`tv_credits`, never movies); no cache (bios are stable). Powers `usePerson` → `/person/[id]`. Public read.
 
 Shared code in `_shared/`. **Always use the `userClient(req)` / `adminClient()` factories from `_shared/clients.ts`** — they encode the RLS-respect vs RLS-bypass distinction. Constructing clients inline loses that signal.
 

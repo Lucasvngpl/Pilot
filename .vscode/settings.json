@@ -3,5 +3,13 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  // Supabase Edge Functions run in Deno, not Node. Turn the Deno language server
+  // ON only for that one folder (deno.enablePaths) and OFF everywhere else
+  // (deno.enable: false), so it supplies the Deno globals (Deno.serve, npm:/https
+  // imports) and the false "Cannot find name 'Deno'" error disappears — while the
+  // React/Expo app keeps using the normal TypeScript server. Needs the Deno
+  // extension (recommended in extensions.json).
+  "deno.enable": false,
+  "deno.enablePaths": ["supabase/functions"]
 }
