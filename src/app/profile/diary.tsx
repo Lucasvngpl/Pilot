@@ -1,4 +1,5 @@
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { useMemo } from 'react';
+import { SectionList, View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
@@ -11,15 +12,41 @@ import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { DiaryEntry } from '@/types';
 
+const MONTHS = [
+  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+];
+
+// Group flat entries (already newest-first across all loaded pages) into month
+// bands. Consecutive same-month rows merge — and because the order is stable
+// across page boundaries, a month split over two pages still forms one band.
+// Split-parse watched_at ("YYYY-MM-DD") for the label — timezone-free.
+function groupByMonth(entries: DiaryEntry[]): { title: string; data: DiaryEntry[] }[] {
+  const out: { title: string; data: DiaryEntry[] }[] = [];
+  for (const e of entries) {
+    const [y, mo] = e.watchedAt.split('-').map(Number);
+    const title = `${MONTHS[mo - 1]} ${y}`;
+    const last = out[out.length - 1];
+    if (last && last.title === title) last.data.push(e);
+    else out.push({ title, data: [e] });
+  }
+  return out;
+}
+
 // Diary = a date-grouped log of every watched event (whole-show / season /
 // episode), newest first. Letterboxd-style rows (date cell · poster · title +
-// year · scope · stars + review marker), in Pilot's light theme. Own-only (the
-// Profile "Diary" link is gated to the signed-in user).
+// year · scope · stars + review marker). Own-only (the Profile "Diary" link is
+// gated to the signed-in user). Virtualized + infinite-scroll so a long history
+// stays smooth and your oldest entries are always reachable (no LIMIT cliff).
 export default function Diary() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data: sections, isLoading } = useDiary(user?.id);
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useDiary(user?.id);
+
+  // Flatten loaded pages, then group into month bands for the SectionList.
+  const entries = useMemo(() => data?.pages.flat() ?? [], [data]);
+  const sections = useMemo(() => groupByMonth(entries), [entries]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -33,21 +60,29 @@ export default function Diary() {
 
       {isLoading ? (
         <DiaryRowsSkeleton />
-      ) : !sections || sections.length === 0 ? (
+      ) : sections.length === 0 ? (
         <Text style={styles.empty}>Your diary is empty — nothing watched yet.</Text>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          {sections.map((s) => (
-            <View key={s.month}>
-              <View style={styles.monthBand}>
-                <Text style={styles.monthText}>{s.month}</Text>
-              </View>
-              {s.entries.map((e) => (
-                <DiaryRow key={e.key} entry={e} />
-              ))}
+        <SectionList
+          sections={sections}
+          keyExtractor={(e) => e.key}
+          renderItem={({ item }) => <DiaryRow entry={item} />}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.monthBand}>
+              <Text style={styles.monthText}>{section.title}</Text>
             </View>
-          ))}
-        </ScrollView>
+          )}
+          // Headers scroll away with their section (the band isn't a sticky chrome).
+          stickySectionHeadersEnabled={false}
+          // Pull the next page as the user nears the bottom. The guard avoids
+          // firing again while a page is already in flight or none remain.
+          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={
+            isFetchingNextPage ? <ActivityIndicator color={colors.muted} style={{ paddingVertical: 20 }} /> : null
+          }
+          contentContainerStyle={{ paddingBottom: 40 }}
+        />
       )}
     </SafeAreaView>
   );

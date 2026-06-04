@@ -1,48 +1,60 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
 import { formatScope } from '@/types';
-import type { DiaryEntry, DiarySection } from '@/types';
+import type { DiaryEntry } from '@/types';
 
-const LIMIT = 100; // newest 100 watched events — pagination deferred
+// Diary pages: fetch 50 events at a time, oldest reachable via infinite scroll.
+// (Was a single LIMIT-100 fetch — which silently dropped your oldest events once
+// you had >100, e.g. a show logged years back never appeared. Pagination fixes
+// that AND keeps each open fast: we don't load your whole history up front.)
+const PAGE_SIZE = 50;
 
 // Scope key for the JS cross-table merge. CLAUDE.md rule: never match scoped
 // tables in SQL (NULL ≠ NULL silently drops whole-show rows). A string key
 // serializes null consistently on both sides, so whole-show ↔ whole-show matches.
 const scopeKey = (showId: number, s: number | null, e: number | null) => `${showId}:${s}:${e}`;
 
-const MONTHS = [
-  'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
-  'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
-];
-
 /**
- * The Diary — a chronological, month-grouped log of every WATCHED event
- * (whole-show / season / episode), newest first. Unlike the Profile grids this
- * does NOT aggregate up to the show: a diary is event-level by nature, so each
- * watch_status `watched` row is its own entry, labelled with its scope. Each
- * entry carries the rating + review for that EXACT scope (merged in JS).
+ * The Diary — a chronological log of every WATCHED event (whole-show / season /
+ * episode), newest first, ordered by the user-chosen `watched_at` day (then
+ * `updated_at` as the intra-day tiebreak). Unlike the Profile grids this does NOT
+ * aggregate up to the show: each `watched` row is its own entry, labelled with its
+ * scope. Each entry carries the rating + review for that EXACT scope (JS merge).
+ *
+ * Paginated: returns pages of flat `DiaryEntry[]`. The screen flattens + groups
+ * into month bands at render (grouping spans page boundaries cleanly because the
+ * order is stable across pages).
  */
 export function useDiary(userId: string | undefined) {
-  return useQuery<DiarySection[]>({
+  return useInfiniteQuery<DiaryEntry[]>({
     queryKey: ['diary', userId],
     enabled: !!userId,
-    queryFn: async () => {
+    initialPageParam: 0,
+    // A short page means we've reached the end. Otherwise the next offset is
+    // simply pages-loaded × PAGE_SIZE (stable because the order is deterministic).
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length < PAGE_SIZE ? undefined : allPages.length * PAGE_SIZE,
+    queryFn: async ({ pageParam }) => {
       const id = userId!;
+      const from = pageParam as number;
+      const to = from + PAGE_SIZE - 1;
 
       const { data: rows, error } = await supabase
         .from('watch_status')
-        .select('tmdb_show_id, season_number, episode_number, updated_at')
+        .select('tmdb_show_id, season_number, episode_number, watched_at, updated_at')
         .eq('user_id', id)
         .eq('status', 'watched')
+        .order('watched_at', { ascending: false })
         .order('updated_at', { ascending: false })
-        .limit(LIMIT);
+        .range(from, to);
       if (error) throw error;
 
       const watched = (rows ?? []) as {
         tmdb_show_id: number;
         season_number: number | null;
         episode_number: number | null;
+        watched_at: string; // "YYYY-MM-DD"
         updated_at: string;
       }[];
       if (watched.length === 0) return [];
@@ -73,33 +85,26 @@ export function useDiary(userId: string | undefined) {
         reviewedScopes.add(scopeKey(r.tmdb_show_id, r.season_number, r.episode_number));
       }
 
-      // Build entries and group into month bands. `watched` is already newest-first,
-      // so we can append to the last section while the month matches.
-      const sections: DiarySection[] = [];
-      for (const w of watched) {
-        const d = new Date(w.updated_at); // local time — the day you logged it
-        const month = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+      return watched.map((w): DiaryEntry => {
+        // watched_at is a "YYYY-MM-DD" calendar day. Split-parse (NOT new Date(str),
+        // which is UTC and can shift the day) for the day cell; the screen derives
+        // the month band the same way.
+        const day = Number(w.watched_at.split('-')[2]);
         const card = cards.get(w.tmdb_show_id);
         const k = scopeKey(w.tmdb_show_id, w.season_number, w.episode_number);
-
-        const entry: DiaryEntry = {
-          key: `${k}:${w.updated_at}`,
+        return {
+          key: `${k}:${w.watched_at}:${w.updated_at}`,
           tmdb_show_id: w.tmdb_show_id,
           name: card?.name ?? 'Untitled',
           poster_path: card?.poster_path ?? null,
           year: yearByShow.get(w.tmdb_show_id) ?? null,
           scopeLabel: formatScope(w.season_number, w.episode_number) ?? null,
-          watchedAt: w.updated_at,
-          day: d.getDate(),
+          watchedAt: w.watched_at,
+          day,
           rating: ratingByScope.get(k) ?? null,
           hasReview: reviewedScopes.has(k),
         };
-
-        const last = sections[sections.length - 1];
-        if (last && last.month === month) last.entries.push(entry);
-        else sections.push({ month, entries: [entry] });
-      }
-      return sections;
+      });
     },
   });
 }
