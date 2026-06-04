@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import { ChevronLeftIcon, CheckIcon, PlayIcon, ClockIcon, DotsIcon } from '@/components/icons';
+import { ChevronLeftIcon, CheckIcon, PlayIcon, ClockIcon } from '@/components/icons';
 import type { WatchStatus } from '@/types';
 
 // Shared nav row at the top of every show-scoped screen (Show Detail, Seasons).
@@ -37,6 +37,9 @@ export function ShowNavRow({
 
       <View style={{ flex: 1 }} />
 
+      {/* Status bubble, top-right. (A "⋯" menu used to sit to its right but did
+          nothing — removed; the bubble now owns the corner and opens the sheet,
+          which holds every show action.) */}
       <Pressable
         onPress={onCheckPress}
         hitSlop={8}
@@ -44,10 +47,6 @@ export function ShowNavRow({
       >
         <Icon color={active ? colors.white : colors.ink} size={14} />
       </Pressable>
-
-      <View style={{ width: 12 }} />
-
-      <Pressable hitSlop={8}><DotsIcon color={colors.ink} size={18} /></Pressable>
     </View>
   );
 }
