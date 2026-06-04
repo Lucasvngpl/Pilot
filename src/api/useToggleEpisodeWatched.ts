@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
+import { todayLocal } from '@/types';
 import type { GetShowResponse, WatchStatusRow } from '@/types';
 
 type ToggleArgs = {
@@ -78,6 +79,7 @@ export function useToggleEpisodeWatched(tmdbShowId: number) {
               episode_number: args.episode_number,
               status: 'watched',
               updated_at: new Date().toISOString(),
+              watched_at: todayLocal(),
             } satisfies WatchStatusRow,
           ];
 
@@ -192,6 +194,7 @@ export function useMarkSeasonWatched(tmdbShowId: number) {
             episode_number: ep,
             status: 'watched',
             updated_at: new Date().toISOString(),
+            watched_at: todayLocal(),
           }) satisfies WatchStatusRow,
         );
 

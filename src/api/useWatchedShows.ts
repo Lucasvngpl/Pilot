@@ -47,6 +47,13 @@ export function useWatchedShows(
         const prev = recency.get(showId);
         if (prev == null || t > prev) recency.set(showId, t);
       };
+      // The user's chosen show-scope watched_at OVERWRITES (not max-merges) recency:
+      // when you've logged the whole show on a specific day, that day is the truth
+      // for where it sits in the grid — a same-day rating or a recent episode tick
+      // must NOT float it back up. Called LAST below, so the overwrite always wins.
+      const setAuthoritative = (showId: number, day: string) => {
+        recency.set(showId, Date.parse(day));
+      };
 
       if (filter === null) {
         // ALL — broad union: show-scope watched OR show-scope rating OR any
@@ -55,40 +62,50 @@ export function useWatchedShows(
         // global newest-LIMIT can only contain a show in some source's top LIMIT.
         const [watchedRes, ratedRes, episodesRes] = await Promise.all([
           supabase.from('watch_status')
-            .select('tmdb_show_id, updated_at')
+            .select('tmdb_show_id, watched_at, updated_at')
             .eq('user_id', id).eq('status', 'watched')
             .is('season_number', null).is('episode_number', null)
-            .order('updated_at', { ascending: false }).limit(LIMIT),
+            .order('watched_at', { ascending: false }).order('updated_at', { ascending: false }).limit(LIMIT),
           supabase.from('ratings')
             .select('tmdb_show_id, score, created_at')
             .eq('user_id', id)
             .is('season_number', null).is('episode_number', null)
             .order('created_at', { ascending: false }).limit(LIMIT),
           supabase.from('watch_status')
-            .select('tmdb_show_id, updated_at')
+            .select('tmdb_show_id, watched_at')
             .eq('user_id', id).eq('status', 'watched')
             .not('episode_number', 'is', null)
-            .order('updated_at', { ascending: false }).limit(LIMIT),
+            .order('watched_at', { ascending: false }).limit(LIMIT),
         ]);
         if (watchedRes.error) throw watchedRes.error;
         if (ratedRes.error) throw ratedRes.error;
         if (episodesRes.error) throw episodesRes.error;
 
-        for (const r of watchedRes.data ?? []) bump(r.tmdb_show_id, r.updated_at);
-        for (const r of episodesRes.data ?? []) bump(r.tmdb_show_id, r.updated_at);
+        // Non-authoritative signals first (rating recency + episode ticks), then the
+        // show-scope watched day overwrites — so the user's chosen date wins for any
+        // show they've logged whole, while shows known only by a stray rating/episode
+        // (no chosen date) keep the loose newest-signal recency.
         for (const r of ratedRes.data ?? []) {
           bump(r.tmdb_show_id, r.created_at);
           ratingByShow.set(r.tmdb_show_id, r.score);
         }
+        for (const r of episodesRes.data ?? []) bump(r.tmdb_show_id, r.watched_at);
+        for (const r of watchedRes.data ?? []) setAuthoritative(r.tmdb_show_id, r.watched_at);
       } else {
         // WATCHED or WATCHING — one clean show-scope status query.
-        const { data, error } = await supabase.from('watch_status')
-          .select('tmdb_show_id, updated_at')
+        // 'watched' sorts by the chosen watch day (updated_at as the intra-day
+        // tiebreak); 'watching' has no watch day, so it keeps its old "recently
+        // touched first" order on updated_at.
+        const base = supabase.from('watch_status')
+          .select('tmdb_show_id, watched_at, updated_at')
           .eq('user_id', id).eq('status', filter)
-          .is('season_number', null).is('episode_number', null)
-          .order('updated_at', { ascending: false }).limit(LIMIT);
+          .is('season_number', null).is('episode_number', null);
+        const ordered = filter === 'watched'
+          ? base.order('watched_at', { ascending: false }).order('updated_at', { ascending: false })
+          : base.order('updated_at', { ascending: false });
+        const { data, error } = await ordered.limit(LIMIT);
         if (error) throw error;
-        for (const r of data ?? []) bump(r.tmdb_show_id, r.updated_at);
+        for (const r of data ?? []) bump(r.tmdb_show_id, filter === 'watched' ? r.watched_at : r.updated_at);
       }
 
       const ids = [...recency.keys()]

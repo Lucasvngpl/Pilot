@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
+import { todayLocal } from '@/types';
 import type { GetShowResponse, WatchStatus, WatchStatusRow } from '@/types';
 
 // Scope defaults to whole show (both null). Pass season/episode for narrower scopes.
@@ -65,6 +66,11 @@ export function useSetWatchStatus(tmdbShowId: number) {
           season_number: args.season_number,
           episode_number: args.episode_number,
           status: args.status,
+          // Stamp today's date ONLY when marking watched — so a watchlist→watched
+          // (or watching→watched) flip dates the watch to NOW, not to whenever the
+          // row was first inserted. For watching/watchlist we omit it (the column
+          // is never read for those statuses; omitting preserves any prior date).
+          ...(args.status === 'watched' ? { watched_at: todayLocal() } : {}),
         },
         { onConflict: 'user_id,tmdb_show_id,season_number,episode_number' },
       );
@@ -83,7 +89,16 @@ export function useSetWatchStatus(tmdbShowId: number) {
         ? prev.mySocial.watch_statuses.filter((r) => !match(r))
         : existing
         ? prev.mySocial.watch_statuses.map((r) =>
-            match(r) ? { ...r, status: args.status, updated_at: new Date().toISOString() } : r,
+            match(r)
+              ? {
+                  ...r,
+                  status: args.status,
+                  updated_at: new Date().toISOString(),
+                  // Mirror the write: marking watched dates it today; other statuses
+                  // keep the row's existing watched_at.
+                  watched_at: args.status === 'watched' ? todayLocal() : r.watched_at,
+                }
+              : r,
           )
         : [
             ...prev.mySocial.watch_statuses,
@@ -95,6 +110,7 @@ export function useSetWatchStatus(tmdbShowId: number) {
               episode_number: args.episode_number,
               status: args.status,
               updated_at: new Date().toISOString(),
+              watched_at: todayLocal(),
             } satisfies WatchStatusRow,
           ];
 

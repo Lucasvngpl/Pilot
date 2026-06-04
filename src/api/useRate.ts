@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
-import { markShowWatched } from '@/api/markShowWatched';
+import { setWatched } from '@/api/setWatched';
 import type { GetShowResponse, RatingRow } from '@/types';
 
 // Scope defaults to whole show (both null). Pass season/episode for narrower scopes.
@@ -12,6 +12,9 @@ type Args = {
   season_number: number | null;
   episode_number: number | null;
   score: number | null; // null = clear
+  // Optional chosen watch day ("YYYY-MM-DD"). The composer passes its Date field;
+  // the action-sheet quick-rate omits it → setWatched defaults to today.
+  watched_at?: string;
 };
 
 // Single rating-write path for ALL scopes (show / season / episode). UPSERT on
@@ -53,13 +56,17 @@ export function useRate(tmdbShowId: number) {
         const { error } = await q;
         if (error) throw error;
       } else {
-        // TASK 1: a SHOW-scope rating materializes watched. Written BEFORE the
-        // rating so the only possible partial-failure state is the harmless one
-        // (watched, no star) — never the bad one (rated but missing from the
-        // strict Watched filter). Season/episode ratings never touch show status.
-        if (args.season_number === null && args.episode_number === null) {
-          await markShowWatched(userId, args.tmdb_show_id);
-        }
+        // Logging ⇒ watched, at ANY scope: a rating materializes a 'watched' row
+        // at this exact scope (show / season / episode). Written BEFORE the rating
+        // so the only possible partial-failure state is the harmless one (watched,
+        // no star) — never the bad one (rated but missing from the strict Watched
+        // filter). watched_at = the composer's chosen day, or today if omitted.
+        await setWatched(
+          userId,
+          args.tmdb_show_id,
+          { season_number: args.season_number, episode_number: args.episode_number },
+          args.watched_at,
+        );
         const { error } = await supabase.from('ratings').upsert(
           {
             user_id: userId,
@@ -121,14 +128,17 @@ export function useRate(tmdbShowId: number) {
 
     onSettled: (_d, _e, args) => {
       qc.refetchQueries({ queryKey });
-      // A show-scope rating both includes the show in the Profile "Shows" grid and
-      // paints its gold star, so that grid must refetch on next open. (Season/episode
-      // ratings don't change the grid — invalidating then is a harmless no-op.)
+      // A rating now materializes 'watched' at its scope, so every Profile surface
+      // a watched row feeds must refetch on next open: the Shows grid (['watched'],
+      // also painted by the show-scope star), the Diary (a new dated entry), and —
+      // because materializing 'watched' can supersede a prior watching/watchlist row
+      // (show scope) or change the currently-watching tile's episode line (episode
+      // scope) — the watching/watchlist shelves too. Over-invalidating these
+      // unmounted queries is cheap (mark stale → refetch on next open).
       qc.invalidateQueries({ queryKey: ['watched'] });
-      // Materializing 'watched' (TASK 1) can supersede a prior watching/watchlist
-      // row → those Profile shelves must refetch too (show scope only).
+      qc.invalidateQueries({ queryKey: ['diary'] });
+      qc.invalidateQueries({ queryKey: ['watching'] });
       if (args.season_number === null && args.episode_number === null) {
-        qc.invalidateQueries({ queryKey: ['watching'] });
         qc.invalidateQueries({ queryKey: ['watchlist'] });
       }
     },
@@ -138,7 +148,11 @@ export function useRate(tmdbShowId: number) {
   // false if login was dismissed or the write failed. The action sheet ignores
   // this (fire-and-forget with optimistic rollback); the composer awaits it so
   // it doesn't navigate away after a silently-failed write.
-  const rate = async (score: number | null, scope: Scope = {}): Promise<boolean> => {
+  const rate = async (
+    score: number | null,
+    scope: Scope = {},
+    watchedAt?: string, // composer's chosen watch day; omit → today (set-only path)
+  ): Promise<boolean> => {
     const season = scope.season_number ?? null;
     const episode = scope.episode_number ?? null;
     const k = keyOf(tmdbShowId, season, episode);
@@ -152,6 +166,7 @@ export function useRate(tmdbShowId: number) {
         season_number: season,
         episode_number: episode,
         score,
+        watched_at: watchedAt,
       });
       return true;
     } catch {

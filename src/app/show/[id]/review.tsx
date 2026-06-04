@@ -5,13 +5,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useShow } from '@/api/useShow';
 import { useRate } from '@/api/useRate';
 import { usePostReview } from '@/api/usePostReview';
 import { useReview } from '@/api/useReview';
 import { useUpdateReview, useDeleteReview } from '@/api/useReviewMutations';
+import { setWatched } from '@/api/setWatched';
+import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
 import { RatingPicker } from '@/components/RatingPicker';
+import { DatePickerRow } from '@/components/DatePickerRow';
 import { SeasonPills } from '@/components/SeasonPills';
 import { TextField } from '@/components/TextField';
 import { Skeleton } from '@/components/Skeleton';
@@ -19,7 +23,7 @@ import { Button } from '@/components/Button';
 import { ChevronLeftIcon, CheckIcon } from '@/components/icons';
 import { fonts, pad24, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import { formatScope } from '@/types';
+import { formatScope, todayLocal } from '@/types';
 import type { TmdbSeason } from '@/types';
 
 type ScopeKind = 'show' | 'season' | 'episode';
@@ -56,6 +60,8 @@ export default function ReviewComposer() {
   const { update: updateReview } = useUpdateReview(tmdbShowId);
   const { remove: deleteReview } = useDeleteReview();
   const requireAuth = useRequireAuth();
+  const { user } = useAuth();
+  const qc = useQueryClient();
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
 
@@ -65,6 +71,11 @@ export default function ReviewComposer() {
   const [score, setScore] = useState<number | null>(null);
   const [body, setBody] = useState('');
   const [spoilers, setSpoilers] = useState(false);
+  // The chosen watch day ("YYYY-MM-DD"). Defaults to today, then auto-seeds from
+  // the scope's existing watched row (below) — until the user edits it, at which
+  // point `dateTouched` freezes the auto-seed so we don't clobber their pick.
+  const [watchedOn, setWatchedOn] = useState<string>(todayLocal());
+  const [dateTouched, setDateTouched] = useState(false);
   const [pending, setPending] = useState<'draft' | 'publish' | null>(null);
   const posting = pending !== null;
 
@@ -96,6 +107,33 @@ export default function ReviewComposer() {
       ? formatScope(presetSeason!, presetEpisode)
       : '';
 
+  // The caller's existing 'watched' row for a scope (if any). Its watched_at
+  // pre-fills the Date field — re-opening a log shows the date you saved, not
+  // today. Explicit === null scope match (SQL NULL≠NULL would miss whole-show).
+  const watchedRowFor = (s: number | null, e: number | null) =>
+    data?.mySocial.watch_statuses.find(
+      (r) => r.season_number === s && r.episode_number === e && r.status === 'watched',
+    );
+
+  // The scope the form is currently targeting, as primitives (stable effect deps).
+  const activeSeason = scopeLocked
+    ? lockedScope.season_number
+    : scopeKind === 'show' ? null : season;
+  const activeEpisode = scopeLocked
+    ? lockedScope.episode_number
+    : scopeKind === 'episode' ? episode : null;
+
+  // Seed the Date field from the active scope's existing watch day (else today),
+  // until the user edits it (dateTouched freezes the seed). Re-runs on scope change
+  // and when the show data loads, so switching Show→Season picks up that scope's date.
+  useEffect(() => {
+    if (dateTouched) return;
+    const row = watchedRowFor(activeSeason, activeEpisode);
+    setWatchedOn(row?.watched_at ?? todayLocal());
+    // watchedRowFor closes over `data`; the scope primitives drive the rest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, activeSeason, activeEpisode, dateTouched]);
+
   const isDraftEdit = isEdit && existing?.is_draft === true;
   // New review OR editing a draft → offer Save draft + Publish. Editing an
   // already-published review → a single Save (stays published).
@@ -116,10 +154,32 @@ export default function ReviewComposer() {
         ? { season_number: season, episode_number: null }
         : { season_number: season, episode_number: episode };
 
-  // Rating writes publicly to the LOCKED scope (edit) or the picked scope (new).
-  // Returns false on dismissed login / write failure so we don't navigate away.
-  const writeRating = (scope: { season_number: number | null; episode_number: number | null }) =>
-    score !== null ? rate(score, scope) : Promise.resolve(true);
+  // The "log" write: mark this scope WATCHED on the chosen day, plus the rating if
+  // one was picked. When there's a rating, useRate owns the watched-write (passing
+  // the date); a rating-less log (text-only) calls setWatched directly so it's still
+  // dated. Returns false on dismissed login / failure so we don't navigate away.
+  const logScope = async (scope: { season_number: number | null; episode_number: number | null }): Promise<boolean> => {
+    if (score !== null) return rate(score, scope, watchedOn);
+    if (!user) return false; // session dropped between the gate and here — fail loud
+    try {
+      await setWatched(user.id, tmdbShowId, scope, watchedOn);
+      return true;
+    } catch (e) {
+      console.error('[review] setWatched failed:', e);
+      return false;
+    }
+  };
+
+  // After a successful save, refresh every surface the watched-write feeds. The
+  // raw setWatched path has no onSettled of its own, and editing the date must
+  // re-order the Diary + Watched grid — so invalidate them all here.
+  const afterSaveInvalidate = () => {
+    qc.invalidateQueries({ queryKey: ['diary'] });
+    qc.invalidateQueries({ queryKey: ['watched'] });
+    qc.invalidateQueries({ queryKey: ['watching'] });
+    qc.invalidateQueries({ queryKey: ['watchlist'] });
+    qc.refetchQueries({ queryKey: ['show', tmdbShowId] });
+  };
 
   const onSaveDraft = async () => {
     if (!canSaveDraft) return;
@@ -127,13 +187,13 @@ export default function ReviewComposer() {
     try {
       if (!(await requireAuth())) return;
       const scope = scopeLocked ? lockedScope : resolveScope();
-      let ok = await writeRating(scope);
+      let ok = await logScope(scope);
       if (ok) {
         ok = isEdit
           ? await updateReview(reviewId!, body, spoilers, true) // keep as draft
           : await postReview({ ...scope, body, contains_spoilers: spoilers, is_draft: true });
       }
-      if (ok) router.back();
+      if (ok) { afterSaveInvalidate(); router.back(); }
       else Alert.alert("Couldn't save your draft", FAIL_MSG);
     } finally {
       setPending(null);
@@ -146,7 +206,7 @@ export default function ReviewComposer() {
     try {
       if (!(await requireAuth())) return;
       const scope = scopeLocked ? lockedScope : resolveScope();
-      let ok = await writeRating(scope);
+      let ok = await logScope(scope);
       if (ok) {
         if (body.trim()) {
           ok = isEdit
@@ -163,7 +223,7 @@ export default function ReviewComposer() {
         }
         // (new + rating-only: the rating IS the public "log"; no review row.)
       }
-      if (ok) router.back();
+      if (ok) { afterSaveInvalidate(); router.back(); }
       else Alert.alert("Couldn't publish your review", FAIL_MSG);
     } finally {
       setPending(null);
@@ -175,9 +235,9 @@ export default function ReviewComposer() {
     setPending('publish');
     try {
       if (!(await requireAuth())) return;
-      let ok = await writeRating(lockedScope);
+      let ok = await logScope(lockedScope);
       if (ok) ok = await updateReview(reviewId!, body, spoilers, false); // stays published
-      if (ok) router.back();
+      if (ok) { afterSaveInvalidate(); router.back(); }
       else Alert.alert("Couldn't save your review", FAIL_MSG);
     } finally {
       setPending(null);
@@ -221,6 +281,14 @@ export default function ReviewComposer() {
             <Text style={styles.notFound}>Review not found.</Text>
           ) : (
             <>
+              {/* "Watched on" — the date you watched this (Letterboxd's "I Watched…
+                  → Date"). Defaults to today; pre-fills the saved day when editing.
+                  Saving marks this scope watched on this day → Diary + Watched grid. */}
+              <DatePickerRow
+                value={watchedOn}
+                onChange={(d) => { setWatchedOn(d); setDateTouched(true); }}
+              />
+
               {scopeLocked ? (
                 <Text style={styles.scopeLabel}>
                   {isEdit ? 'Editing your review of ' : 'Reviewing '}

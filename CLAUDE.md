@@ -78,29 +78,31 @@ Auto-injected env vars in every function: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `
 
 `src/theme.ts` exports `fonts`, `radius`, `pad`, **`type`** (named type styles), and two **palettes** — `lightColors` / `darkColors` (same keys, a `Palette` type). Values are exact tokens from the Figma spec — don't ad-hoc them. `type`/`fonts`/`radius`/`pad` carry **no color** and are imported statically as before.
 
-**Colors are read at RENDER time, never baked into a module-level StyleSheet.** Dark mode switches *live*; `StyleSheet.create` copies a color's value once at module load, so a static `import { colors }` can't re-theme. Get the active palette from `src/lib/theme.tsx`:
+**Colors are read at RENDER time, never baked into a module-level StyleSheet.** Dark mode switches _live_; `StyleSheet.create` copies a color's value once at module load, so a static `import { colors }` can't re-theme. Get the active palette from `src/lib/theme.tsx`:
 
 ```tsx
-import { type, type Palette } from '@/theme';
-import { useThemedStyles, useTheme } from '@/lib/theme';
+import { type, type Palette } from "@/theme";
+import { useThemedStyles, useTheme } from "@/lib/theme";
 
 export function Card() {
-  const styles = useThemedStyles(makeStyles);       // themed StyleSheet
-  const { colors } = useTheme();                     // for inline colors in JSX
+  const styles = useThemedStyles(makeStyles); // themed StyleSheet
+  const { colors } = useTheme(); // for inline colors in JSX
   return <Text style={[type.statValue, { color: colors.ink }]}>4.6</Text>;
 }
 // factory param is named `colors` so the StyleSheet body reads identically:
-const makeStyles = (colors: Palette) => StyleSheet.create({
-  card: { backgroundColor: colors.surface },
-});
+const makeStyles = (colors: Palette) =>
+  StyleSheet.create({
+    card: { backgroundColor: colors.surface },
+  });
 ```
 
 `useTheme()` also gives `{ mode, pref, setPref }` (pref = `'light' | 'dark' | 'system'`, persisted in AsyncStorage `pilot.themePref.v1`). The header sun/moon (`ProfileView`) is a 2-way quick flip; Settings › Appearance is the 3-way control. There's one global `<StatusBar>` in `_layout.tsx` that flips its content color with `mode`; banner screens keep a local `<StatusBar style="light" />`.
 
 **Token roles when picking one** (the palette is semantic-ish, with a few overloaded names — get these right or dark mode breaks):
+
 - `background` / `surface` / `surface2` — screen / card+sheet / secondary backgrounds. Screen roots → `background`; elevated overlays (sheets, the nav bar) → `surface`.
 - `ink` — primary text/icons **and** active-control fills. FLIPS dark→light, so a selected pill/chip on an `ink` fill inverts for free — but its **label** must then track `background` (not fixed `white`), else it vanishes on the inverted light fill (see `FollowButton`, `Button`, `SeasonPills`, `GenreChips`).
-- `white` — FIXED `#FFFFFF`. Use ONLY for a foreground on a *saturated* fill (label/icon on a purple button). Never a background.
+- `white` — FIXED `#FFFFFF`. Use ONLY for a foreground on a _saturated_ fill (label/icon on a purple button). Never a background.
 - `bannerInk` — FIXED dark; the always-dark hero banners (list + review).
 - `gold`/`green`/`red` — FIXED (stars / FRESH / popularity; read fine on dark).
 
@@ -156,7 +158,9 @@ Every mutation hook (`useToggleEpisodeWatched`, `useSetWatchStatus`, `useRate`, 
 
 **Table semantics:** `ratings` and `watch_status` are **UPSERT** (idempotent, one row per `(user, scope)`); `reviews` is **INSERT** (multiple reviews per scope allowed; a blank body writes no row — that's a rating-only "log").
 
-**One scoped rating path:** `useRate(showId)` exposes `rate(score, scope?)` where scope defaults to the whole show. Route ALL rating writes — show / season / episode, action sheet or composer — through it. Don't inline a second scoped upsert anywhere.
+**One scoped rating path:** `useRate(showId)` exposes `rate(score, scope?, watchedAt?)` where scope defaults to the whole show. Route ALL rating writes — show / season / episode, action sheet or composer — through it. Don't inline a second scoped upsert anywhere.
+
+**Watched date (`watch_status.watched_at`):** a Postgres **`date`** (calendar day, timezone-free) — the day the user says they watched a scope. The Diary and Profile→Shows→**Watched** order/label by it (tie-broken by `updated_at`). Defaults to the mark date (`current_date`); only the **Review-or-log composer** sets a custom day. **`setWatched(userId, showId, scope, watchedAt?)`** (`src/api/setWatched.ts`) is the SINGLE writer for the "logging ⇒ watched" rule — shared by `useRate` (any scope) and the composer; omit `watchedAt` ⇒ today (and an existing row keeps its date). Always build the `"YYYY-MM-DD"` string from LOCAL parts (`todayLocal`/`fromLocalDate` in `src/types.ts`), **never `toISOString()`** (UTC → wrong day near midnight); read it back by splitting on `-`, never `new Date(str)`. **Logging implies watched at every scope** now: a rating/review at show/season/episode materializes a dated `watched` row — so any write that creates one must invalidate `['diary']` (and `['watched']`).
 
 ## Auth model — browse free, gate per action
 
@@ -181,6 +185,7 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 - Eventually more social of course like comment section and recommednations and recommending to your friends and sharing taste profile to insta
 - **Social features (liking reviews, comments) are still core, not optional.** The like button is currently a passive count display with no tap handler — schema (`review_likes`) + read path exist, mutation/interactivity deliberately deferred (see Reviews in "Down the road"). Don't treat the half-built state as the intended end state: liking/commenting/sharing are central to what makes the app social and need wiring up.
 - Should be hyper clear that you can have lists and keep track of shows across ALL 3 scopes not just show scope and eventually even including actors/characters to lists (also behind premium)
+- Need to think about public/private scopes. For example should be hook/route so that I can go one someone elses page and see their reviews and diary and stuff but NOT their drafts.
 
 ## Down the road (deferred features)
 
@@ -200,7 +205,6 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - episode/season-scoped list items
 - Tell the people which network to watch it on
 - Be able to change to a different poster of the show like they rcently added on Letterboxd for free
-- be able to put date on when you saw the show
 - can also add which series are nominated for popular awards - GGlobes, Emmy’s etc.
 - Steal letterboxd's premium subscription features, the following are premium featrues
 - Connect to streaming services by mcp so it shows when youve watched the show?

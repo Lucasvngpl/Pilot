@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
-import { markShowWatched } from '@/api/markShowWatched';
 
 type Args = {
   tmdb_show_id: number;
@@ -32,15 +31,9 @@ export function usePostReview(tmdbShowId: number) {
       // and shows up in your Drafts.
       if (!args.is_draft && !args.body.trim()) return;
 
-      // TASK 1: publishing a SHOW-scope review materializes watched — this is the
-      // path that catches a text-only review with NO star (useRate never fires).
-      // Drafts don't: a private draft isn't a "log" yet (it marks watched on
-      // publish, or immediately if it also carried a rating via useRate). Written
-      // before the insert so a partial failure leaves the harmless state.
-      if (!args.is_draft && args.season_number === null && args.episode_number === null) {
-        await markShowWatched(user.id, args.tmdb_show_id);
-      }
-
+      // NOTE: materializing 'watched' is no longer done here. The Review-or-log
+      // composer owns the watched-write now (via setWatched, at the chosen scope +
+      // date, for every save), so it fires once regardless of rating/text/scope.
       const { error } = await supabase.from('reviews').insert({
         user_id: user.id,
         tmdb_show_id: args.tmdb_show_id,
@@ -57,7 +50,7 @@ export function usePostReview(tmdbShowId: number) {
       console.error('[usePostReview] write failed:', err);
     },
 
-    onSettled: (_d, _e, args) => {
+    onSettled: () => {
       // Reviews list + show query (which carries the user's own reviews/ratings).
       qc.invalidateQueries({ queryKey: ['reviews', tmdbShowId] });
       qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
@@ -66,12 +59,10 @@ export function usePostReview(tmdbShowId: number) {
       // A new review shows up in Profile › Your record → Reviews (or Drafts).
       qc.invalidateQueries({ queryKey: ['myReviews'] });
       qc.invalidateQueries({ queryKey: ['drafts'] });
-      // Publishing a show-scope review may have materialized 'watched' (TASK 1),
-      // superseding a prior watching/watchlist row → refresh those shelves too.
-      if (!args.is_draft && args.season_number === null && args.episode_number === null) {
-        qc.invalidateQueries({ queryKey: ['watching'] });
-        qc.invalidateQueries({ queryKey: ['watchlist'] });
-      }
+      // The composer's watched-write (setWatched) creates a dated Diary entry; the
+      // composer also invalidates these, but keep ['diary'] here so the review
+      // write is independently correct.
+      qc.invalidateQueries({ queryKey: ['diary'] });
     },
   });
 
