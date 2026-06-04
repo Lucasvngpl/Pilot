@@ -1,15 +1,13 @@
-// ShowCompactHeader — the small header shared by the Show Detail tab routes
-// (Overview / Seasons / Lists): poster + title + a one-line stat row. The index
-// (Reviews) tab uses the full hero; these secondary tabs use this compact form.
+// ShowCompactHeader — the small header shared by the secondary Show Detail tab
+// routes (Seasons / Reviews / Lists): poster + title + a one-line catalog stat.
+// The Overview tab (index) uses the full hero instead.
 import { View, Text, StyleSheet } from 'react-native';
 import { Poster } from '@/components/Poster';
-import { StarIcon } from '@/components/icons';
 import { type, pad } from '@/theme';
 import { useTheme } from '@/lib/theme';
 
 type Props = {
   name: string;
-  rating?: number;        // TMDb vote_average (0–10), shown to one decimal
   seasonsCount: number;
   episodesCount: number;
   posterPath?: string | null;
@@ -17,7 +15,7 @@ type Props = {
 };
 
 export function ShowCompactHeader({
-  name, rating, seasonsCount, episodesCount, posterPath, tmdbShowId,
+  name, seasonsCount, episodesCount, posterPath, tmdbShowId,
 }: Props) {
   // Only inline colors here — the layout styles below carry no color, so they
   // stay a plain (non-themed) StyleSheet.
@@ -35,12 +33,12 @@ export function ShowCompactHeader({
         <Text style={[type.compactH, { color: colors.ink }]} numberOfLines={1}>
           {name.toUpperCase()}
         </Text>
-        <View style={styles.compactSub}>
-          <StarIcon color={colors.gold} size={12} />
-          <Text style={[type.epRuntime, { color: colors.muted, marginLeft: 4 }]}>
-            {rating?.toFixed(1) ?? '—'} · {seasonsCount} seasons · {episodesCount} episodes
-          </Text>
-        </View>
+        {/* Catalog facts only — NO rating here. The show's rating is Pilot's own
+            community average, shown by the Overview hero's StatRow; TMDb's
+            vote_average must never surface in the UI (it's catalog reference). */}
+        <Text style={[type.epRuntime, { color: colors.muted, marginTop: 4 }]}>
+          {seasonsCount} seasons · {episodesCount} episodes
+        </Text>
       </View>
     </View>
   );
@@ -48,5 +46,4 @@ export function ShowCompactHeader({
 
 const styles = StyleSheet.create({
   compact: { flexDirection: 'row', paddingHorizontal: pad, paddingBottom: 12 },
-  compactSub: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
 });

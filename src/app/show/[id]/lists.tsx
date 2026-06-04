@@ -49,7 +49,6 @@ export default function ShowLists() {
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
           <ShowCompactHeader
             name={data.catalog.name}
-            rating={data.catalog.vote_average}
             seasonsCount={seasons.length}
             episodesCount={seasons.reduce((sum, s) => sum + (s.episodes?.length ?? 0), 0)}
             posterPath={data.catalog.poster_path}

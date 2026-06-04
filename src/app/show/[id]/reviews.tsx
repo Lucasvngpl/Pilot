@@ -91,7 +91,6 @@ export default function ShowReviews() {
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
           <ShowCompactHeader
             name={data.catalog.name}
-            rating={data.catalog.vote_average}
             seasonsCount={seasons.length}
             episodesCount={seasons.reduce((sum, s) => sum + (s.episodes?.length ?? 0), 0)}
             posterPath={data.catalog.poster_path}
@@ -132,6 +131,7 @@ export default function ShowReviews() {
                 body={r.body}
                 containsSpoilers={r.contains_spoilers}
                 likes={r.likes}
+                reviewId={r.id}
                 tmdbShowId={tmdbShowId}
                 posterPath={resolveScope(
                   { tmdb_show_id: tmdbShowId, season_number: r.season_number, episode_number: r.episode_number },
