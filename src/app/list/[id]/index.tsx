@@ -13,6 +13,7 @@ import { ListBanner } from '@/components/ListBanner';
 import { Skeleton } from '@/components/Skeleton';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
+import { ListLikeBar } from '@/components/LikeBar';
 import { shareList } from '@/lib/share';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -146,6 +147,12 @@ export default function ListDetailScreen() {
           <Text style={styles.count}>
             {list.items.length} {list.items.length === 1 ? 'show' : 'shows'} · {formatCreated(list.createdAt)}
           </Text>
+
+          {/* Interactive like bar — tap the heart to toggle; shows liker avatars +
+              count. (list_likes / migration 0010.) */}
+          <View style={styles.likes}>
+            <ListLikeBar listId={list.id} size={15} />
+          </View>
         </View>
 
         {list.items.length === 0 ? (
@@ -232,6 +239,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     marginTop: 10,
   },
   count: { fontFamily: type.filter.fontFamily, fontSize: type.filter.fontSize, color: colors.faint, marginTop: 8 },
+  likes: { marginTop: 14 },
 
   rankRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: pad, paddingVertical: 8 },
   rankNum: { fontFamily: fonts.display, fontSize: 18, color: colors.ink, width: 22, textAlign: 'center' },

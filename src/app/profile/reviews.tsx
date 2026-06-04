@@ -76,6 +76,7 @@ export default function MyReviews() {
               body={r.body}
               containsSpoilers={r.contains_spoilers}
               likes={r.likes}
+              reviewId={r.id}
               tmdbShowId={r.tmdb_show_id}
               posterPath={r.posterPath}
               posterPressable

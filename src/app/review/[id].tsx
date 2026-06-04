@@ -16,7 +16,8 @@ import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { Skeleton } from '@/components/Skeleton';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
-import { ChevronLeftIcon, DotsIcon, HeartIcon, ShareIcon } from '@/components/icons';
+import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
+import { ReviewLikeBar } from '@/components/LikeBar';
 import { shareReview } from '@/lib/share';
 import { type, pad, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -174,12 +175,10 @@ export default function ReviewScreen() {
               <Text style={[type.reviewBody, styles.body]}>{review.body}</Text>
             )}
 
-            {/* Read-only like count — no like/comment action exists yet. */}
+            {/* Interactive like bar — tap the heart to toggle; shows liker
+                avatars + count, seeded with the count from useReviewDetail. */}
             <View style={styles.meta}>
-              <HeartIcon color={colors.muted} size={15} />
-              <Text style={[type.reviewMeta, { color: colors.muted, marginLeft: 6 }]}>
-                {review.likes} {review.likes === 1 ? 'like' : 'likes'}
-              </Text>
+              <ReviewLikeBar reviewId={review.id} initialCount={review.likes} size={15} />
             </View>
           </View>
         </ScrollView>

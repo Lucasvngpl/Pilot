@@ -1,12 +1,13 @@
-// ReviewRow — one review card: avatar + show title + star rating + truncated body (tap → full-review page) + spoiler gate + like count + optional ⋯ menu for own reviews.
+// ReviewRow — one review card: avatar + show title + star rating + truncated body (tap → full-review page) + spoiler gate + interactive like bar + optional ⋯ menu for own reviews.
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { type, pad, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import { DotsIcon, HeartIcon } from '@/components/icons';
+import { DotsIcon } from '@/components/icons';
 import { Stars } from '@/components/Stars';
 import { Poster } from '@/components/Poster';
+import { ReviewLikeBar } from '@/components/LikeBar';
 
 // Lines of body shown in the row before the trailing "…". The full text lives on
 // the review's own page (/review/[id]); tapping the body navigates there.
@@ -22,6 +23,10 @@ type Props = {
   body: string;
   containsSpoilers: boolean;
   likes: number;
+  // Published review id → renders the interactive like bar (heart + likers +
+  // count) seeded with `likes`. OMITTED for drafts (a draft can't be liked — it's
+  // hidden from every public query), which then show no like affordance at all.
+  reviewId?: string;
   tmdbShowId: number;
   posterPath?: string | null;
   // Provided ONLY for the current user's own reviews → shows the ⋯ menu. Omitted
@@ -109,14 +114,13 @@ export function ReviewRow(p: Props) {
         />
       </View>
 
-      {/* Read-only metadata — no like or comment action exists yet, so we show
-          the count passively instead of faking tappable buttons. */}
-      <View style={styles.meta}>
-        <HeartIcon color={colors.muted} size={14} />
-        <Text style={[type.reviewMeta, { color: colors.muted, marginLeft: 5 }]}>
-          {p.likes} {p.likes === 1 ? 'like' : 'likes'}
-        </Text>
-      </View>
+      {/* Interactive like bar (published reviews only). Tap the heart to toggle;
+          shows liker avatars + count. Drafts pass no reviewId → no bar. */}
+      {p.reviewId && (
+        <View style={styles.meta}>
+          <ReviewLikeBar reviewId={p.reviewId} initialCount={p.likes} />
+        </View>
+      )}
     </View>
   );
 }

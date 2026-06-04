@@ -225,6 +225,10 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
             topShows={topShows ?? []}
             topLoading={topLoading}
             isOwn={isOwn}
+            userId={userId}
+            // Owner's friendly name (display_name ?? username), already resolved
+            // above — feeds the context-aware "{name}'s record" header.
+            ownerName={name}
             draftCount={draftCount}
             watchedCount={watchedCount}
             // "Watched — N shows" summary deep-links here: same Shows tab, filter
@@ -276,6 +280,8 @@ function ProfileBody({
   topShows,
   topLoading,
   isOwn,
+  userId,
+  ownerName,
   draftCount,
   watchedCount,
   onOpenWatched,
@@ -284,6 +290,8 @@ function ProfileBody({
   topShows: ShowCard[];
   topLoading: boolean;
   isOwn: boolean;
+  userId: string;
+  ownerName: string;
   draftCount: number;
   watchedCount: number;
   onOpenWatched: () => void;
@@ -365,42 +373,54 @@ function ProfileBody({
         </ScrollView>
       )}
 
-      {/* "Your record" — the expressive / archive surfaces (Watched, Diary,
-          Reviews; Stats later) grouped under one borderless headed section,
-          beneath the showcase blocks above. Own-profile only: these are *your*
-          surfaces. The "Watched — N shows" row is a SUMMARY + shortcut: it doesn't
-          open a second screen, it jumps to the Shows tab pre-filtered to Watched
-          (so the Shows grid is still the sole watched-shows destination — TASK 2).
+      {/* "{name}'s record" — the expressive / archive surfaces grouped under one
+          borderless headed section, beneath the showcase blocks above. Header is
+          context-aware: "My record" on your own profile, "{name}'s record" on
+          someone else's (name = display_name ?? username).
+
+          Row scope differs by whose profile this is:
+           - Watched (BOTH): a SUMMARY + shortcut — it doesn't open a second
+             screen, it jumps to the Shows tab pre-filtered to Watched. On another
+             user it lands on THEIR watched grid, so the row works for everyone.
+           - Reviews (BOTH): published reviews are public. Own → /profile/reviews
+             (with edit/delete); another user → /user/[id]/reviews (read-only).
+             Both screens share useMyReviews, which filters drafts.
+           - Diary / Drafts (OWN-ONLY): Diary's route reads the signed-in viewer
+             (no user-scoped version yet); Drafts are unfinished + own-only. Gate
+             both to `isOwn`. Rows are interleaved (not lumped in one block) so the
+             own-profile order stays Watched · Diary · Reviews · Drafts.
           `as any`: typed-route union regenerates only when Metro runs. */}
-      {isOwn && (
-        <>
-          <SectionHeader title="Your record" />
-          <View style={styles.record}>
-            <RecordRow
-              icon={<CheckIcon color={colors.ink} size={20} />}
-              label="Watched"
-              count={watchedCount}
-              onPress={onOpenWatched}
-            />
-            <RecordRow
-              icon={<CalendarIcon color={colors.ink} size={22} />}
-              label="Diary"
-              onPress={() => router.push('/profile/diary' as any)}
-            />
-            <RecordRow
-              icon={<ReviewBadgeIcon color={colors.ink} size={20} />}
-              label="Reviews"
-              onPress={() => router.push('/profile/reviews' as any)}
-            />
-            <RecordRow
-              icon={<DraftIcon color={colors.ink} size={22} />}
-              label="Drafts"
-              count={draftCount}
-              onPress={() => router.push('/profile/drafts' as any)}
-            />
-          </View>
-        </>
-      )}
+      <SectionHeader title={isOwn ? 'My record' : `${ownerName}'s record`} />
+      <View style={styles.record}>
+        <RecordRow
+          icon={<CheckIcon color={colors.ink} size={20} />}
+          label="Watched"
+          count={watchedCount}
+          onPress={onOpenWatched}
+        />
+        {isOwn && (
+          <RecordRow
+            icon={<CalendarIcon color={colors.ink} size={22} />}
+            label="Diary"
+            onPress={() => router.push('/profile/diary' as any)}
+          />
+        )}
+        <RecordRow
+          icon={<ReviewBadgeIcon color={colors.ink} size={20} />}
+          label="Reviews"
+          onPress={() =>
+            router.push((isOwn ? '/profile/reviews' : `/user/${userId}/reviews`) as any)
+          }
+        />
+        {isOwn && (
+          <RecordRow
+            icon={<DraftIcon color={colors.ink} size={22} />}
+            label="Drafts"
+            count={draftCount}
+            onPress={() => router.push('/profile/drafts' as any)}
+          />
+        )}
+      </View>
     </View>
   );
 }
