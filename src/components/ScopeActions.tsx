@@ -2,12 +2,11 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { StatusPill } from '@/components/StatusPill';
 import { RatingPicker } from '@/components/RatingPicker';
-import { CheckIcon, PlayIcon, ClockIcon, PencilSquareIcon, ListPlusIcon, EyeIcon } from '@/components/icons';
+import { CheckIcon, PlayIcon, ClockIcon, PencilSquareIcon, ListPlusIcon, EpisodesIcon, ChevronRightIcon } from '@/components/icons';
 import { useRequireAuth } from '@/lib/requireAuth';
-import { useShow } from '@/api/useShow';
 import { useRate } from '@/api/useRate';
 import { useSetWatchStatus } from '@/api/useSetWatchStatus';
-import { useToggleEpisodeWatched, useMarkSeasonWatched } from '@/api/useToggleEpisodeWatched';
+import { useToggleEpisodeWatched } from '@/api/useToggleEpisodeWatched';
 import { fonts, pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { WatchStatus } from '@/types';
@@ -75,22 +74,11 @@ export function ScopeActions({
   const { setStatus, clearStatus } = useSetWatchStatus(tmdb_show_id);
   const { rate } = useRate(tmdb_show_id);
   const { toggle: toggleEpisode } = useToggleEpisodeWatched(tmdb_show_id);
-  const { markAll } = useMarkSeasonWatched(tmdb_show_id);
 
   // The scope passed through to every mutation (the show id is the hook arg).
   const scopeArg = { season_number, episode_number };
   const isEpisode = episode_number != null; // episodes are binary watched/not
   const isSeason = season_number != null && episode_number == null;
-
-  // Season-scope only: the episode numbers in THIS season, read from the cached
-  // show payload (no extra fetch — the host already holds ['show', id]). Feeds the
-  // "Mark all episodes watched" bulk action, which is DISTINCT from the season eye
-  // (one season-scope row) — this writes a watched row per episode.
-  const { data: showData } = useShow(isSeason ? tmdb_show_id : undefined);
-  const seasonEpisodeNumbers = isSeason
-    ? (showData?.catalog.seasons?.find((s) => s.season_number === season_number)?.episodes ?? [])
-        .map((e) => e.episode_number)
-    : [];
 
   // "Review or log" → gate, close the host, open the composer for this scope.
   // The season/episode params preset + lock the composer's scope (it reads them
@@ -112,14 +100,13 @@ export function ScopeActions({
     onAddToList(); // host opens its sibling AddToListSheet with this scope
   };
 
-  // "Mark all episodes watched" — one batched upsert of every episode-scope row
-  // in the season (idempotent). Separate from the season eye (which sets/clears a
-  // single season-scope status row); keep the two distinct so they don't merge.
-  const onMarkAllEpisodes = async () => {
-    const allowed = await requireAuth();
-    if (!allowed || season_number == null || seasonEpisodeNumbers.length === 0) return;
+  // "View all episodes" — pure navigation to the season's episode list. No auth
+  // gate: browsing the catalog is always free (CLAUDE.md "browse free, gate per
+  // action"). Surfaces the episode drill-down from the sheet, not just by tapping
+  // the season row — the discoverability ask this row exists for.
+  const onViewAllEpisodes = () => {
     onRequestClose();
-    markAll({ tmdb_show_id, season_number, episode_numbers: seasonEpisodeNumbers });
+    router.push(`/show/${tmdb_show_id}/season?season=${season_number}` as any);
   };
 
   return (
@@ -154,24 +141,26 @@ export function ScopeActions({
 
       <RatingPicker value={currentRating} onChange={(score) => rate(score, scopeArg)} />
 
+      {/* Season-only: drill into the episode list. First action + trailing chevron
+          so "you can see the episodes" is unmistakable (vs the row's own tap). */}
+      {isSeason && (
+        <ActionRow Icon={EpisodesIcon} label="View all episodes" onPress={onViewAllEpisodes} chevron />
+      )}
       <ActionRow Icon={PencilSquareIcon} label="Review or log" onPress={onReviewOrLog} />
       <ActionRow Icon={ListPlusIcon} label="Add to lists" onPress={onAddToListPress} />
-      {/* Season-only bulk action. Hidden until the episode list is known (so we
-          never fire an empty upsert), and distinct from the season "Watched" pill
-          above — that's one season-scope row; this writes one row per episode. */}
-      {isSeason && seasonEpisodeNumbers.length > 0 && (
-        <ActionRow Icon={EyeIcon} label="Mark all episodes watched" onPress={onMarkAllEpisodes} />
-      )}
     </>
   );
 }
 
 function ActionRow({
-  Icon, label, onPress,
+  Icon, label, onPress, chevron = false,
 }: {
   Icon: React.ComponentType<{ color?: string; size?: number }>;
   label: string;
   onPress: () => void;
+  // Trailing chevron marks a row that NAVIGATES away, vs the in-place mutation
+  // rows (matches the Profile nav-row convention). Default off.
+  chevron?: boolean;
 }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
@@ -179,6 +168,7 @@ function ActionRow({
     <Pressable style={styles.row} onPress={onPress}>
       <Icon color={colors.ink} size={22} />
       <Text style={styles.rowText}>{label}</Text>
+      {chevron && <ChevronRightIcon color={colors.muted} size={20} />}
     </Pressable>
   );
 }
@@ -198,5 +188,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 14, paddingHorizontal: pad, gap: 16,
   },
-  rowText: { fontFamily: fonts.medium, fontSize: 15, color: colors.ink },
+  // flex:1 lets the label fill the row so a trailing chevron lands at the far
+  // right; visually identical for rows without one (text stays left-aligned).
+  rowText: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.ink },
 });

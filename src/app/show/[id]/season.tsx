@@ -3,7 +3,7 @@
 // as before (lazy still · scope label · title · own rating · eye + •••): the eye is
 // the EPISODE-scope toggle (useToggleEpisodeWatched, delete-on-unwatch), the •••
 // opens the episode ScopeActions sheet. "Mark all watched" (season-bulk) lives in
-// the meta row AND the season row's ••• — both call useMarkSeasonWatched. No new
+// the meta row here (the season ••• sheet was trimmed to View/Review/List). No new
 // data: reads the season out of the cached show payload.
 import { FlatList, View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
