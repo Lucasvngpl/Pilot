@@ -82,7 +82,15 @@ export default function ShowDetail() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ShowNavRow status={showScopeStatus} onCheckPress={() => setSheetOpen(true)} />
 
-      {isLoading && <ShowDetailSkeleton />}
+      {/* flex:1 so the skeleton FILLS the column and BottomNav stays pinned to the
+          bottom during the load. The skeleton is shorter than the screen, so without
+          this the nav sits at content height — visibly risen off the bottom edge for
+          that split second before `data` arrives (the loaded ScrollView fills it). */}
+      {isLoading && (
+        <View style={{ flex: 1 }}>
+          <ShowDetailSkeleton />
+        </View>
+      )}
       {error && <Text style={[styles.muted, styles.center]}>Couldn&apos;t load show.</Text>}
 
       {data && (
