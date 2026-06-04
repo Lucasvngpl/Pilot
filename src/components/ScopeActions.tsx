@@ -72,7 +72,7 @@ export function ScopeActions({
   const styles = useThemedStyles(makeStyles);
   const { tmdb_show_id, season_number, episode_number } = scope;
   const requireAuth = useRequireAuth();
-  const { setStatus } = useSetWatchStatus(tmdb_show_id);
+  const { setStatus, clearStatus } = useSetWatchStatus(tmdb_show_id);
   const { rate } = useRate(tmdb_show_id);
   const { toggle: toggleEpisode } = useToggleEpisodeWatched(tmdb_show_id);
   const { markAll } = useMarkSeasonWatched(tmdb_show_id);
@@ -125,12 +125,15 @@ export function ScopeActions({
   return (
     <>
       {/* Status pills — only the statuses valid for this scope (statusesForScope).
-          Episode-`watched` routes to the binary toggle hook (delete-on-unwatch);
-          every other status is an upsert via setStatus. season_number is non-null
-          at episode scope (DB CHECK), so the toggle args are safe. */}
+          Every pill is a TOGGLE: tapping the ACTIVE one un-marks it (clears the
+          row), tapping an inactive one sets/switches to it. Episode-`watched`
+          routes to its own binary hook (delete-on-unwatch); show/season scope
+          set via setStatus / clear via clearStatus (the delete path). season_number
+          is non-null at episode scope (DB CHECK), so the toggle args are safe. */}
       <View style={styles.pillsRow}>
         {statusesForScope(scope).map((status) => {
           const { Icon, label } = STATUS_META[status];
+          const isActive = currentStatus === status;
           const onPress =
             isEpisode && status === 'watched'
               ? () => toggleEpisode({
@@ -139,10 +142,12 @@ export function ScopeActions({
                   episode_number,
                   currentlyWatched: currentStatus === 'watched',
                 })
+              : isActive
+              ? () => clearStatus(scopeArg)   // un-tap the active status → remove it
               : () => setStatus(status, scopeArg);
           return (
             <StatusPill key={status} Icon={Icon} label={label}
-              active={currentStatus === status} onPress={onPress} />
+              active={isActive} onPress={onPress} />
           );
         })}
       </View>

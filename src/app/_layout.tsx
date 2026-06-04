@@ -68,7 +68,11 @@ function AuthGate() {
           // fullScreenGestureEnabled (swipe from anywhere) but it's greedy: it eats
           // every horizontal drag on the screen — the drag-to-rate star slider, the
           // genre-chip / season-pill horizontal scrolls. Edge-only is the standard
-          // iOS gesture and conflicts with none of them.
+          // iOS gesture and conflicts with none of them: the RatingPicker is CENTERED
+          // (~100px in), so the ~50px left-edge zone never reaches it. That's why
+          // EVERY pushed screen keeps swipe-back — including the rating screens
+          // (review composer, log, episode) — so any screen with a ‹ back arrow can
+          // be swiped back, no per-screen opt-outs.
           //
           // …and even the edge gesture is dropped while ANY sheet is open, so a drag
           // inside a sheet (the rating slider) can never be stolen by a page-back —
@@ -92,21 +96,12 @@ function AuthGate() {
         <Stack.Screen name="show/[id]/reviews" options={{ animation: 'none' }} />
         <Stack.Screen name="show/[id]/seasons" options={{ animation: 'none' }} />
         <Stack.Screen name="show/[id]/lists" options={{ animation: 'none' }} />
-        {/* Review composer: a focused write screen with a drag-to-rate slider —
-            NO back-swipe at all (dragging the stars would otherwise slide the page
-            back). Leave via the ‹ chevron / Save draft / Publish. This per-route
-            option overrides the dynamic screenOptions gesture. */}
-        <Stack.Screen name="show/[id]/review" options={{ gestureEnabled: false }} />
-        {/* Log screen: same drag-to-rate slider as the composer → kill back-swipe
-            so dragging the first star doesn't slide the page back. Leave via ‹. */}
-        <Stack.Screen name="log/[id]" options={{ gestureEnabled: false }} />
-        {/* Episode Detail carries the drag-to-rate slider too — BUT here RatingPicker
-            is CENTERED (~100px in from the edge), unlike the composer/log where it
-            sits flush left. The back-swipe is LEFT-EDGE-only (~50px), so it can't
-            overlap the centered stars. So episode KEEPS edge-swipe-back — swipe
-            Episode → Season → all Seasons instead of tapping ‹ — inheriting the
-            sheet-aware default (still dropped while any sheet, e.g. Add-to-list, is up). */}
-        <Stack.Screen name="show/[id]/episode" options={{ gestureEnabled: !anySheetOpen }} />
+        {/* The rating screens (review composer, log, episode) used to set
+            gestureEnabled:false out of a (mistaken) fear the drag-to-rate slider
+            would trigger a page-back. The slider is CENTERED, so edge-only never
+            overlaps it — they now inherit the default gesture above, like every
+            other pushed screen. No per-screen opt-outs: any ‹ back arrow can be
+            swiped back (Episode → Season → Seasons, review pages, log, …). */}
       </Stack>
     </>
   );
