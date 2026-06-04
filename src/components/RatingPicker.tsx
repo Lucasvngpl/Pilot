@@ -4,6 +4,7 @@ import {
   type GestureResponderEvent, type LayoutChangeEvent,
 } from 'react-native';
 import { Stars } from '@/components/Stars';
+import { useSuppressBackSwipe } from '@/lib/sheetGesture';
 import { fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 
@@ -23,6 +24,11 @@ const STAR_SIZE = 36;
 export function RatingPicker({ value, onChange }: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
+  // Kill the screen's edge-swipe-back while this slider is on screen — the stars
+  // sit inside the iOS left-edge zone, so a drag-to-rate that begins on the
+  // leftmost stars would otherwise pop the page. Same suppressor sheets use; this
+  // makes the fix automatic wherever a RatingPicker appears (sheet or pushed screen).
+  useSuppressBackSwipe(true);
   const [rowWidth, setRowWidth] = useState(0);
   const [preview, setPreview] = useState<number | null>(null);
   // Did this gesture actually touch a measured row? Guards the rowWidth=0

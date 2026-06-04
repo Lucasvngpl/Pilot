@@ -1,8 +1,13 @@
-// Tracks how many sheets are currently open, so the root <Stack> can disable the
-// iOS back-swipe while ANY sheet is up. Sheets are sibling OVERLAYS (not Modals),
-// so the screen underneath stays live and its edge swipe-to-go-back would otherwise
-// steal a horizontal drag inside the sheet (the drag-to-rate star slider especially)
-// and pop the screen mid-gesture.
+// Tracks how many "back-swipe suppressors" are currently active, so the root
+// <Stack> can disable the iOS edge-swipe-back while any are up. Two kinds register:
+//   1. Open SHEETS — sibling OVERLAYS (not Modals), so the screen underneath stays
+//      live and its edge swipe-to-go-back would otherwise steal a horizontal drag
+//      inside the sheet and pop the screen mid-gesture.
+//   2. A mounted RATING SLIDER (RatingPicker) — its stars sit only ~20px from the
+//      left, INSIDE the iOS edge-swipe zone, so a drag-to-rate starting on the
+//      leftmost stars would pop the screen. We suppress while the slider is MOUNTED
+//      (not just mid-drag): a mid-drag toggle can land too late to cancel an
+//      already-armed native recognizer.
 //
 // Why a global count instead of per-screen `navigation.setOptions`: the LoginSheet
 // and the long-press ShowActionSheet mount OUTSIDE the <Stack>, where there's no
@@ -33,17 +38,24 @@ export function SheetGestureProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Sheets call this with their `visible` — counts up while open, down on close. */
-export function useRegisterSheet(visible: boolean) {
+/**
+ * Suppress the edge-swipe-back while `active` is true (counts up, then down on
+ * false / unmount). The general primitive — sheets and the rating slider both use
+ * it. See the module header for why the RatingPicker suppresses while MOUNTED.
+ */
+export function useSuppressBackSwipe(active: boolean) {
   const { inc, dec } = useContext(ApiCtx);
   useEffect(() => {
-    if (!visible) return;
+    if (!active) return;
     inc();
     return dec;
-  }, [visible, inc, dec]);
+  }, [active, inc, dec]);
 }
 
-/** The Stack owner reads this to disable back-swipe while any sheet is open. */
+/** Sheets call this with their `visible` — same mechanism, sheet-flavored name. */
+export const useRegisterSheet = useSuppressBackSwipe;
+
+/** The Stack owner reads this to disable back-swipe while any suppressor is active. */
 export function useAnySheetOpen() {
   return useContext(CountCtx) > 0;
 }
