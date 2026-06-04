@@ -117,6 +117,10 @@ export type WatchStatusRow = {
   episode_number: number | null;
   status: WatchStatus;
   updated_at: string;
+  // The calendar day the user says they watched this scope ("YYYY-MM-DD", a
+  // Postgres DATE — timezone-free). Defaults to the mark date; the Review-or-log
+  // composer can set a custom day. Diary + Profile→Shows→Watched order by this.
+  watched_at: string;
 };
 
 export type RatingRow = {
@@ -235,7 +239,7 @@ export type DiaryEntry = ShowCard & {
   key: string;               // unique per entry: `${showId}:${season}:${episode}:${ts}`
   year: string | null;       // first_air_date year, e.g. "1972"
   scopeLabel: string | null; // null = whole show; "Season 2"; "Season 2 · E5"
-  watchedAt: string;         // ISO updated_at
+  watchedAt: string;         // the watched_at date ("YYYY-MM-DD"), timezone-free
   day: number;               // day-of-month, for the date cell
   rating: number | null;     // rating for this scope, if any
   hasReview: boolean;        // a review exists for this scope
@@ -324,6 +328,18 @@ export type ReviewDetail = {
   showName: string;
   posterPath: string | null;
   backdropPath: string | null;
+};
+
+// ----- Likes ---------------------------------------------------------------
+
+// The like state for ONE target (a review or a list), read together in a single
+// hook (useReviewLikes / useListLikes). `count` is the EXACT total; `likers` is a
+// capped slice (≤5) for the avatar cluster — never the full list (cheap read).
+// `likedByMe` answers "is my like row present" and drives the filled heart.
+export type LikeState = {
+  count: number;
+  likedByMe: boolean;
+  likers: ViewerAvatar[]; // ≤5 profiles for the cluster (id, username, avatar_url)
 };
 
 // ----- Search --------------------------------------------------------------
@@ -418,6 +434,31 @@ export function formatAirDate(d?: string | null): string | null {
   const [y, m, day] = d.split('-').map(Number);
   if (!y || !m || !day) return null;
   return `${MONTHS[m - 1]} ${day}, ${y}`;
+}
+
+// ----- Watched-date helpers ------------------------------------------------
+// `watched_at` is a Postgres DATE (a calendar day, no time, no timezone). We
+// serialize it as "YYYY-MM-DD" and ALWAYS build it from LOCAL date parts — never
+// `toISOString()`, which is UTC and can land on the wrong day near midnight.
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+// A JS Date → "YYYY-MM-DD" using the device's LOCAL calendar day.
+export function fromLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+// Today's local calendar day as "YYYY-MM-DD". The default for every quick-mark.
+export function todayLocal(): string {
+  return fromLocalDate(new Date());
+}
+
+// "YYYY-MM-DD" → a Date at LOCAL midnight of that day (for feeding a date picker).
+// Split-parse, NOT `new Date(str)` — the latter parses as UTC midnight and can
+// shift the day in negative-offset timezones.
+export function toLocalDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 export type ScopeTuple = { tmdb_show_id: number; season_number: number | null; episode_number: number | null };

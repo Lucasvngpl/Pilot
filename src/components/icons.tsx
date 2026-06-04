@@ -153,12 +153,16 @@ export function DotsIcon({ color = '#000', size = 18 }: Props) {
 
 // ----- Review-row meta icons ------------------------------------------------
 
-export function HeartIcon({ color = '#000', size = 14 }: Props) {
+// `filled` paints the heart solid (a liked state) vs outline-only (not liked).
+// One icon, two states, so the like toggle just flips a boolean instead of
+// swapping components. Color drives both stroke and fill so a themed token
+// (e.g. colors.red when liked) reads correctly in light and dark.
+export function HeartIcon({ color = '#000', size = 14, filled = false }: Props & { filled?: boolean }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 20 C12 20 4 14 4 9 C4 6 6 4 9 4 C10.5 4 12 5 12 7 C12 5 13.5 4 15 4 C18 4 20 6 20 9 C20 14 12 20 12 20 Z"
-        stroke={color} strokeWidth={1.6} strokeLinejoin="round" fill="none"
+        stroke={color} strokeWidth={1.6} strokeLinejoin="round" fill={filled ? color : 'none'}
       />
     </Svg>
   );
@@ -212,6 +216,20 @@ export function PencilSquareIcon({ color = '#000', size = 22 }: Props) {
         d="M18.7 3.3 L20.7 5.3 L11.5 14.5 L8.8 15.2 L9.5 12.5 Z"
         stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+// Playlist glyph — leading dots + rows, reads as "a list of episodes" for the
+// season sheet's "View all episodes" row. Distinct from HamburgerIcon (plain 3
+// lines) and ReviewBadgeIcon (no bullets) so the metaphor stays unambiguous.
+export function EpisodesIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={5} cy={6} r={1.4} fill={color} />
+      <Circle cx={5} cy={12} r={1.4} fill={color} />
+      <Circle cx={5} cy={18} r={1.4} fill={color} />
+      <Path d="M9 6 H20 M9 12 H20 M9 18 H20" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
     </Svg>
   );
 }
