@@ -100,8 +100,13 @@ function AuthGate() {
         {/* Log screen: same drag-to-rate slider as the composer → kill back-swipe
             so dragging the first star doesn't slide the page back. Leave via ‹. */}
         <Stack.Screen name="log/[id]" options={{ gestureEnabled: false }} />
-        {/* Episode Detail: also carries the drag-to-rate slider (ScopeActions). */}
-        <Stack.Screen name="show/[id]/episode" options={{ gestureEnabled: false }} />
+        {/* Episode Detail carries the drag-to-rate slider too — BUT here RatingPicker
+            is CENTERED (~100px in from the edge), unlike the composer/log where it
+            sits flush left. The back-swipe is LEFT-EDGE-only (~50px), so it can't
+            overlap the centered stars. So episode KEEPS edge-swipe-back — swipe
+            Episode → Season → all Seasons instead of tapping ‹ — inheriting the
+            sheet-aware default (still dropped while any sheet, e.g. Add-to-list, is up). */}
+        <Stack.Screen name="show/[id]/episode" options={{ gestureEnabled: !anySheetOpen }} />
       </Stack>
     </>
   );
