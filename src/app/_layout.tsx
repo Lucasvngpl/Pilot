@@ -9,6 +9,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuth } from '@/lib/auth';
@@ -119,6 +120,11 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    // GestureHandlerRootView must wrap the whole app for react-native-gesture-handler
+    // detectors to receive touches (the native <Stack>'s own edge-swipe works without
+    // it, but our own GestureDetectors — e.g. the list picker's left-edge back-swipe —
+    // do not). flex:1 so it fills the screen.
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       {/* ThemeProvider sits high so every screen + sheet can read the active
           palette. It owns the system/manual mode and persists the preference. */}
@@ -142,5 +148,6 @@ export default function RootLayout() {
         </QueryClientProvider>
       </ThemeProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

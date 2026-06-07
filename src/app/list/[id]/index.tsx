@@ -12,6 +12,7 @@ import { Poster } from '@/components/Poster';
 import { ListBanner } from '@/components/ListBanner';
 import { Skeleton } from '@/components/Skeleton';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
+import { ListBannerPicker } from '@/components/ListBannerPicker';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
 import { ListLikeBar } from '@/components/LikeBar';
 import { shareList } from '@/lib/share';
@@ -28,6 +29,7 @@ export default function ListDetailScreen() {
   const { data: list, isLoading, isError } = useList(id);
   const { remove, isPending } = useDeleteList();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [bannerOpen, setBannerOpen] = useState(false);
 
   const onDelete = () => {
     if (!list) return;
@@ -164,15 +166,26 @@ export default function ListDetailScreen() {
         )}
       </ScrollView>
 
-      {/* Owner-only Edit/Delete menu, opened from the banner ⋯. */}
+      {/* Owner-only menu, opened from the banner ⋯. */}
       <ActionMenuSheet
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
         actions={[
+          { label: 'Change banner', onPress: () => setBannerOpen(true) },
           { label: 'Edit list', onPress: () => router.push(`/list/new?edit=${id}` as any) },
           { label: 'Delete list', destructive: true, onPress: onDelete },
         ]}
       />
+
+      {/* Backdrop banner picker (owner) — full-screen overlay over the detail. */}
+      {bannerOpen && (
+        <ListBannerPicker
+          listId={list.id}
+          items={list.items}
+          currentBackdrop={list.bannerBackdropPath}
+          onClose={() => setBannerOpen(false)}
+        />
+      )}
     </View>
   );
 }
@@ -180,15 +193,20 @@ export default function ListDetailScreen() {
 function RankedRow({ rank, item }: { rank: number; item: ListShowItem }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
-  // Subtitle = "network · year" when we have them, else nothing (title carries it).
-  const subtitle = [item.network, item.year].filter(Boolean).join(' · ');
+  // Title = the SHOW; subtitle = scope (only when this row is a season/episode) + meta.
+  // `item.name` is the RESOLVED scope title ("Season 2" / "S01 · E04 'Who Goes There?'")
+  // — for a whole-show row it equals the show name, so we drop it there to avoid the
+  // redundant "True Detective / True Detective · HBO". Without this the show was
+  // invisible on a mixed list (you couldn't tell which show an episode belonged to).
+  const scopeLabel = item.season_number === null ? null : item.name;
+  const subtitle = [scopeLabel, item.network, item.year].filter(Boolean).join(' · ');
   return (
     <View style={styles.rankRow}>
       <Text style={styles.rankNum}>{rank}</Text>
-      <Poster tmdbShowId={item.tmdb_show_id} posterPath={item.poster_path} name={item.name} width={44} />
+      <Poster tmdbShowId={item.tmdb_show_id} posterPath={item.poster_path} name={item.showName} width={44} />
       <View style={styles.rankText}>
         <Text style={[type.reviewTitle, { color: colors.ink }]} numberOfLines={1}>
-          {item.name}
+          {item.showName}
         </Text>
         {subtitle ? (
           <Text style={[type.filter, { color: colors.muted, marginTop: 2 }]} numberOfLines={1}>

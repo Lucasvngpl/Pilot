@@ -107,6 +107,34 @@ export function useUpdateList() {
 }
 
 /**
+ * Set (or clear) a list's custom banner — a TMDb backdrop PATH, or null to fall
+ * back to the auto-composite. Owner-only by RLS (lists_update_own). Invalidates the
+ * list detail + the owner's lists (the banner could feed a future preview).
+ */
+export function useSetListBanner() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const mutation = useMutation({
+    mutationFn: async ({ listId, backdropPath }: { listId: string; backdropPath: string | null }) => {
+      const { error } = await supabase
+        .from('lists')
+        .update({ banner_backdrop_path: backdropPath })
+        .eq('id', listId);
+      if (error) throw error;
+    },
+    onSuccess: (_d, { listId }) => {
+      qc.invalidateQueries({ queryKey: ['list', listId] });
+      if (user) qc.invalidateQueries({ queryKey: ['lists', user.id] });
+    },
+  });
+  return {
+    setBanner: (listId: string, backdropPath: string | null) =>
+      mutation.mutateAsync({ listId, backdropPath }),
+    isPending: mutation.isPending,
+  };
+}
+
+/**
  * Add/remove a show in a list (for AddToListSheet). The optimistic check lives in
  * the sheet (it owns the membership UI); these just write + invalidate the list
  * and the owner's lists (counts/previews). RLS scopes writes to the list owner.

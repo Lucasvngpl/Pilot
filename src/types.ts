@@ -383,6 +383,10 @@ export type ListShowItem = ShowCard & {
   season_number: number | null;
   episode_number: number | null;
   scopeKey: string;       // unique per row — a show can appear at multiple scopes
+  // The bare SHOW name (not the resolved scope title) — so an editor row can show
+  // "True Detective" on top with the scope ("S01 · E05 …") underneath. For a
+  // whole-show row this equals `name`.
+  showName: string;
   year: string | null;    // first_air_date's year, e.g. "2019"
   network: string | null; // primary broadcaster, e.g. "HBO"
 };
@@ -397,9 +401,11 @@ export type ListDetail = {
   ownerUsername: string | null;
   ownerAvatarUrl: string | null;
   createdAt: string; // ISO timestamp from lists.created_at
-  // Render seam for a future pick-your-own banner. No DB column yet, so this is
-  // always null today — the detail screen does `bannerUrl ? custom : auto-composite`.
+  // Custom banner (owner-picked TMDb backdrop). `bannerUrl` is the ready-to-render
+  // image URL (null = fall back to the auto-composite); `bannerBackdropPath` is the
+  // raw TMDb path the banner picker compares against to mark the current selection.
   bannerUrl: string | null;
+  bannerBackdropPath: string | null;
   items: ListShowItem[];
 };
 

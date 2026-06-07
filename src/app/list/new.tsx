@@ -6,37 +6,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCreateList, useUpdateList, useListItemMutations } from '@/api/useListMutations';
 import { useList } from '@/api/useLists';
-import { useSearchShows } from '@/api/useSearchShows';
-import { useDebounce } from '@/lib/useDebounce';
 import { fetchShowCards } from '@/api/showCards';
 import { resolveScope } from '@/types';
-import { SearchInput } from '@/components/SearchInput';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
 import { Skeleton } from '@/components/Skeleton';
 import { SearchResultRowsSkeleton } from '@/components/Skeletons';
+import { ListItemPicker, type ListPickerItem } from '@/components/ListItemPicker';
 import { ChevronLeftIcon, CloseIcon, ChevronUpIcon, ChevronDownIcon } from '@/components/icons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import type { SearchShowResult } from '@/types';
 
-// A staged item is a scope tuple (show / season / episode). `name`/`poster_path`
-// are already resolved to THAT scope (resolveScope); `scopeKey` is the unique key.
-type Staged = {
-  tmdb_show_id: number;
-  season_number: number | null;
-  episode_number: number | null;
-  name: string;
-  poster_path: string | null;
-  scopeKey: string;
-};
+// A staged row IS a picker item — the add-item flow and the editor speak the same
+// shape, so there's no translation between selecting and staging.
+type Staged = ListPickerItem;
 
 // One screen, two modes:
 //  - CREATE (default, or with ?showId pre-stage): make a new list.
-//  - EDIT (?edit=listId): pre-loaded title/description/shows; "Save changes"
+//  - EDIT (?edit=listId): pre-loaded title/description/items; "Save changes"
 //    updates the list + reconciles items as a true set-difference (only the
-//    genuine adds/removes are written — unchanged shows aren't touched).
+//    genuine adds/removes are written — unchanged items aren't touched).
+// BOTH modes add items through the SAME search-first ListItemPicker (show / season
+// / episode), so a list can hold any scope from the moment it's created.
 export default function NewOrEditList() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
@@ -55,9 +47,7 @@ export default function NewOrEditList() {
   const [originalItems, setOriginalItems] = useState<Staged[]>([]); // edit baseline for the diff
   const [seeded, setSeeded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [query, setQuery] = useState('');
-  const debounced = useDebounce(query, 300);
-  const search = useSearchShows(debounced);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   // CREATE: pre-seed the scope passed via ?showId (+ optional season/episode) from
   // "Add to lists… → New list". Resolves to the season/episode's own art + identity.
@@ -70,13 +60,15 @@ export default function NewOrEditList() {
     let alive = true;
     fetchShowCards([sid], { withScopeArt: true }).then((cards) => {
       if (!alive) return;
+      const card = cards.get(sid);
       const scoped = resolveScope(
         { tmdb_show_id: sid, season_number: seasonN, episode_number: episodeN },
-        cards.get(sid),
+        card,
       );
       setStaged([{
         tmdb_show_id: sid, season_number: seasonN, episode_number: episodeN,
-        name: scoped.title, poster_path: scoped.posterPath, scopeKey: scoped.key,
+        showName: card?.name ?? scoped.title, scopeTitle: scoped.title,
+        poster_path: scoped.posterPath, scopeKey: scoped.key,
       }]);
     });
     return () => { alive = false; };
@@ -92,7 +84,8 @@ export default function NewOrEditList() {
         tmdb_show_id: i.tmdb_show_id,
         season_number: i.season_number,
         episode_number: i.episode_number,
-        name: i.name,
+        showName: i.showName,
+        scopeTitle: i.name, // ListShowItem.name is already the resolved scope title
         poster_path: i.poster_path,
         scopeKey: i.scopeKey,
       }));
@@ -104,18 +97,11 @@ export default function NewOrEditList() {
 
   const stagedKeys = new Set(staged.map((s) => s.scopeKey));
 
-  // Search adds WHOLE-SHOW items (the list search is show-only); scoped items
-  // arrive only via the pre-seed above. Dedup by scopeKey so the same scope isn't
-  // staged twice (a show and one of its seasons are different keys — both allowed).
-  const addStaged = (r: SearchShowResult) => {
-    const key = `${r.tmdb_show_id}-x-x`;
-    if (stagedKeys.has(key)) return;
-    setStaged((prev) => [...prev, {
-      tmdb_show_id: r.tmdb_show_id, season_number: null, episode_number: null,
-      name: r.name, poster_path: r.poster_path, scopeKey: key,
-    }]);
-    setQuery(''); // clear the search after adding
-  };
+  // Append a picked item (the picker dedupes by showing a check, but guard here
+  // too in case of a double-fire). Scoped items (show / season / episode) all flow
+  // through this one path now.
+  const addStaged = (item: ListPickerItem) =>
+    setStaged((prev) => (prev.some((s) => s.scopeKey === item.scopeKey) ? prev : [...prev, item]));
   const removeStaged = (key: string) =>
     setStaged((prev) => prev.filter((s) => s.scopeKey !== key));
 
@@ -139,8 +125,6 @@ export default function NewOrEditList() {
 
   const busy = isEdit ? saving : creating;
   const canSubmit = title.trim().length > 0 && !busy;
-  const searching = debounced.trim().length > 0;
-  const results = (search.data?.results ?? []).filter((r) => !stagedKeys.has(`${r.tmdb_show_id}-x-x`));
 
   const onCreate = async () => {
     try {
@@ -238,53 +222,44 @@ export default function NewOrEditList() {
             multiline
           />
 
-          <Text style={styles.sectionLabel}>Shows{staged.length > 0 ? ` (${staged.length})` : ''}</Text>
-          {/* The ScrollView body already pads by `pad`; cancel SearchInput's own
-              horizontal margin so it lines up flush with the Title/Description fields. */}
-          <SearchInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search shows to add"
-            style={{ marginHorizontal: 0 }}
-          />
-
-          {searching &&
-            (search.isLoading ? (
-              <SearchResultRowsSkeleton />
-            ) : results.length === 0 ? (
-              <Text style={styles.muted}>No shows found.</Text>
-            ) : (
-              results.map((r) => (
-                <Pressable key={r.tmdb_show_id} style={styles.row} onPress={() => addStaged(r)}>
-                  <Poster tmdbShowId={r.tmdb_show_id} posterPath={r.poster_path} name={r.name} width={40} pressable={false} />
-                  <Text style={[type.creator, { color: colors.ink, flex: 1 }]} numberOfLines={1}>{r.name}</Text>
-                  <Text style={styles.plus}>+</Text>
-                </Pressable>
-              ))
-            ))}
+          <View style={styles.itemsHeader}>
+            <Text style={styles.sectionLabel}>Items{staged.length > 0 ? ` (${staged.length})` : ''}</Text>
+            <Pressable onPress={() => setPickerOpen(true)} hitSlop={8}>
+              <Text style={styles.addItem}>+ Add item</Text>
+            </Pressable>
+          </View>
 
           {staged.length === 0 ? (
-            <Text style={styles.muted}>No shows added yet.</Text>
+            <Text style={styles.muted}>No items added yet.</Text>
           ) : (
             <View style={styles.stagedWrap}>
-              {staged.map((s, i) => (
-                <View key={s.scopeKey} style={styles.row}>
-                  <Text style={styles.stagedRank}>{i + 1}</Text>
-                  <Poster tmdbShowId={s.tmdb_show_id} posterPath={s.poster_path} name={s.name} width={40} pressable={false} />
-                  <Text style={[type.creator, { color: colors.ink, flex: 1 }]} numberOfLines={1}>{s.name}</Text>
-                  <View style={styles.stagedControls}>
-                    <Pressable onPress={() => moveUp(i)} hitSlop={6} disabled={i === 0}>
-                      <ChevronUpIcon color={i === 0 ? colors.hairline : colors.muted} size={20} />
-                    </Pressable>
-                    <Pressable onPress={() => moveDown(i)} hitSlop={6} disabled={i === staged.length - 1}>
-                      <ChevronDownIcon color={i === staged.length - 1 ? colors.hairline : colors.muted} size={20} />
-                    </Pressable>
-                    <Pressable onPress={() => removeStaged(s.scopeKey)} hitSlop={6}>
-                      <CloseIcon color={colors.muted} size={18} />
-                    </Pressable>
+              {staged.map((s, i) => {
+                // Title = show name; sub-label = the scope. Whole-show rows say so
+                // explicitly; scoped rows reuse the resolved scope title ("Season 2",
+                // "S01 · E05 ‘…’") so a mixed-scope list is never ambiguous.
+                const scopeLabel = s.season_number === null ? 'Whole show' : s.scopeTitle;
+                return (
+                  <View key={s.scopeKey} style={styles.row}>
+                    <Text style={styles.stagedRank}>{i + 1}</Text>
+                    <Poster tmdbShowId={s.tmdb_show_id} posterPath={s.poster_path} name={s.showName} width={40} pressable={false} />
+                    <View style={styles.rowText}>
+                      <Text style={[type.creator, { color: colors.ink }]} numberOfLines={1}>{s.showName}</Text>
+                      <Text style={styles.scopeLabel} numberOfLines={1}>{scopeLabel}</Text>
+                    </View>
+                    <View style={styles.stagedControls}>
+                      <Pressable onPress={() => moveUp(i)} hitSlop={6} disabled={i === 0}>
+                        <ChevronUpIcon color={i === 0 ? colors.hairline : colors.muted} size={20} />
+                      </Pressable>
+                      <Pressable onPress={() => moveDown(i)} hitSlop={6} disabled={i === staged.length - 1}>
+                        <ChevronDownIcon color={i === staged.length - 1 ? colors.hairline : colors.muted} size={20} />
+                      </Pressable>
+                      <Pressable onPress={() => removeStaged(s.scopeKey)} hitSlop={6}>
+                        <CloseIcon color={colors.muted} size={18} />
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -297,6 +272,19 @@ export default function NewOrEditList() {
             />
           </View>
         </ScrollView>
+      )}
+
+      {/* The shared search-first add-item flow, full-screen over the editor. The
+          editor keeps its staged state mounted underneath; the picker just toggles
+          items into it and closing reveals the updated list. */}
+      {pickerOpen && (
+        <ListItemPicker
+          mode={isEdit ? 'edit' : 'create'}
+          stagedKeys={stagedKeys}
+          onAdd={addStaged}
+          onRemove={removeStaged}
+          onClose={() => setPickerOpen(false)}
+        />
       )}
     </SafeAreaView>
   );
@@ -312,9 +300,12 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingVertical: 8,
   },
   body: { paddingHorizontal: pad, paddingTop: 8, paddingBottom: 40 },
-  sectionLabel: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink, marginBottom: 6 },
+  itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  sectionLabel: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink },
+  addItem: { fontFamily: fonts.semibold, fontSize: 14, color: colors.purple },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  plus: { fontFamily: fonts.bold, fontSize: 22, color: colors.purple, paddingHorizontal: 4 },
+  rowText: { flex: 1 },
+  scopeLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 2 },
   stagedWrap: { marginTop: 4 },
   stagedRank: { fontFamily: fonts.display, fontSize: 14, color: colors.muted, width: 18, textAlign: 'center' },
   stagedControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },

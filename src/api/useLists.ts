@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
-import { resolveScope } from '@/types';
+import { resolveScope, tmdbImage } from '@/types';
 import type { ListSummary, ListDetail } from '@/types';
 
 type ListRow = { id: string; title: string; description: string | null };
@@ -83,14 +83,14 @@ export function useList(listId: string | undefined) {
     queryFn: async () => {
       const { data: list, error } = await supabase
         .from('lists')
-        .select('id, user_id, title, description, is_ranked, created_at')
+        .select('id, user_id, title, description, is_ranked, created_at, banner_backdrop_path')
         .eq('id', listId!)
         .maybeSingle();
       if (error) throw error;
       if (!list) return null;
       const row = list as {
         id: string; user_id: string; title: string; description: string | null;
-        is_ranked: boolean; created_at: string;
+        is_ranked: boolean; created_at: string; banner_backdrop_path: string | null;
       };
 
       const [itemsRes, ownerRes] = await Promise.all([
@@ -143,7 +143,10 @@ export function useList(listId: string | undefined) {
         ownerUsername: owner?.username ?? null,
         ownerAvatarUrl: owner?.avatar_url ?? null,
         createdAt: row.created_at,
-        bannerUrl: null, // no custom-banner column yet; the detail screen still renders the seam
+        // Owner-picked TMDb backdrop → a render-ready URL (null = auto-composite).
+        // Keep the raw path too so the banner picker can mark the current pick.
+        bannerUrl: row.banner_backdrop_path ? tmdbImage(row.banner_backdrop_path, 'w780') : null,
+        bannerBackdropPath: row.banner_backdrop_path,
         // Each row resolved to its OWN scope art + identity + key (resolveScope),
         // not the show's. year/network stay show-level (a season belongs to the show).
         items: itemRows.map((it) => {
@@ -158,6 +161,9 @@ export function useList(listId: string | undefined) {
             season_number: it.season_number,
             episode_number: it.episode_number,
             name: scoped.title,
+            // The bare show name, kept alongside the resolved scope title so the
+            // editor can render "show name + scope label" for scoped rows.
+            showName: card?.name ?? scoped.title,
             poster_path: scoped.posterPath,
             backdrop_path: card?.backdrop_path ?? null,
             scopeKey: scoped.key,
