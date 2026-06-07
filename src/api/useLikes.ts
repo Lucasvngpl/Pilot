@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useRequireAuth } from '@/lib/requireAuth';
 import { useProfile } from '@/api/useProfile';
-import type { LikeState, ViewerAvatar, MyLikeEntry } from '@/types';
+import type { LikeState, ViewerAvatar, MyLikeEntry, ActivityItem } from '@/types';
 
 const LIKER_CAP = 5; // how many liker avatars the cluster shows; the rest are just counted
 
@@ -151,6 +151,27 @@ function useToggleLike(kind: LikeKind, targetId: string | undefined) {
           );
         }
       }
+
+      // Same for the activity "You" tab: un-liking drops the matching "You liked …"
+      // row immediately. (Only the You feed — the Friends feed shows OTHERS' likes,
+      // not yours.)
+      const youFeedKey = user ? (['activity', 'you', user.id] as const) : null;
+      let prevYouFeed: ActivityItem[] | undefined;
+      if (youFeedKey && !next && targetId) {
+        await qc.cancelQueries({ queryKey: youFeedKey });
+        prevYouFeed = qc.getQueryData<ActivityItem[]>(youFeedKey);
+        if (prevYouFeed) {
+          qc.setQueryData<ActivityItem[]>(
+            youFeedKey,
+            prevYouFeed.filter((it) => {
+              if (it.type !== 'liked') return true;
+              return kind === 'review'
+                ? !(it.target === 'review' && it.reviewId === targetId)
+                : !(it.target === 'list' && it.listId === targetId);
+            }),
+          );
+        }
+      }
       // Base off the current cache (or a zero state if nothing's loaded yet — e.g.
       // a tap during the very first fetch).
       const base: LikeState = prev ?? { count: 0, likedByMe: false, likers: [] };
@@ -168,7 +189,7 @@ function useToggleLike(kind: LikeKind, targetId: string | undefined) {
         likers: next ? [me, ...without].slice(0, LIKER_CAP) : without,
       };
       qc.setQueryData<LikeState>(key, optimistic);
-      return { prev, prevMyLikes };
+      return { prev, prevMyLikes, prevYouFeed };
     },
 
     onError: (err, _next, ctx) => {
@@ -176,16 +197,21 @@ function useToggleLike(kind: LikeKind, targetId: string | undefined) {
       // Restore the exact prior state (heart, count, AND cluster). undefined prev
       // (tapped before first load) clears back to the placeholder/refetch path.
       qc.setQueryData<LikeState | undefined>(key, ctx?.prev);
-      // Roll back the My Likes removal too, if we did one.
+      // Roll back the My Likes / You-feed removals too, if we did them.
       if (user && ctx?.prevMyLikes) qc.setQueryData(['myLikes', user.id], ctx.prevMyLikes);
+      if (user && ctx?.prevYouFeed) qc.setQueryData(['activity', 'you', user.id], ctx.prevYouFeed);
     },
 
     // Reconcile with server truth — refetch ignores staleTime, so the count +
     // likers settle to reality even after rapid toggles. Also mark the My Likes
-    // record stale so it reflects the change (adds a row on re-like, drops on unlike).
+    // record + the You activity feed stale so they reflect the change (a row drops
+    // on unlike, reappears on re-like).
     onSettled: () => {
       qc.refetchQueries({ queryKey: key });
-      if (user) qc.invalidateQueries({ queryKey: ['myLikes', user.id] });
+      if (user) {
+        qc.invalidateQueries({ queryKey: ['myLikes', user.id] });
+        qc.invalidateQueries({ queryKey: ['activity', 'you', user.id] });
+      }
     },
   });
 
