@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-  ScrollView, View, Text, Pressable, StyleSheet, Alert,
+  View, Text, Pressable, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DragList, { type DragListRenderItemInfo } from 'react-native-draglist';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCreateList, useUpdateList, useListItemMutations } from '@/api/useListMutations';
 import { useList } from '@/api/useLists';
@@ -14,7 +15,7 @@ import { Poster } from '@/components/Poster';
 import { Skeleton } from '@/components/Skeleton';
 import { SearchResultRowsSkeleton } from '@/components/Skeletons';
 import { ListItemPicker, type ListPickerItem } from '@/components/ListItemPicker';
-import { ChevronLeftIcon, CloseIcon, ChevronUpIcon, ChevronDownIcon } from '@/components/icons';
+import { ChevronLeftIcon, CloseIcon, GripIcon } from '@/components/icons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 
@@ -105,21 +106,16 @@ export default function NewOrEditList() {
   const removeStaged = (key: string) =>
     setStaged((prev) => prev.filter((s) => s.scopeKey !== key));
 
-  // Reorder via arrows (no drag/PanResponder — same call as Top 4): swap a row
-  // with its neighbor. The staged order is the source of truth; onSave renumbers
-  // positions to match it.
-  const moveUp = (index: number) =>
+  // Drag-to-reorder (react-native-draglist hands us the row's start + drop index).
+  // Pull the row out and reinsert it at the drop point. The staged order stays the
+  // source of truth — onSave renumbers list_items.position to match it, so the new
+  // order persists once you Save (create writes positions by index; edit calls
+  // reorderItems with the staged order).
+  const onReordered = (fromIndex: number, toIndex: number) =>
     setStaged((prev) => {
-      if (index <= 0) return prev;
       const next = [...prev];
-      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-      return next;
-    });
-  const moveDown = (index: number) =>
-    setStaged((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
       return next;
     });
 
@@ -189,6 +185,78 @@ export default function NewOrEditList() {
   // detail's useList — same query key — so this is usually instant).
   const editLoading = isEdit && !seeded;
 
+  // The title/description fields and the "Items" header scroll ABOVE the rows; the
+  // Save button sits below. They're passed to DragList as ELEMENTS (not inline
+  // component types): a function component in ListHeaderComponent remounts on every
+  // render, so the TextFields would drop focus/keyboard on each keystroke.
+  const listHeader = (
+    <View>
+      <TextField label="Title" value={title} onChangeText={setTitle} placeholder="List title" />
+      <TextField
+        label="Description"
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Optional"
+        multiline
+      />
+      <View style={styles.itemsHeader}>
+        <Text style={styles.sectionLabel}>Items{staged.length > 0 ? ` (${staged.length})` : ''}</Text>
+        <Pressable onPress={() => setPickerOpen(true)} hitSlop={8}>
+          <Text style={styles.addItem}>+ Add item</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const listFooter = (
+    <View style={{ marginTop: 24 }}>
+      <Button
+        label={isEdit ? 'Save changes' : 'Create list'}
+        onPress={onSubmit}
+        disabled={!canSubmit}
+        loading={busy}
+      />
+    </View>
+  );
+
+  // One staged row: rank + poster + show/scope, then the ✕ remove and the ☰ grip.
+  // Drag is initiated from the grip ONLY (onDragStart on its press-in / onDragEnd
+  // on release), so the ✕ stays tappable and a future row-tap isn't hijacked.
+  // `index` is the row's live position, so the rank reflects the order after a drop.
+  // No "active" highlight: draglist flips isActive on press-IN (before any motion),
+  // so an isActive-based style would flash the instant you touch the grip. The only
+  // drag feedback is draglist's native finger-follow translate — smooth, no snap.
+  const renderStaged = ({ item: s, index: i, onDragStart, onDragEnd }: DragListRenderItemInfo<Staged>) => {
+    // Title = show name; sub-label = the scope. Whole-show rows say so explicitly;
+    // scoped rows reuse the resolved scope title ("Season 2", "S01 · E05 ‘…’") so a
+    // mixed-scope list is never ambiguous.
+    const scopeLabel = s.season_number === null ? 'Whole show' : s.scopeTitle;
+    return (
+      <View style={styles.row}>
+        <Text style={styles.stagedRank}>{i + 1}</Text>
+        <Poster tmdbShowId={s.tmdb_show_id} posterPath={s.poster_path} name={s.showName} width={40} pressable={false} />
+        <View style={styles.rowText}>
+          <Text style={[type.creator, { color: colors.ink }]} numberOfLines={1}>{s.showName}</Text>
+          <Text style={styles.scopeLabel} numberOfLines={1}>{scopeLabel}</Text>
+        </View>
+        <View style={styles.stagedControls}>
+          <Pressable onPress={() => removeStaged(s.scopeKey)} hitSlop={6}>
+            <CloseIcon color={colors.muted} size={18} />
+          </Pressable>
+          <Pressable
+            onPressIn={onDragStart}
+            onPressOut={onDragEnd}
+            hitSlop={8}
+            style={styles.dragHandle}
+            accessibilityLabel={`Reorder ${s.showName}`}
+          >
+            <GripIcon color={colors.muted} size={22} />
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.nav}>
@@ -212,66 +280,26 @@ export default function NewOrEditList() {
           <SearchResultRowsSkeleton count={3} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          <TextField label="Title" value={title} onChangeText={setTitle} placeholder="List title" />
-          <TextField
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Optional"
-            multiline
-          />
-
-          <View style={styles.itemsHeader}>
-            <Text style={styles.sectionLabel}>Items{staged.length > 0 ? ` (${staged.length})` : ''}</Text>
-            <Pressable onPress={() => setPickerOpen(true)} hitSlop={8}>
-              <Text style={styles.addItem}>+ Add item</Text>
-            </Pressable>
-          </View>
-
-          {staged.length === 0 ? (
-            <Text style={styles.muted}>No items added yet.</Text>
-          ) : (
-            <View style={styles.stagedWrap}>
-              {staged.map((s, i) => {
-                // Title = show name; sub-label = the scope. Whole-show rows say so
-                // explicitly; scoped rows reuse the resolved scope title ("Season 2",
-                // "S01 · E05 ‘…’") so a mixed-scope list is never ambiguous.
-                const scopeLabel = s.season_number === null ? 'Whole show' : s.scopeTitle;
-                return (
-                  <View key={s.scopeKey} style={styles.row}>
-                    <Text style={styles.stagedRank}>{i + 1}</Text>
-                    <Poster tmdbShowId={s.tmdb_show_id} posterPath={s.poster_path} name={s.showName} width={40} pressable={false} />
-                    <View style={styles.rowText}>
-                      <Text style={[type.creator, { color: colors.ink }]} numberOfLines={1}>{s.showName}</Text>
-                      <Text style={styles.scopeLabel} numberOfLines={1}>{scopeLabel}</Text>
-                    </View>
-                    <View style={styles.stagedControls}>
-                      <Pressable onPress={() => moveUp(i)} hitSlop={6} disabled={i === 0}>
-                        <ChevronUpIcon color={i === 0 ? colors.hairline : colors.muted} size={20} />
-                      </Pressable>
-                      <Pressable onPress={() => moveDown(i)} hitSlop={6} disabled={i === staged.length - 1}>
-                        <ChevronDownIcon color={i === staged.length - 1 ? colors.hairline : colors.muted} size={20} />
-                      </Pressable>
-                      <Pressable onPress={() => removeStaged(s.scopeKey)} hitSlop={6}>
-                        <CloseIcon color={colors.muted} size={18} />
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          <View style={{ marginTop: 24 }}>
-            <Button
-              label={isEdit ? 'Save changes' : 'Create list'}
-              onPress={onSubmit}
-              disabled={!canSubmit}
-              loading={busy}
-            />
-          </View>
-        </ScrollView>
+        // Drag-to-reorder list. DragList IS the scroll container (it's a FlatList),
+        // so the form fields ride in ListHeaderComponent and the Save button in
+        // ListFooterComponent — you can't nest a FlatList inside a ScrollView on the
+        // same axis without breaking the drag gesture + autoscroll.
+        <DragList
+          data={staged}
+          keyExtractor={(s) => s.scopeKey}
+          onReordered={onReordered}
+          renderItem={renderStaged}
+          ListHeaderComponent={listHeader}
+          ListFooterComponent={listFooter}
+          ListEmptyComponent={<Text style={styles.muted}>No items added yet.</Text>}
+          // DragList wraps the FlatList in an outer View styled by `containerStyle`
+          // (NOT `style`, which lands on the inner FlatList). Without flex:1 on that
+          // wrapper it collapses to height 0 and the whole body renders blank.
+          containerStyle={styles.list}
+          style={styles.list}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+        />
       )}
 
       {/* The shared search-first add-item flow, full-screen over the editor. The
@@ -299,6 +327,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingHorizontal: pad,
     paddingVertical: 8,
   },
+  list: { flex: 1 },
   body: { paddingHorizontal: pad, paddingTop: 8, paddingBottom: 40 },
   itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   sectionLabel: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink },
@@ -306,9 +335,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   rowText: { flex: 1 },
   scopeLabel: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 2 },
-  stagedWrap: { marginTop: 4 },
   stagedRank: { fontFamily: fonts.display, fontSize: 14, color: colors.muted, width: 18, textAlign: 'center' },
   stagedControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dragHandle: { padding: 2 },
   muted: {
     fontFamily: type.reviewBody.fontFamily,
     fontSize: type.reviewBody.fontSize,

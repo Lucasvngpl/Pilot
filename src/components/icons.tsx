@@ -345,19 +345,12 @@ export function MoonIcon({ color = '#000', size = 22 }: Props) {
   );
 }
 
-// Up / down chevrons — the per-row reorder arrows in the list editor.
-export function ChevronUpIcon({ color = '#000', size = 22 }: Props) {
+// Drag-handle grip (☰) — the per-row reorder handle in the list editor. Press
+// and hold it to drag a row to a new position (replaced the up/down arrows).
+export function GripIcon({ color = '#000', size = 22 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 15 L12 9 L18 15" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-export function ChevronDownIcon({ color = '#000', size = 22 }: Props) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9 L12 15 L18 9" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 8 H19 M5 12 H19 M5 16 H19" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
     </Svg>
   );
 }
