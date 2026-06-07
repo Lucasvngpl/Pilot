@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
-import { useActivityFeed } from '@/api/useActivityFeed';
+import { useActivityFeed, type ActivityMode } from '@/api/useActivityFeed';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { BottomNav } from '@/components/BottomNav';
@@ -14,14 +15,20 @@ import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import type { ActivityActor, ActivityItem } from '@/types';
 
-// Activity → Friends feed: a time-ordered stream of what people you follow did.
-// Only the Friends feed for now — "You" / "Incoming" tabs come later, so we don't
-// render dead tabs (see [[no-dead-controls]]); the screen is the feed itself.
+// Activity → two tabs: Friends (what the people you follow did) and You (your own
+// activity). Each is the same time-ordered stream — watched / watchlist / review /
+// list / like / follow — for a different actor set.
 export default function Activity() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { data: items, isLoading } = useActivityFeed();
+  const [tab, setTab] = useState<ActivityMode>('friends');
+  const { data: items, isLoading } = useActivityFeed(tab);
+
+  const empty =
+    tab === 'friends'
+      ? 'Follow people to see their activity here.'
+      : 'Your activity will show up here.';
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -29,19 +36,33 @@ export default function Activity() {
         <Text style={[type.subhead, { color: colors.ink }]}>Activity</Text>
       </View>
 
-      {/* flex:1 so the content region fills the screen and BottomNav stays
-          pinned to the bottom in every state (empty / loading / populated). */}
+      {/* Friends / You tab bar (underline, like the profile tabs). */}
+      <View style={styles.tabs}>
+        {(['friends', 'you'] as const).map((t) => {
+          const active = tab === t;
+          return (
+            <Pressable key={t} onPress={() => setTab(t)} style={styles.tab} hitSlop={6}>
+              <Text style={[styles.tabLabel, { color: active ? colors.ink : colors.muted }]}>
+                {t === 'friends' ? 'Friends' : 'You'}
+              </Text>
+              <View style={[styles.tabUnderline, { backgroundColor: active ? colors.ink : 'transparent' }]} />
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* flex:1 so the content region fills the screen and BottomNav stays pinned. */}
       <View style={{ flex: 1 }}>
         {!user ? (
-          <Text style={styles.empty}>Log in to see what the people you follow are watching.</Text>
+          <Text style={styles.empty}>Log in to see activity.</Text>
         ) : isLoading ? (
           <ActivityRowsSkeleton />
         ) : !items || items.length === 0 ? (
-          <Text style={styles.empty}>Follow people to see their activity here.</Text>
+          <Text style={styles.empty}>{empty}</Text>
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
             {items.map((item) => (
-              <ActivityRow key={item.key} item={item} />
+              <ActivityRow key={item.key} item={item} viewerId={user.id} />
             ))}
           </ScrollView>
         )}
@@ -68,16 +89,19 @@ function Avatar({ actor }: { actor: ActivityActor }) {
   );
 }
 
-function ActivityRow({ item }: { item: ActivityItem }) {
+function ActivityRow({ item, viewerId }: { item: ActivityItem; viewerId: string }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
+  // On the "You" tab (and any self-authored row) the actor IS the viewer → "You".
+  const isYou = item.actor.id === viewerId;
+
   switch (item.type) {
     case 'watched':
       return (
         <FeedRow onPress={() => router.push(`/show/${item.show.tmdb_show_id}`)}>
           <Avatar actor={item.actor} />
           <View style={styles.body}>
-            <HeaderLine actor={item.actor} verb="watched" object={item.show.name} at={item.at} />
+            <HeaderLine isYou={isYou} actor={item.actor} verb="watched" object={item.show.name} at={item.at} />
             <View style={styles.posterRow}>
               <Poster tmdbShowId={item.show.tmdb_show_id} posterPath={item.show.poster_path} name={item.show.name} width={48} pressable={false} />
               {item.rating != null && (
@@ -96,8 +120,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           <Avatar actor={item.actor} />
           <View style={styles.body}>
             <HeaderLine
-              actor={item.actor}
-              verb="reviewed"
+              isYou={isYou} actor={item.actor} verb="reviewed"
               object={item.show.name + (item.scopeLabel ? ` · ${item.scopeLabel}` : '')}
               at={item.at}
             />
@@ -115,12 +138,11 @@ function ActivityRow({ item }: { item: ActivityItem }) {
       );
 
     case 'watchlist':
-      // Compact (no poster) — matches Letterboxd's watchlist-add rows.
       return (
         <FeedRow onPress={() => router.push(`/show/${item.show.tmdb_show_id}`)}>
           <Avatar actor={item.actor} />
           <View style={styles.body}>
-            <HeaderLine actor={item.actor} verb="added" object={item.show.name} suffix=" to their watchlist" at={item.at} />
+            <HeaderLine isYou={isYou} actor={item.actor} verb="added" object={item.show.name} suffix=" to their watchlist" at={item.at} />
           </View>
         </FeedRow>
       );
@@ -131,9 +153,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
           <Avatar actor={item.actor} />
           <View style={styles.body}>
             <HeaderLine
-              actor={item.actor}
-              verb="listed"
-              object={item.title}
+              isYou={isYou} actor={item.actor} verb="listed" object={item.title}
               suffix={`  (${item.count} ${item.count === 1 ? 'show' : 'shows'})`}
               at={item.at}
             />
@@ -145,6 +165,56 @@ function ActivityRow({ item }: { item: ActivityItem }) {
                 })}
               </View>
             )}
+          </View>
+        </FeedRow>
+      );
+
+    case 'liked':
+      // "liked {owner}'s review of {Show}" / "liked {owner}'s list {Title}".
+      // Title/show bold (the object); the rest muted (the verb phrase).
+      if (item.target === 'review') {
+        return (
+          <FeedRow onPress={() => router.push(`/review/${item.reviewId}` as any)}>
+            <Avatar actor={item.actor} />
+            <View style={styles.body}>
+              <HeaderLine
+                isYou={isYou} actor={item.actor}
+                verb={`liked ${item.ownerName}'s review of`}
+                object={item.show.name}
+                suffix={item.scopeLabel ? ` · ${item.scopeLabel}` : undefined}
+                at={item.at}
+              />
+              <View style={styles.posterRow}>
+                <Poster tmdbShowId={item.show.tmdb_show_id} posterPath={item.show.poster_path} name={item.show.name} width={48} pressable={false} />
+              </View>
+            </View>
+          </FeedRow>
+        );
+      }
+      return (
+        <FeedRow onPress={() => router.push(`/list/${item.listId}` as any)}>
+          <Avatar actor={item.actor} />
+          <View style={styles.body}>
+            <HeaderLine
+              isYou={isYou} actor={item.actor}
+              verb={`liked ${item.ownerName}'s list`}
+              object={item.title}
+              at={item.at}
+            />
+          </View>
+        </FeedRow>
+      );
+
+    case 'followed':
+      return (
+        <FeedRow onPress={() => router.push(`/user/${item.target.id}` as any)}>
+          <Avatar actor={item.actor} />
+          <View style={styles.body}>
+            <HeaderLine
+              isYou={isYou} actor={item.actor} verb="followed"
+              object={item.target.display_name ?? item.target.username}
+              at={item.at}
+            />
           </View>
         </FeedRow>
       );
@@ -160,17 +230,18 @@ function FeedRow({ onPress, children }: { onPress: () => void; children: React.R
   );
 }
 
-// "username verb **object** suffix" on the left, relative time on the right.
+// "{name} verb **object** suffix" on the left, relative time on the right. `isYou`
+// renders the actor as "You" (the You tab + any self-authored row).
 function HeaderLine({
-  actor, verb, object, suffix, at,
+  isYou, actor, verb, object, suffix, at,
 }: {
-  actor: ActivityActor; verb: string; object: string; suffix?: string; at: string;
+  isYou: boolean; actor: ActivityActor; verb: string; object: string; suffix?: string; at: string;
 }) {
   const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.headerLine}>
       <Text style={styles.headerText} numberOfLines={2}>
-        <Text style={styles.user}>{actor.display_name ?? actor.username}</Text>
+        <Text style={styles.user}>{isYou ? 'You' : (actor.display_name ?? actor.username)}</Text>
         <Text style={styles.connective}> {verb} </Text>
         <Text style={styles.object}>{object}</Text>
         {suffix ? <Text style={styles.connective}>{suffix}</Text> : null}
@@ -183,6 +254,12 @@ function HeaderLine({
 const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   nav: { alignItems: 'center', paddingVertical: 12, paddingHorizontal: pad },
+
+  tabs: { flexDirection: 'row', gap: 24, paddingHorizontal: pad, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  tab: { paddingTop: 4, alignItems: 'center' },
+  tabLabel: { fontFamily: fonts.semibold, fontSize: 15, paddingBottom: 8 },
+  tabUnderline: { height: 2, alignSelf: 'stretch', borderRadius: 1 },
+
   empty: {
     fontFamily: type.reviewBody.fontFamily,
     fontSize: type.reviewBody.fontSize,

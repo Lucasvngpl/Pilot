@@ -13,11 +13,15 @@ export function ListCard({ list }: { list: ListSummary }) {
   const { colors } = useTheme();
   return (
     <Pressable style={styles.row} onPress={() => router.push(`/list/${list.id}` as any)}>
+      {/* FIXED-WIDTH cluster: every row's art occupies the same footprint (room
+          for 3 fanned posters), regardless of how many it actually holds — so the
+          title column always starts at the same x and the titles align. A list
+          with 1 poster fills less of the box but takes the same width. */}
       <View style={styles.posters}>
         {list.posters.length === 0 ? (
           <View style={styles.thumb} />
         ) : (
-          list.posters.slice(0, 4).map((p, i) => {
+          list.posters.slice(0, 3).map((p, i) => {
             const uri = tmdbImage(p, 'w185');
             return uri ? (
               <Image
@@ -37,7 +41,7 @@ export function ListCard({ list }: { list: ListSummary }) {
           {list.title}
         </Text>
         <Text style={[type.filter, { color: colors.muted, marginTop: 2 }]}>
-          {list.itemCount} {list.itemCount === 1 ? 'show' : 'shows'}
+          {list.countLabel}
         </Text>
       </View>
     </Pressable>
@@ -54,7 +58,10 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  posters: { flexDirection: 'row' },
+  // Fixed footprint = 3 fanned posters (38 + 2×16 overlap-step = 70). Left-aligned,
+  // so fewer posters just leave empty space on the right of the SAME-width box —
+  // the single mechanism that lines every title up (no per-row text padding).
+  posters: { width: 70, height: 57, flexDirection: 'row', alignItems: 'center' },
   thumb: {
     width: 38,
     height: 57,
@@ -64,6 +71,6 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     // Background-colored stroke = a "cutout" between the fanned posters.
     borderColor: colors.background,
   },
-  overlap: { marginLeft: -22 }, // fan the posters
+  overlap: { marginLeft: -22 }, // fan the posters (overlap-step = 38−22 = 16)
   text: { flex: 1 },
 });

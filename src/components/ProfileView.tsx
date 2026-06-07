@@ -26,7 +26,7 @@ import { DashedSlot } from '@/components/DashedSlot';
 import { ProfileSkeleton, PosterGridSkeleton, ListCardsSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
-  CalendarIcon, ReviewBadgeIcon, DraftIcon, SunIcon, MoonIcon,
+  CalendarIcon, ReviewBadgeIcon, DraftIcon, HeartIcon, SunIcon, MoonIcon,
 } from '@/components/icons';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -418,6 +418,15 @@ function ProfileBody({
             label="Drafts"
             count={draftCount}
             onPress={() => router.push('/profile/drafts' as any)}
+          />
+        )}
+        {/* OWN-ONLY: a private record of reviews/lists you've liked (like Drafts,
+            never shown on another user's profile). */}
+        {isOwn && (
+          <RecordRow
+            icon={<HeartIcon color={colors.ink} size={20} />}
+            label="Likes"
+            onPress={() => router.push('/profile/likes' as any)}
           />
         )}
       </View>

@@ -266,7 +266,20 @@ export type ActivityItem =
   | (ActivityBase & {
       type: 'listed'; listId: string; title: string;
       count: number; posters: (string | null)[];
-    });
+    })
+  // A like on someone's review or list. `ownerName` is whose thing was liked
+  // ("liked Lara's review of …"); for a review we carry enough to render the
+  // poster + scope, for a list just title + id.
+  | (ActivityBase & {
+      type: 'liked'; target: 'review';
+      reviewId: string; show: ShowCard; scopeLabel: string | null; ownerName: string;
+    })
+  | (ActivityBase & {
+      type: 'liked'; target: 'list';
+      listId: string; title: string; ownerName: string;
+    })
+  // A follow — `target` is the person who got followed.
+  | (ActivityBase & { type: 'followed'; target: ActivityActor });
 
 // A review enriched server-side (get-reviews) with reviewer identity, like
 // count, and the reviewer's rating for the same scope.
@@ -306,6 +319,31 @@ export type MyReviewEntry = {
   rating: number | null; // the user's rating for this exact scope, if any
   likes: number;
 };
+
+// ----- My Likes (own-only record) ------------------------------------------
+// What the signed-in user has liked. A liked REVIEW carries the REVIEWER's
+// identity (it's someone else's review, unlike MyReviewEntry where the author is
+// the viewer); a liked LIST is just a ListSummary the ListCard can render. Each
+// entry keeps `likedAt` (the like row's created_at) so the page sorts by when YOU
+// liked it, not when the thing was made.
+export type LikedReview = {
+  reviewId: string;
+  tmdb_show_id: number;
+  showName: string;
+  posterPath: string | null;
+  seasonLabel?: string;            // formatScope(season, episode) — undefined for whole-show
+  rating: number;                  // reviewer's rating for that scope (0 = none)
+  body: string;
+  containsSpoilers: boolean;
+  likes: number;
+  reviewerUsername: string;
+  reviewerDisplayName: string | null;
+  reviewerAvatarUrl: string | null;
+};
+
+export type MyLikeEntry =
+  | { kind: 'review'; likedAt: string; review: LikedReview }
+  | { kind: 'list'; likedAt: string; list: ListSummary };
 
 // One review opened in full on /review/[id]. Composes the review row, the
 // reviewer's identity, the rating for THIS exact scope, and the show card
@@ -372,8 +410,32 @@ export type ListSummary = {
   title: string;
   description: string | null;
   itemCount: number;
+  countLabel: string;         // scope-aware ("5 seasons", "3 episodes", "N items")
   posters: (string | null)[]; // up to 4 poster_paths for the card preview
 };
+
+// Scope-aware count label for a list, from the SAME nullable-scope encoding
+// resolveScope reads (season null → show, episode null → season, else episode).
+// All-one-scope → "N shows/seasons/episodes"; mixed → a neutral "N items" — so
+// "Stranger things seasons ranked" reads "5 seasons", not "5 shows". Plurals
+// handled ("1 show", not "1 shows").
+export function listCountLabel(
+  items: { season_number: number | null; episode_number: number | null }[],
+): string {
+  const n = items.length;
+  if (n === 0) return 'Empty';
+  let shows = 0, seasons = 0, episodes = 0;
+  for (const it of items) {
+    if (it.season_number === null) shows += 1;
+    else if (it.episode_number === null) seasons += 1;
+    else episodes += 1;
+  }
+  const plural = (c: number, one: string) => `${c} ${c === 1 ? one : `${one}s`}`;
+  if (seasons === 0 && episodes === 0) return plural(shows, 'show');
+  if (shows === 0 && episodes === 0) return plural(seasons, 'season');
+  if (shows === 0 && seasons === 0) return plural(episodes, 'episode');
+  return `${n} items`; // mixed scopes
+}
 
 // A list item enriched for the ranked detail rows: the card + a year and network
 // for the subtitle line ("HBO · 2019").

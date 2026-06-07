@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
-import { resolveScope, tmdbImage } from '@/types';
+import { resolveScope, tmdbImage, listCountLabel } from '@/types';
 import type { ListSummary, ListDetail } from '@/types';
 
 type ListRow = { id: string; title: string; description: string | null };
@@ -60,6 +60,9 @@ export function useMyLists(userId: string | undefined) {
           title: l.title,
           description: l.description,
           itemCount: tuples.length,
+          // Scope-aware label from the items' own scopes (no extra fetch — the
+          // tuples already carry season/episode nullability).
+          countLabel: listCountLabel(tuples),
           posters: tuples.slice(0, 4).map((t) =>
             resolveScope(
               { tmdb_show_id: t.tmdb_show_id, season_number: t.season_number, episode_number: t.episode_number },

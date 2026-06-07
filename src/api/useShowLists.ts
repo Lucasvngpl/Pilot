@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
+import { listCountLabel } from '@/types';
 import type { ListSummary } from '@/types';
 
 type ListRow = { id: string; title: string; description: string | null };
-type ItemRow = { list_id: string; tmdb_show_id: number };
+type ItemRow = {
+  list_id: string;
+  tmdb_show_id: number;
+  season_number: number | null;
+  episode_number: number | null;
+};
 
 /**
  * Public lists that include a given show — powers Show Detail › Lists (and its
@@ -49,30 +55,32 @@ export function useShowLists(tmdbShowId: number | undefined) {
       const publicIds = rows.map((l) => l.id);
       const { data: items, error: iErr } = await supabase
         .from('list_items')
-        .select('list_id, tmdb_show_id, position, added_at')
+        // season/episode are free here (same query) — they feed the scope-aware count.
+        .select('list_id, tmdb_show_id, season_number, episode_number, position, added_at')
         .in('list_id', publicIds)
         .order('position', { ascending: true })
         .order('added_at', { ascending: true });
       if (iErr) throw iErr;
 
-      const byList = new Map<string, number[]>(); // list_id → ordered show ids
+      const byList = new Map<string, ItemRow[]>(); // list_id → ordered item tuples
       for (const it of (items ?? []) as ItemRow[]) {
         const arr = byList.get(it.list_id) ?? [];
-        arr.push(it.tmdb_show_id);
+        arr.push(it);
         byList.set(it.list_id, arr);
       }
 
-      const previewIds = [...new Set(rows.flatMap((l) => (byList.get(l.id) ?? []).slice(0, 4)))];
+      const previewIds = [...new Set(rows.flatMap((l) => (byList.get(l.id) ?? []).slice(0, 4).map((t) => t.tmdb_show_id)))];
       const cards = await fetchShowCards(previewIds);
 
       return rows.map((l) => {
-        const showIds = byList.get(l.id) ?? [];
+        const tuples = byList.get(l.id) ?? [];
         return {
           id: l.id,
           title: l.title,
           description: l.description,
-          itemCount: showIds.length,
-          posters: showIds.slice(0, 4).map((sid) => cards.get(sid)?.poster_path ?? null),
+          itemCount: tuples.length,
+          countLabel: listCountLabel(tuples),
+          posters: tuples.slice(0, 4).map((t) => cards.get(t.tmdb_show_id)?.poster_path ?? null),
         };
       });
     },
