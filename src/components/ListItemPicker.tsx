@@ -263,9 +263,9 @@ function SearchLevel({
               const staged = stagedKeys.has(`${r.tmdb_show_id}-x-x`);
               const year = r.first_air_date ? r.first_air_date.slice(0, 4) : null;
               return (
-                // Two distinct targets on one row: the BODY adds the whole show,
-                // the trailing › drills in. Nested Pressables capture their own
-                // touch, so a chevron tap never also fires the body's onPress.
+                // Three distinct targets: BODY + the ○/✓ ring both add (toggle)
+                // the whole show; the trailing › drills in. Each is its own
+                // Pressable, so a tap on one never fires another's onPress.
                 <View key={r.tmdb_show_id} style={styles.row}>
                   <Pressable style={styles.rowBody} onPress={() => onAddShow(r)}>
                     <Poster tmdbShowId={r.tmdb_show_id} posterPath={r.poster_path} name={r.name} width={40} pressable={false} />
@@ -273,19 +273,21 @@ function SearchLevel({
                       <Text style={[type.creator, { color: colors.ink }]} numberOfLines={1}>{r.name}</Text>
                       {year && <Text style={styles.sub}>{year}</Text>}
                     </View>
-                    {staged && <Check />}
                   </Pressable>
-                  <Pressable onPress={() => onDrill(r)} hitSlop={8} style={styles.chevronBtn}>
-                    <ChevronRightIcon color={colors.faint} size={22} />
-                  </Pressable>
+                  <View style={styles.trailing}>
+                    <Pressable onPress={() => onAddShow(r)} hitSlop={8}>
+                      <AddIndicator added={staged} />
+                    </Pressable>
+                    <Pressable onPress={() => onDrill(r)} hitSlop={8}>
+                      <ChevronRightIcon color={colors.faint} size={22} />
+                    </Pressable>
+                  </View>
                 </View>
               );
             })}
           </>
         )}
       </ScrollView>
-
-      <Hint text="Tap a show to add it whole — or › to pick a season or episode." />
     </>
   );
 }
@@ -322,7 +324,7 @@ function ShowLevel({
             <Text style={[type.creator, { color: colors.ink }]} numberOfLines={1}>Add whole show</Text>
             <Text style={styles.sub} numberOfLines={1}>{card.name}</Text>
           </View>
-          {wholeStaged && <Check />}
+          <AddIndicator added={wholeStaged} />
         </Pressable>
 
         <Text style={[styles.sectionLabel, { marginTop: 14 }]}>OR PICK A SEASON</Text>
@@ -344,17 +346,19 @@ function ShowLevel({
                   <Text style={[type.creator, { color: colors.ink }]} numberOfLines={1}>{r.title}</Text>
                   <Text style={styles.sub} numberOfLines={1}>{meta}</Text>
                 </View>
-                {staged && <Check />}
               </Pressable>
-              <Pressable onPress={() => onDrill(s.season_number)} hitSlop={8} style={styles.chevronBtn}>
-                <ChevronRightIcon color={colors.faint} size={22} />
-              </Pressable>
+              <View style={styles.trailing}>
+                <Pressable onPress={() => onAddSeason(s.season_number)} hitSlop={8}>
+                  <AddIndicator added={staged} />
+                </Pressable>
+                <Pressable onPress={() => onDrill(s.season_number)} hitSlop={8}>
+                  <ChevronRightIcon color={colors.faint} size={22} />
+                </Pressable>
+              </View>
             </View>
           );
         })}
       </ScrollView>
-
-      <Hint text="Tap a season to add it — or › to drill into episodes." />
     </>
   );
 }
@@ -406,7 +410,7 @@ function SeasonLevel({
               <Text style={[type.reviewTitle, { color: colors.ink, marginTop: 1 }]} numberOfLines={1}>{e.name}</Text>
               {e.air_date && <Text style={[styles.sub, { marginTop: 2 }]}>{e.air_date.slice(0, 4)}</Text>}
             </View>
-            {staged && <Check />}
+            <AddIndicator added={staged} />
           </Pressable>
         );
       }}
@@ -416,22 +420,17 @@ function SeasonLevel({
 
 // ----- small shared bits --------------------------------------------------------
 
-function Check() {
+// Two-state add indicator: a subtle empty ring when NOT added, a filled purple
+// circle with a white ✓ when added. The whole picker uses one indicator so the
+// add affordance reads identically at every level (search / season / episode).
+function AddIndicator({ added }: { added: boolean }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
-    <View style={styles.check}>
-      <CheckIcon color={colors.white} size={13} />
+    <View style={[styles.indicator, added && styles.indicatorOn]}>
+      {added && <CheckIcon color={colors.white} size={11} />}
     </View>
   );
-}
-
-function Hint({ text }: { text: string }) {
-  const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
-  // Clear the home indicator — the overlay covers the whole frame, so the footer
-  // owns its own bottom inset.
-  return <Text style={[styles.hint, { paddingBottom: 14 + insets.bottom }]}>{text}</Text>;
 }
 
 const makeStyles = (colors: Palette) => StyleSheet.create({
@@ -452,19 +451,18 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowText: { flex: 1 },
   sub: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted, marginTop: 2 },
-  chevronBtn: { padding: 4 },
+  // Trailing cluster: the ○/✓ ring then the › chevron, ~14px apart.
+  trailing: { flexDirection: 'row', alignItems: 'center', gap: 14 },
 
   // 16:9 landscape still — matches the Seasons → episode list thumbnail.
   still: { width: 104, height: 58, borderRadius: radius.sm, overflow: 'hidden', backgroundColor: colors.field },
 
-  check: {
-    width: 22, height: 22, borderRadius: 11, backgroundColor: colors.purple,
+  // NOT added: a subtle ring (transparent fill, low-contrast stroke — intentional).
+  indicator: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.faint,
     alignItems: 'center', justifyContent: 'center',
   },
+  // ADDED: filled accent circle with the white ✓.
+  indicatorOn: { backgroundColor: colors.purple, borderColor: colors.purple },
   muted: { fontFamily: type.reviewBody.fontFamily, fontSize: type.reviewBody.fontSize, color: colors.muted, paddingVertical: 16 },
-  hint: {
-    fontFamily: fonts.regular, fontSize: 13, color: colors.faint,
-    paddingHorizontal: pad, paddingVertical: 14, textAlign: 'center',
-    borderTopWidth: 1, borderTopColor: colors.hairline,
-  },
 });
