@@ -7,12 +7,13 @@ import { tmdbImage } from '@/types';
 import type { ListSummary } from '@/types';
 
 // A list row on the Lists tab: a fanned stack of up to 4 poster thumbnails +
-// title + show count. Tap → /list/[id].
-export function ListCard({ list }: { list: ListSummary }) {
+// title + show count. Tap → /list/[id] by default; `onPress` overrides it (the
+// Drafts page sends drafts to the composer instead of the public detail).
+export function ListCard({ list, onPress }: { list: ListSummary; onPress?: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
-    <Pressable style={styles.row} onPress={() => router.push(`/list/${list.id}` as any)}>
+    <Pressable style={styles.row} onPress={onPress ?? (() => router.push(`/list/${list.id}` as any))}>
       {/* FIXED-WIDTH cluster: every row's art occupies the same footprint (room
           for 3 fanned posters), regardless of how many it actually holds — so the
           title column always starts at the same x and the titles align. A list

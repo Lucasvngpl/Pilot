@@ -12,66 +12,85 @@ type ItemRow = {
   episode_number: number | null;
 };
 
+// Shared list-summary fetch, split by draft state (mirrors useMyReviews):
+//   drafts=false → PUBLISHED lists  (Profile › Lists tab)
+//   drafts=true  → DRAFT lists      (Profile › Drafts, own-only)
+// Same enrichment: item count + scope-aware label + up to 4 poster previews,
+// items ordered `position` then `added_at` so the preview is STABLE.
+async function fetchListSummaries(userId: string, drafts: boolean): Promise<ListSummary[]> {
+  const { data: lists, error } = await supabase
+    .from('lists')
+    .select('id, title, description, created_at')
+    .eq('user_id', userId)
+    .eq('is_draft', drafts)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = (lists ?? []) as ListRow[];
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((l) => l.id);
+  const { data: items, error: iErr } = await supabase
+    .from('list_items')
+    .select('list_id, tmdb_show_id, season_number, episode_number, position, added_at')
+    .in('list_id', ids)
+    .order('position', { ascending: true })
+    .order('added_at', { ascending: true });
+  if (iErr) throw iErr;
+
+  // list_id → ordered scope tuples (a row may be a show, season, or episode).
+  const byList = new Map<string, ItemRow[]>();
+  for (const it of (items ?? []) as ItemRow[]) {
+    const arr = byList.get(it.list_id) ?? [];
+    arr.push(it);
+    byList.set(it.list_id, arr);
+  }
+
+  // Cards WITH scope art so the preview posters match the list-detail banner
+  // (resolveScope picks the season/episode's own poster).
+  const previewIds = [...new Set(rows.flatMap((l) => (byList.get(l.id) ?? []).slice(0, 4).map((t) => t.tmdb_show_id)))];
+  const cards = await fetchShowCards(previewIds, { withScopeArt: true });
+
+  return rows.map((l) => {
+    const tuples = byList.get(l.id) ?? [];
+    return {
+      id: l.id,
+      title: l.title,
+      description: l.description,
+      itemCount: tuples.length,
+      // Scope-aware label from the items' own scopes (no extra fetch — the
+      // tuples already carry season/episode nullability).
+      countLabel: listCountLabel(tuples),
+      posters: tuples.slice(0, 4).map((t) =>
+        resolveScope(
+          { tmdb_show_id: t.tmdb_show_id, season_number: t.season_number, episode_number: t.episode_number },
+          cards.get(t.tmdb_show_id),
+        ).posterPath,
+      ),
+    };
+  });
+}
+
 /**
- * A user's lists (any user) for the profile Lists tab — newest first, each with
- * an item count + up to 4 poster previews. Items within a list are ordered
- * `position` then `added_at` so the preview is STABLE across fetches.
+ * A user's PUBLISHED lists for the profile Lists tab — newest first. Drafts are
+ * filtered out (they live in Profile › Drafts).
  */
 export function useMyLists(userId: string | undefined) {
   return useQuery<ListSummary[]>({
     queryKey: ['lists', userId],
     enabled: !!userId,
-    queryFn: async () => {
-      const { data: lists, error } = await supabase
-        .from('lists')
-        .select('id, title, description, created_at')
-        .eq('user_id', userId!)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const rows = (lists ?? []) as ListRow[];
-      if (rows.length === 0) return [];
+    queryFn: () => fetchListSummaries(userId!, false),
+  });
+}
 
-      const ids = rows.map((l) => l.id);
-      const { data: items, error: iErr } = await supabase
-        .from('list_items')
-        .select('list_id, tmdb_show_id, season_number, episode_number, position, added_at')
-        .in('list_id', ids)
-        .order('position', { ascending: true })
-        .order('added_at', { ascending: true });
-      if (iErr) throw iErr;
-
-      // list_id → ordered scope tuples (a row may be a show, season, or episode).
-      const byList = new Map<string, ItemRow[]>();
-      for (const it of (items ?? []) as ItemRow[]) {
-        const arr = byList.get(it.list_id) ?? [];
-        arr.push(it);
-        byList.set(it.list_id, arr);
-      }
-
-      // Cards WITH scope art so the preview posters match the list-detail banner
-      // (resolveScope picks the season/episode's own poster).
-      const previewIds = [...new Set(rows.flatMap((l) => (byList.get(l.id) ?? []).slice(0, 4).map((t) => t.tmdb_show_id)))];
-      const cards = await fetchShowCards(previewIds, { withScopeArt: true });
-
-      return rows.map((l) => {
-        const tuples = byList.get(l.id) ?? [];
-        return {
-          id: l.id,
-          title: l.title,
-          description: l.description,
-          itemCount: tuples.length,
-          // Scope-aware label from the items' own scopes (no extra fetch — the
-          // tuples already carry season/episode nullability).
-          countLabel: listCountLabel(tuples),
-          posters: tuples.slice(0, 4).map((t) =>
-            resolveScope(
-              { tmdb_show_id: t.tmdb_show_id, season_number: t.season_number, episode_number: t.episode_number },
-              cards.get(t.tmdb_show_id),
-            ).posterPath,
-          ),
-        };
-      });
-    },
+/**
+ * The signed-in user's DRAFT lists — Profile › Drafts (own-only). Drafts are
+ * filtered out of every public list query; this is the one place they surface.
+ */
+export function useDraftLists(userId: string | undefined) {
+  return useQuery<ListSummary[]>({
+    queryKey: ['listDrafts', userId],
+    enabled: !!userId,
+    queryFn: () => fetchListSummaries(userId!, true),
   });
 }
 
@@ -86,14 +105,14 @@ export function useList(listId: string | undefined) {
     queryFn: async () => {
       const { data: list, error } = await supabase
         .from('lists')
-        .select('id, user_id, title, description, is_ranked, created_at, banner_backdrop_path')
+        .select('id, user_id, title, description, is_ranked, is_draft, created_at, banner_backdrop_path')
         .eq('id', listId!)
         .maybeSingle();
       if (error) throw error;
       if (!list) return null;
       const row = list as {
         id: string; user_id: string; title: string; description: string | null;
-        is_ranked: boolean; created_at: string; banner_backdrop_path: string | null;
+        is_ranked: boolean; is_draft: boolean; created_at: string; banner_backdrop_path: string | null;
       };
 
       const [itemsRes, ownerRes] = await Promise.all([
@@ -143,6 +162,7 @@ export function useList(listId: string | undefined) {
         title: row.title,
         description: row.description,
         is_ranked: row.is_ranked,
+        is_draft: row.is_draft,
         ownerUsername: owner?.username ?? null,
         ownerAvatarUrl: owner?.avatar_url ?? null,
         createdAt: row.created_at,

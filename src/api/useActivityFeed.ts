@@ -68,6 +68,7 @@ export function useActivityFeed(mode: ActivityMode = 'friends') {
           supabase.from('lists')
             .select('id, user_id, title, created_at')
             .in('user_id', actorIds)
+            .eq('is_draft', false) // a draft isn't a published action — keep it out of the feed
             .order('created_at', { ascending: false }).limit(SRC_LIMIT),
           supabase.from('review_likes')
             .select('user_id, review_id, created_at')

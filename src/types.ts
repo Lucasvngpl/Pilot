@@ -460,6 +460,7 @@ export type ListDetail = {
   title: string;
   description: string | null;
   is_ranked: boolean;
+  is_draft: boolean; // unpublished — own-only; the composer reads this to offer Publish
   ownerUsername: string | null;
   ownerAvatarUrl: string | null;
   createdAt: string; // ISO timestamp from lists.created_at

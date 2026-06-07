@@ -11,7 +11,7 @@ import { useCurrentlyWatching } from '@/api/useCurrentlyWatching';
 import { useWatchedShows, type WatchedFilter } from '@/api/useWatchedShows';
 import { useShowsFilter } from '@/lib/showsFilterPref';
 import { useWatchlist } from '@/api/useWatchlist';
-import { useMyLists } from '@/api/useLists';
+import { useMyLists, useDraftLists } from '@/api/useLists';
 import { useTopShows } from '@/api/useTopShows';
 import { useDraftReviews } from '@/api/useMyReviews';
 import { Poster } from '@/components/Poster';
@@ -77,7 +77,9 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
   // by RLS (see 0007), so passing undefined for other profiles keeps the query
   // disabled there; the Drafts row only renders on your own profile anyway.
   const { data: drafts } = useDraftReviews(isOwn ? userId : undefined);
-  const draftCount = drafts?.length ?? 0;
+  const { data: listDrafts } = useDraftLists(isOwn ? userId : undefined);
+  // The Drafts row counts BOTH unpublished reviews and unpublished lists.
+  const draftCount = (drafts?.length ?? 0) + (listDrafts?.length ?? 0);
 
   // Initial load → skeleton, so we don't flash empty fallbacks ("user", 0
   // counts, blank grids) before the profile data lands. Keep the nav affordance

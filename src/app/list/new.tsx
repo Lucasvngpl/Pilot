@@ -37,7 +37,7 @@ export default function NewOrEditList() {
     useLocalSearchParams<{ showId?: string; season?: string; episode?: string; edit?: string }>();
   const isEdit = !!edit;
 
-  const { create, isPending: creating } = useCreateList();
+  const { create } = useCreateList();
   const { update: updateList } = useUpdateList();
   const { add: addItem, remove: removeItem, reorder: reorderItems } = useListItemMutations();
   const { data: editList } = useList(edit); // disabled query when `edit` is undefined
@@ -47,7 +47,9 @@ export default function NewOrEditList() {
   const [staged, setStaged] = useState<Staged[]>([]);
   const [originalItems, setOriginalItems] = useState<Staged[]>([]); // edit baseline for the diff
   const [seeded, setSeeded] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // Which footer action is running ('draft' = Save draft, 'main' = Create/Publish/Save),
+  // so only the tapped button shows a spinner — mirrors the review composer.
+  const [pending, setPending] = useState<'draft' | 'main' | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // CREATE: pre-seed the scope passed via ?showId (+ optional season/episode) from
@@ -119,10 +121,38 @@ export default function NewOrEditList() {
       return next;
     });
 
-  const busy = isEdit ? saving : creating;
-  const canSubmit = title.trim().length > 0 && !busy;
+  const busy = pending !== null;
+  const isDraftEdit = isEdit && editList?.is_draft === true;
+  // Offer Save draft when CREATING or editing an existing draft — never when
+  // editing an already-published list (publishing is one-way, like reviews).
+  const showDraftActions = !isEdit || isDraftEdit;
+  // Any field touched → there's something worth stashing. A draft needs NO title;
+  // Create/Publish still require one.
+  const hasContent = title.trim().length > 0 || description.trim().length > 0 || staged.length > 0;
+  const titled = title.trim().length > 0;
 
-  const onCreate = async () => {
+  // Reconcile items for an existing list: a true set-difference BY SCOPE KEY (a show
+  // can appear at multiple scopes), then renumber positions to the staged order.
+  const reconcileItems = async (editId: string) => {
+    const stagedKeySet = new Set(staged.map((s) => s.scopeKey));
+    const originalKeySet = new Set(originalItems.map((o) => o.scopeKey));
+    const added = staged.filter((s) => !originalKeySet.has(s.scopeKey));
+    const removed = originalItems.filter((o) => !stagedKeySet.has(o.scopeKey));
+    for (const s of added) {
+      await addItem(editId, s.tmdb_show_id, { season_number: s.season_number, episode_number: s.episode_number });
+    }
+    for (const o of removed) {
+      await removeItem(editId, o.tmdb_show_id, { season_number: o.season_number, episode_number: o.episode_number });
+    }
+    // NOTE: keys by show id, so a list holding the SAME show at multiple scopes
+    // can't be reordered precisely yet (deferred reorder-by-row-id); fine for now.
+    await reorderItems(editId, staged.map((s) => s.tmdb_show_id));
+  };
+
+  // CREATE — asDraft=true saves an (optionally untitled) draft and returns; false
+  // publishes and opens the new list.
+  const onCreate = async (asDraft: boolean) => {
+    setPending(asDraft ? 'draft' : 'main');
     try {
       const id = await create({
         title: title.trim(),
@@ -132,54 +162,41 @@ export default function NewOrEditList() {
           season_number: s.season_number,
           episode_number: s.episode_number,
         })),
+        is_draft: asDraft,
       });
-      if (id) router.replace(`/list/${id}` as any);
-    } catch (e) {
-      Alert.alert("Couldn't create list", e instanceof Error ? e.message : 'Please try again.');
-    }
-  };
-
-  const onSaveEdit = async () => {
-    if (!edit) return;
-    const editId = edit;
-    setSaving(true);
-    try {
-      const ok = await updateList(editId, {
-        title: title.trim(),
-        description: description.trim() || null,
-      });
-      if (!ok) return; // login dismissed
-
-      // True set-difference BY SCOPE KEY (a show can appear at multiple scopes):
-      // only touch genuine adds/removes, each at its exact scope.
-      const stagedKeySet = new Set(staged.map((s) => s.scopeKey));
-      const originalKeySet = new Set(originalItems.map((o) => o.scopeKey));
-      const added = staged.filter((s) => !originalKeySet.has(s.scopeKey));
-      const removed = originalItems.filter((o) => !stagedKeySet.has(o.scopeKey));
-      for (const s of added) {
-        await addItem(editId, s.tmdb_show_id, { season_number: s.season_number, episode_number: s.episode_number });
-      }
-      for (const o of removed) {
-        await removeItem(editId, o.tmdb_show_id, { season_number: o.season_number, episode_number: o.episode_number });
-      }
-
-      // Renumber positions to the staged order. NOTE: keys by show id, so a list
-      // holding the SAME show at multiple scopes can't be reordered precisely yet
-      // (the deferred reorder-by-row-id item); correct for the common case.
-      await reorderItems(editId, staged.map((s) => s.tmdb_show_id));
-
-      router.back();
+      if (id) asDraft ? router.back() : router.replace(`/list/${id}` as any);
     } catch (e) {
       Alert.alert("Couldn't save list", e instanceof Error ? e.message : 'Please try again.');
     } finally {
-      setSaving(false);
+      setPending(null);
     }
   };
 
-  const onSubmit = () => {
-    if (!canSubmit) return;
-    return isEdit ? onSaveEdit() : onCreate();
+  // EDIT — 'draft' keeps it a draft, 'publish' flips it live (→ its detail), 'save'
+  // is a plain save of an already-published list (flag untouched).
+  const onSaveEdit = async (mode: 'draft' | 'publish' | 'save') => {
+    if (!edit) return;
+    const editId = edit;
+    setPending(mode === 'draft' ? 'draft' : 'main');
+    try {
+      const is_draft = mode === 'publish' ? false : mode === 'draft' ? true : undefined;
+      const ok = await updateList(editId, {
+        title: title.trim(),
+        description: description.trim() || null,
+        is_draft,
+      });
+      if (!ok) return; // login dismissed
+      await reconcileItems(editId);
+      mode === 'publish' ? router.replace(`/list/${editId}` as any) : router.back();
+    } catch (e) {
+      Alert.alert("Couldn't save list", e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setPending(null);
+    }
   };
+
+  const onPrimary = () => (isEdit ? onSaveEdit(isDraftEdit ? 'publish' : 'save') : onCreate(false));
+  const onSaveDraft = () => (isEdit ? onSaveEdit('draft') : onCreate(true));
 
   // Hold the form until the list loads in edit mode (cache is warm from the list
   // detail's useList — same query key — so this is usually instant).
@@ -208,14 +225,26 @@ export default function NewOrEditList() {
     </View>
   );
 
+  const primaryLabel = !isEdit ? 'Create list' : isDraftEdit ? 'Publish' : 'Save changes';
+
   const listFooter = (
     <View style={{ marginTop: 24 }}>
-      <Button
-        label={isEdit ? 'Save changes' : 'Create list'}
-        onPress={onSubmit}
-        disabled={!canSubmit}
-        loading={busy}
-      />
+      {showDraftActions ? (
+        // Save draft (secondary) appears once there's content; primary
+        // Create/Publish (needs a title) sits beside it.
+        <View style={styles.footerRow}>
+          {hasContent && (
+            <View style={styles.footerBtn}>
+              <Button label="Save draft" variant="secondary" onPress={onSaveDraft} disabled={busy} loading={pending === 'draft'} />
+            </View>
+          )}
+          <View style={styles.footerBtn}>
+            <Button label={primaryLabel} variant="primary" onPress={onPrimary} disabled={!titled || busy} loading={pending === 'main'} />
+          </View>
+        </View>
+      ) : (
+        <Button label={primaryLabel} variant="primary" onPress={onPrimary} disabled={!titled || busy} loading={pending === 'main'} />
+      )}
     </View>
   );
 
@@ -330,6 +359,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   list: { flex: 1 },
   body: { paddingHorizontal: pad, paddingTop: 8, paddingBottom: 40 },
   itemsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  footerRow: { flexDirection: 'row', gap: 12 },
+  footerBtn: { flex: 1 },
   sectionLabel: { fontFamily: fonts.medium, fontSize: 13, color: colors.ink },
   addItem: { fontFamily: fonts.semibold, fontSize: 14, color: colors.purple },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },

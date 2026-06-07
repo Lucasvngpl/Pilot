@@ -45,6 +45,7 @@ export function useShowLists(tmdbShowId: number | undefined) {
         .select('id, title, description, created_at')
         .in('id', listIds)
         .eq('is_public', true)
+        .eq('is_draft', false) // never surface an unpublished draft on the public show page
         .order('created_at', { ascending: false });
       if (lErr) throw lErr;
       const rows = (lists ?? []) as ListRow[];

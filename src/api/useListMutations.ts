@@ -6,7 +6,9 @@ import { useRequireAuth } from '@/lib/requireAuth';
 
 // Each created item is a scope tuple — a list can hold shows, seasons, episodes.
 type CreateItem = { tmdb_show_id: number; season_number: number | null; episode_number: number | null };
-type CreateArgs = { title: string; description: string | null; items: CreateItem[] };
+// is_draft defaults false (a normal published list). Save-draft passes true; an
+// untitled draft is allowed (the DB check only requires a title once published).
+type CreateArgs = { title: string; description: string | null; items: CreateItem[]; is_draft?: boolean };
 
 // Optional scope for a list item (defaults to whole show — both null). Pass
 // season/episode to add a season or episode to a list (0009's polymorphic scope).
@@ -19,11 +21,11 @@ export function useCreateList() {
   const requireAuth = useRequireAuth();
 
   const mutation = useMutation({
-    mutationFn: async ({ title, description, items }: CreateArgs) => {
+    mutationFn: async ({ title, description, items, is_draft }: CreateArgs) => {
       if (!user) throw new Error('useCreateList: no authenticated user');
       const { data, error } = await supabase
         .from('lists')
-        .insert({ user_id: user.id, title, description })
+        .insert({ user_id: user.id, title, description, is_draft: is_draft ?? false })
         .select('id')
         .single();
       if (error) throw error;
@@ -72,20 +74,21 @@ export function useDeleteList() {
   return { remove: mutation.mutateAsync, isPending: mutation.isPending };
 }
 
-type UpdateArgs = { title: string; description: string | null };
+// is_draft optional: pass false to PUBLISH a draft, omit to leave the flag as-is.
+type UpdateArgs = { title: string; description: string | null; is_draft?: boolean };
 
-/** Update a list's title/description. Items are reconciled separately via useListItemMutations. */
+/** Update a list's title/description (+ optional draft flag). Items are reconciled separately via useListItemMutations. */
 export function useUpdateList() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const requireAuth = useRequireAuth();
 
   const mutation = useMutation({
-    mutationFn: async ({ listId, title, description }: UpdateArgs & { listId: string }) => {
+    mutationFn: async ({ listId, title, description, is_draft }: UpdateArgs & { listId: string }) => {
       if (!user) throw new Error('useUpdateList: no authenticated user');
       const { error } = await supabase
         .from('lists')
-        .update({ title, description })
+        .update({ title, description, ...(is_draft !== undefined ? { is_draft } : {}) })
         .eq('id', listId);
       if (error) throw error;
     },

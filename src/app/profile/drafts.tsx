@@ -5,9 +5,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { useDraftReviews } from '@/api/useMyReviews';
+import { useDraftLists } from '@/api/useLists';
 import { useProfile } from '@/api/useProfile';
 import { useDeleteReview } from '@/api/useReviewMutations';
 import { ReviewRow } from '@/components/ReviewRow';
+import { ListCard } from '@/components/ListCard';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon } from '@/components/icons';
@@ -23,6 +25,7 @@ export default function Drafts() {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { data: drafts, isLoading } = useDraftReviews(user?.id);
+  const { data: listDrafts } = useDraftLists(user?.id);
   const { data: myProfile } = useProfile(user?.id);
   const { remove } = useDeleteReview();
   const [menuDraft, setMenuDraft] = useState<MyReviewEntry | null>(null);
@@ -62,11 +65,15 @@ export default function Drafts() {
 
       {isLoading ? (
         <ReviewRowsSkeleton />
-      ) : !drafts || drafts.length === 0 ? (
+      ) : (drafts?.length ?? 0) === 0 && (listDrafts?.length ?? 0) === 0 ? (
         <Text style={styles.empty}>No drafts.</Text>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          {drafts.map((d) => (
+          {/* List drafts — tap opens the composer (edit), not the public detail. */}
+          {(listDrafts ?? []).map((l) => (
+            <ListCard key={`list:${l.id}`} list={l} onPress={() => router.push(`/list/new?edit=${l.id}` as any)} />
+          ))}
+          {(drafts ?? []).map((d) => (
             // Tapping the body opens the composer (continue editing) — drafts go
             // there, NOT to the public /review page. The ⋯ menu claims its own tap.
             <ReviewRow

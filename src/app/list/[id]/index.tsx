@@ -100,7 +100,12 @@ export default function ListDetailScreen() {
     );
   }
 
-  if (isError || !list) {
+  // A draft has no public detail — it's reached only via the owner's Drafts →
+  // composer. Hide it from anyone who isn't the owner (belt-and-suspenders; drafts
+  // have no public entry point anyway).
+  const draftHidden = !!list && list.is_draft && list.user_id !== user?.id;
+
+  if (isError || !list || draftHidden) {
     return (
       <View style={styles.screen}>
         <ListBanner posters={[]} height={bannerHeight}>{controls(undefined)}</ListBanner>
