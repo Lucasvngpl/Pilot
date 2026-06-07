@@ -178,7 +178,6 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 
 - Needs to run super fast and smooth
 - Core features need to work extremely well
-- Draft reviews
 - Should be able to track what Im curerntly watching and hwta others are currently watching and what I and others have liked, watched
 - Should be able to specify watched/watching on not just show but also season and episode scope.
 - **Pressing:** should be able to create **lists and reviews at season/episode scope**, not just whole-show. Reviews/ratings/watch already work at all 3 scopes — episode/season-scoped **list items** are the remaining gap (see "Down the road").
@@ -186,6 +185,71 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 - **Social features (liking reviews, comments) are still core, not optional.** The like button is currently a passive count display with no tap handler — schema (`review_likes`) + read path exist, mutation/interactivity deliberately deferred (see Reviews in "Down the road"). Don't treat the half-built state as the intended end state: liking/commenting/sharing are central to what makes the app social and need wiring up.
 - Should be hyper clear that you can have lists and keep track of shows across ALL 3 scopes not just show scope and eventually even including actors/characters to lists (also behind premium)
 - Need to think about public/private scopes. For example should be hook/route so that I can go one someone elses page and see their reviews and diary and stuff but NOT their drafts.
+- Speed and how long it takes to laod is very important, nothing can take more than 3 seconds
+- **sharing loop needs to be engineered:** {1. User logs a show or episode.
+
+2. App generates something shareable — review card, recap, taste profile, compatibility result.
+3. They share it.
+4. Friend installs.
+5. Friend follows them.
+6. Both return because activity now exists.}
+
+- Hooked self growth loop
+
+## App Store readiness — UGC moderation (NOT built yet; required before PUBLIC submission)
+
+Pilot has user-generated content (reviews, lists, usernames/bios; comments are
+deferred). Apple **Guideline 1.2** requires UGC apps to ship moderation infra or
+get rejected. **None of this is built yet** — it's the gate between internal
+TestFlight and public App Store launch.
+
+**Scope rule — don't over-build too early:** _Internal_ TestFlight (≤100 testers
+on your own team) needs NONE of this; no Beta App Review runs. These are required
+only for **public App Store submission** and **external/public TestFlight**. Build
+when moving internal-test → public, not before. Until then this section is a
+known-constraint, not a task.
+
+**The five 1.2 requirements (all needed together for public launch):**
+
+1. **Report** — every piece of others' UGC (reviews, lists, profiles; comments
+   when built) needs a Report affordance → a queue. The "Report on others'
+   reviews" line under Reviews/"Down the road" is the start of this.
+2. **Block** — block a user; their content vanishes for you, no interaction.
+   (Serializd reviews explicitly requested this — validated demand, not just
+   compliance.)
+3. **EULA / terms with a zero-tolerance-for-objectionable-content clause**,
+   accepted at signup.
+4. **Act on reports within 24h** — at minimum a manual admin path to remove
+   content + eject a user, plus the stated commitment.
+5. **Filter** — at minimum the report→remove loop; a submission-time text filter
+   is a plus.
+
+**Hard dependency (already encoded elsewhere — keep it):** **comments stay
+deferred until Report + Block exist.** A free-text field strangers post into,
+with no report/block, is the exact 1.2 liability. Likes are a single bit (no free
+text) → don't trip 1.2 → that's why likes can ship and comments can't. Don't wire
+comments before the moderation pair lands.
+
+**Other public-submission gates (not internal TestFlight):**
+
+- **Account deletion (5.1.1(v))** — in-app delete-account-and-data. Required.
+- **Privacy policy** (hosted URL, linked in-app + App Store Connect) + **App
+  Privacy label** (declare email/content/identifiers).
+- **Demo account** in review notes — Pilot is auth-gated; App Review needs a
+  working login or it's rejected as inaccessible.
+- **Age rating** set in App Store Connect (UGC trends 12+/17+).
+- **Sign in with Apple** — only required IF a third-party social login is offered;
+  email-only v1 is exempt.
+
+**TMDb / IP (5.2.1 / 4.1):** TMDb attribution required in-app (the "uses TMDb API
+but not endorsed by TMDb" line + logo). The real rejection risk is **copyrighted
+posters in App Store screenshots**, not the API — keep a royalty-free screenshot
+set as fallback. Cache already honors TMDb's 6-month limit (`shows_cache`
+stale-after-7-days refresh). Note: OMDb is the awards source — its terms are
+separate; confirm OMDb attribution needs before public launch too.
+
+**Fuller version:** `PILOT_APP_STORE_READINESS.md` (rejection risks ranked, each
+marked TestFlight-vs-public). This section is the at-a-glance pointer.
 
 ## Down the road (deferred features)
 
@@ -209,6 +273,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - Steal letterboxd's premium subscription features, the following are premium featrues
 - Connect to streaming services by mcp so it shows when youve watched the show?
 - Notif when friends pushed out new review
+- Popular reviews section on home
 - Watchlist Notifications: Get email or push notifications when movies on your watchlist are added to your preferred streaming platforms?
 - Clearer distinction between shows tab and strictly done watched tab
   - Should be able to specify watched/watching on not just show but also season and episode scope.
@@ -219,7 +284,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - Drafts of reviews
 - Discussion sections
 - Posters/Poster swap
-- Characters to be able to rank favourite characters
+- Characters to be able to rank favourite characters — note: TMDb has no global character ID (only a `character` field on a cast credit), so synthesize identity as `(tmdb_show_id, person_id, character_name)`; do actors first (they have stable person IDs) and depends on ranked lists.
 - Be able to search shows by actors
 - iPad version
 - Adding how many times someone rewatched something to it adds to time watching TV without having to log it sperately so in their profile it can track time watching TV
