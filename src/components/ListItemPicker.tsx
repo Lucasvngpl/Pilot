@@ -28,7 +28,8 @@ import { useSuppressBackSwipe } from '@/lib/sheetGesture';
 import { SearchInput } from '@/components/SearchInput';
 import { Poster } from '@/components/Poster';
 import { SearchResultRowsSkeleton, EpisodeRowsSkeleton } from '@/components/Skeletons';
-import { ChevronLeftIcon, ChevronRightIcon, CheckIcon } from '@/components/icons';
+import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
+import { AddIndicator } from '@/components/AddIndicator';
 import {
   resolveScope, buildScopeArt, tmdbImage, formatScopeShort,
   type ShowCard, type TmdbSeason, type TmdbEpisode, type SearchShowResult,
@@ -418,21 +419,6 @@ function SeasonLevel({
   );
 }
 
-// ----- small shared bits --------------------------------------------------------
-
-// Two-state add indicator: a subtle empty ring when NOT added, a filled purple
-// circle with a white ✓ when added. The whole picker uses one indicator so the
-// add affordance reads identically at every level (search / season / episode).
-function AddIndicator({ added }: { added: boolean }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={[styles.indicator, added && styles.indicatorOn]}>
-      {added && <CheckIcon color={colors.white} size={11} />}
-    </View>
-  );
-}
-
 const makeStyles = (colors: Palette) => StyleSheet.create({
   // Full-screen overlay over the editor (absolute fill, opaque background).
   screen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.background },
@@ -457,12 +443,5 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   // 16:9 landscape still — matches the Seasons → episode list thumbnail.
   still: { width: 104, height: 58, borderRadius: radius.sm, overflow: 'hidden', backgroundColor: colors.field },
 
-  // NOT added: a subtle ring (transparent fill, low-contrast stroke — intentional).
-  indicator: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.faint,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  // ADDED: filled accent circle with the white ✓.
-  indicatorOn: { backgroundColor: colors.purple, borderColor: colors.purple },
   muted: { fontFamily: type.reviewBody.fontFamily, fontSize: type.reviewBody.fontSize, color: colors.muted, paddingVertical: 16 },
 });

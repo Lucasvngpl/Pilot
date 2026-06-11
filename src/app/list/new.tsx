@@ -4,7 +4,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DragList, { type DragListRenderItemInfo } from 'react-native-draglist';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSuppressBackSwipe } from '@/lib/sheetGesture';
 import { useCreateList, useUpdateList, useListItemMutations } from '@/api/useListMutations';
 import { useList } from '@/api/useLists';
 import { fetchShowCards } from '@/api/showCards';
@@ -37,6 +39,12 @@ export default function NewOrEditList() {
     useLocalSearchParams<{ showId?: string; season?: string; episode?: string; edit?: string }>();
   const isEdit = !!edit;
 
+  // The DragList (react-native-gesture-handler) swallows the screen's native iOS
+  // edge-swipe-back, so without this you can't swipe back out of the editor
+  // (PIL-7). Same fix the ListItemPicker uses: drop the (dead) native gesture and
+  // provide our own left-edge back-swipe (defined below, after `pickerOpen`).
+  useSuppressBackSwipe(true);
+
   const { create } = useCreateList();
   const { update: updateList } = useUpdateList();
   const { add: addItem, remove: removeItem, reorder: reorderItems } = useListItemMutations();
@@ -51,6 +59,21 @@ export default function NewOrEditList() {
   // so only the tapped button shows a spinner — mirrors the review composer.
   const [pending, setPending] = useState<'draft' | 'main' | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Left-edge swipe-back, like every iOS screen. activeOffsetX → only claims a
+  // rightward horizontal drag; failOffsetY → yields to the DragList's vertical
+  // scroll/reorder; and the drag must START near the left edge (startX < 40).
+  // Disabled while the picker is up — the picker is an overlay with its OWN
+  // edge-swipe that walks its levels, so the editor must not also pop the route.
+  const backSwipe = Gesture.Pan()
+    .enabled(!pickerOpen)
+    .runOnJS(true)
+    .activeOffsetX(20)
+    .failOffsetY([-12, 12])
+    .onEnd((e) => {
+      const startX = e.absoluteX - e.translationX;
+      if (startX < 40 && e.translationX > 60) router.back();
+    });
 
   // CREATE: pre-seed the scope passed via ?showId (+ optional season/episode) from
   // "Add to lists… → New list". Resolves to the season/episode's own art + identity.
@@ -287,6 +310,7 @@ export default function NewOrEditList() {
   };
 
   return (
+    <GestureDetector gesture={backSwipe}>
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.nav}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
@@ -344,6 +368,7 @@ export default function NewOrEditList() {
         />
       )}
     </SafeAreaView>
+    </GestureDetector>
   );
 }
 

@@ -208,7 +208,15 @@ function RankedRow({ rank, item }: { rank: number; item: ListShowItem }) {
   return (
     <View style={styles.rankRow}>
       <Text style={styles.rankNum}>{rank}</Text>
-      <Poster tmdbShowId={item.tmdb_show_id} posterPath={item.poster_path} name={item.showName} width={44} />
+      <Poster
+        tmdbShowId={item.tmdb_show_id}
+        posterPath={item.poster_path}
+        name={item.showName}
+        width={44}
+        // A list row can be a season/episode — route the poster to that scope (PIL-6).
+        seasonNumber={item.season_number}
+        episodeNumber={item.episode_number}
+      />
       <View style={styles.rankText}>
         <Text style={[type.reviewTitle, { color: colors.ink }]} numberOfLines={1}>
           {item.showName}

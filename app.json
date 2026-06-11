@@ -43,7 +43,8 @@
         {
           "photosPermission": "Pilot needs photo access to set your avatar."
         }
-      ]
+      ],
+      "expo-mail-composer"
     ],
     "experiments": {
       "typedRoutes": true,

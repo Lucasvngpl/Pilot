@@ -7,7 +7,7 @@ import { useScopeSheet } from '@/lib/scopeSheet';
 import { Skeleton } from '@/components/Skeleton';
 import { fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles } from '@/lib/theme';
-import { tmdbImage } from '@/types';
+import { tmdbImage, scopeHref } from '@/types';
 
 type Props = {
   tmdbShowId: number;
@@ -15,6 +15,11 @@ type Props = {
   name: string;
   width: number;       // height auto-derived as width * 1.5 (2:3 ratio)
   pressable?: boolean; // false for the hero / mini header poster
+  // Scope of THIS poster. When set, tapping routes to the season/episode (not just
+  // the show) and long-press opens that scope's quick actions (PIL-6). Omitted =
+  // whole-show poster, the default everywhere it isn't a season/episode tile.
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
 };
 
 // Pick the right TMDb image size based on render width — fetching w500 for a
@@ -25,7 +30,15 @@ function sizeFor(width: number): 'w185' | 'w342' | 'w500' {
   return 'w500';
 }
 
-export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }: Props) {
+export function Poster({
+  tmdbShowId,
+  posterPath,
+  name,
+  width,
+  pressable = true,
+  seasonNumber = null,
+  episodeNumber = null,
+}: Props) {
   const styles = useThemedStyles(makeStyles);
   const openSheet = useScopeSheet(); // long-press → quick actions, no navigation
   const height = width * 1.5;
@@ -47,10 +60,14 @@ export function Poster({ tmdbShowId, posterPath, name, width, pressable = true }
   if (!pressable) return inner;
   return (
     <Pressable
-      onPress={() => router.push(`/show/${tmdbShowId}`)}
-      // Long-press = quick actions for this show WITHOUT leaving the page. When
+      // Route to this poster's own scope: season/episode tiles open the season or
+      // episode, whole-show tiles open the show (PIL-6).
+      onPress={() => router.push(scopeHref(tmdbShowId, seasonNumber, episodeNumber) as any)}
+      // Long-press = quick actions for THIS scope WITHOUT leaving the page. When
       // onLongPress fires, RN suppresses onPress, so the hold doesn't also navigate.
-      onLongPress={() => openSheet({ tmdb_show_id: tmdbShowId, season_number: null, episode_number: null })}
+      onLongPress={() =>
+        openSheet({ tmdb_show_id: tmdbShowId, season_number: seasonNumber, episode_number: episodeNumber })
+      }
       delayLongPress={280}
     >
       {inner}

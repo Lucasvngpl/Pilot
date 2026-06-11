@@ -1,6 +1,75 @@
 # HANDOFF — Pilot current state
 
-_Snapshot as of 2026-06-01. **Current state only** — durable architecture rules live in `CLAUDE.md`._
+_Snapshot as of 2026-06-10. **Current state only** — durable architecture rules live in `CLAUDE.md`._
+
+---
+
+## ⭐ Latest session (2026-06-10) — Lists overhaul · social (likes + activity) · bulk-mark · feedback
+
+> This block is the freshest state. Where the older sections below conflict with it
+> (e.g. "Activity is Friends-only", "review likes are passive", "migrations applied
+> manually via the SQL editor"), **this block wins.**
+
+**Shipped & committed (on `main`, through commit `ad00cb2` + two follow-ups):**
+- **Lists now hold all 3 scopes.** New search-first **add-item picker** (`ListItemPicker`):
+  tap a result = add the whole show; the `›` chevron drills **show → seasons → episodes**
+  to add at any scope. Two-state **○→✓ add indicator** (extracted to `src/components/AddIndicator.tsx`,
+  reused by bulk-mark). One picker for list **create + edit**. (Closes the long-standing
+  "episode/season-scoped list items" gap; scope columns were already in migration `0009`.)
+- **List detail rows** lead with the **show name** + a scope subtitle (was scope-only — you
+  couldn't tell which show an episode belonged to). `ListShowItem.showName` added.
+- **Custom list banner** — owner picks a TMDb **backdrop** (a show in the list or any searched
+  show) via `ListBannerPicker`; stored as `lists.banner_backdrop_path` (migration **`0012`**).
+- **List drafts** — composer has **Save draft / Publish** (`lists.is_draft`, migration **`0014`**;
+  title check relaxed so drafts can be untitled). Filtered out of every public list read
+  (`useMyLists`/`useShowLists`/activity); surfaced own-only in **Profile › Drafts** alongside
+  review drafts (`useDraftLists`). Mirrors the review-draft system.
+- **Drag-to-reorder** list-editor rows (☰ grip, `react-native-draglist`) — replaced the ↑/↓ arrows.
+- **ListCard**: scope-aware count ("5 seasons", not "5 shows" — `listCountLabel`) + fixed-width
+  poster cluster so all titles align.
+- **Likes are interactive** (reviews **and** lists) and now have a record: **Profile › My record
+  → Likes** (`/profile/likes`, own-only, `useMyLikes`). Unliking removes the row **instantly**
+  from the Likes page + the You feed (optimistic, in `useLikes`).
+- **Activity = Friends + You tabs** (`useActivityFeed('friends' | 'you')`), and the feed now
+  includes **like + follow** events (not just watched/watchlist/review/list). Migration **`0013`**
+  (reverse indexes on the like tables). _(Incoming tab still deferred.)_
+- **app-store-review skill** vendored into `.claude/skills/` (Expo/RN App Store guideline checker;
+  relevant to the UGC-moderation public-launch gate).
+
+**Built but ⏳ UNCOMMITTED + pending your on-device verification:**
+- **Bulk mark-watched** — Settings → **"Mark shows watched"** (`/profile/bulk-watched`): search-first
+  multi-select → ONE batched **`bulk_mark_watched` RPC** (migration **`0015`**). Backlog rows store
+  `from_backlog=true`, `watched_at=NULL` → they **fill the Shows→Watched grid but are excluded from
+  the Diary AND all time-based stats** (`useDiary` filters `from_backlog=false`; rule recorded in
+  CLAUDE.md). The RPC is **non-destructive** — on conflict it updates STATUS ONLY (never nulls a real
+  date). **Device checks:** (a) marked shows appear in Shows, NOT the Diary; (b) **the bug-catch case** —
+  bulk-mark a show you'd already logged with a real date → it keeps its original Diary date.
+- **Send feedback** — Settings → **"Send feedback"** → in-app composer (`expo-mail-composer`) to
+  **lucas.venugopal.dev@gmail.com** with a version/OS line; mailto → address-alert fallbacks
+  (`src/lib/feedback.ts`). **⚠️ Needs a dev-client rebuild** (`npx expo run:ios`) — the native module
+  isn't in the currently-installed build.
+
+**Workflow / infra:**
+- **Migrations now run via the Supabase MCP** (`apply_migration`) — NOT hand-pasted. `0012`–`0015`
+  are **applied live on the remote project**; `.sql` files are committed under `supabase/migrations/`.
+  (Connect with: `claude mcp add supabase --env SUPABASE_ACCESS_TOKEN=<PAT> -- npx -y
+  @supabase/mcp-server-supabase@latest --project-ref=hhpczdqpfbcoamayrbtx --features=database`,
+  then restart Claude Code.)
+- Stray `.DS_Store` files show as untracked → add to `.gitignore` (don't commit them).
+
+**Known blockers / env:**
+- **iOS device won't launch** ("profile not trusted"): on the phone → **Settings → General → VPN &
+  Device Management → Trust** the dev cert, then tap the app. (Free Apple accounts expire dev
+  profiles after 7 days → rebuild.)
+- The Feedback feature won't work until the dev-client rebuild above.
+
+**Suggested next** (from the roadmap chat): the **sharing loop** (a shareable taste/review **card**
++ a working public web landing — the flagged growth engine; today sharing is just a text link to a
+placeholder URL), **or Report + Block** (the App-Store 1.2 gate that also unblocks comments), **or**
+the **Incoming** activity tab. Bulk-mark v2 = a browseable **popular/trending grid** (recognition,
+not recall — what actually delivers "clear hundreds fast").
+
+---
 
 ## Built & working
 

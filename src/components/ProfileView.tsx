@@ -215,11 +215,9 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
           <Text style={styles.bio}>{profileData.profile.bio}</Text>
         ) : null}
 
-        <ProfileTabs
-          active={tab}
-          onChange={setTab}
-          counts={{ shows: watchedCount, watchlist: watchlist?.length }}
-        />
+        {/* No count chips on the tab labels — they read as clutter (PIL-5).
+            `watchedCount` is still used below for the "Your record" summary. */}
+        <ProfileTabs active={tab} onChange={setTab} />
 
         {tab === 'profile' && (
           <ProfileBody
@@ -263,8 +261,9 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
 
 // Header quick-flip between light/dark. Shows the OPPOSITE mode's icon (a moon in
 // light → "go dark", a sun in dark → "go light"). Tapping sets an EXPLICIT manual
-// preference; the 3-way System option lives in Settings › Appearance. Outline
-// icon tinted `ink` (textPrimary) to match the share/gear icons it sits beside.
+// preference; Settings › Appearance is the matching Light/Dark control (the
+// 'System' option was removed — PIL-13). Outline icon tinted `ink` (textPrimary)
+// to match the share/gear icons it sits beside.
 function ThemeToggle() {
   const { mode, setPref, colors } = useTheme();
   const isDark = mode === 'dark';

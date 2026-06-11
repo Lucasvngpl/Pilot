@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
+import { useState, useRef, useCallback } from 'react';
+import { ScrollView, View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useTrendingShows } from '@/api/useTrendingShows';
 import { useShowsByGenre } from '@/api/useShowsByGenre';
 import { useSearchShows } from '@/api/useSearchShows';
@@ -66,9 +66,23 @@ export default function Search() {
     setTab(r.kind);
   };
 
+  // Auto-focus the search field whenever the screen comes into focus, so opening
+  // Search lands you straight in the keyboard — no extra tap to start typing
+  // (PIL-8). useFocusEffect (not autoFocus) so it also re-arms when you return
+  // from a pushed show. The 0ms defer lets the screen finish mounting first, or
+  // iOS sometimes drops the focus and the keyboard never opens.
+  const inputRef = useRef<TextInput>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const t = setTimeout(() => inputRef.current?.focus(), 0);
+      return () => clearTimeout(t);
+    }, []),
+  );
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <SearchInput
+        ref={inputRef}
         value={query}
         onChangeText={setQuery}
         placeholder={logMode ? 'Search a show to review or log' : undefined}

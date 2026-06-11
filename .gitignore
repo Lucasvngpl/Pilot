@@ -159,3 +159,6 @@ web-build/
 *.mobileprovision
 /ios
 /android
+
+# macOS
+.DS_Store

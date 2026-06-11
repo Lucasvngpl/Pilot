@@ -12,11 +12,11 @@ const PROFILE_TABS: SegmentTab<ProfileTabKey>[] = [
 type Props = {
   active: ProfileTabKey;
   onChange: (key: ProfileTabKey) => void;
-  counts?: Partial<Record<ProfileTabKey, number>>;
 };
 
 // Thin wrapper over the generic SegmentTabs — keeps the Profile call site and the
-// ProfileTabKey type stable while sharing the row UI with Search.
-export function ProfileTabs({ active, onChange, counts }: Props) {
-  return <SegmentTabs tabs={PROFILE_TABS} active={active} onChange={onChange} counts={counts} />;
+// ProfileTabKey type stable while sharing the row UI with Search. We deliberately
+// don't pass `counts`: the Profile tabs read cleaner without number chips (PIL-5).
+export function ProfileTabs({ active, onChange }: Props) {
+  return <SegmentTabs tabs={PROFILE_TABS} active={active} onChange={onChange} />;
 }

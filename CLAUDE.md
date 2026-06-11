@@ -162,6 +162,8 @@ Every mutation hook (`useToggleEpisodeWatched`, `useSetWatchStatus`, `useRate`, 
 
 **Watched date (`watch_status.watched_at`):** a Postgres **`date`** (calendar day, timezone-free) — the day the user says they watched a scope. The Diary and Profile→Shows→**Watched** order/label by it (tie-broken by `updated_at`). Defaults to the mark date (`current_date`); only the **Review-or-log composer** sets a custom day. **`setWatched(userId, showId, scope, watchedAt?)`** (`src/api/setWatched.ts`) is the SINGLE writer for the "logging ⇒ watched" rule — shared by `useRate` (any scope) and the composer; omit `watchedAt` ⇒ today (and an existing row keeps its date). Always build the `"YYYY-MM-DD"` string from LOCAL parts (`todayLocal`/`fromLocalDate` in `src/types.ts`), **never `toISOString()`** (UTC → wrong day near midnight); read it back by splitting on `-`, never `new Date(str)`. **Logging implies watched at every scope** now: a rating/review at show/season/episode materializes a dated `watched` row — so any write that creates one must invalidate `['diary']` (and `['watched']`).
 
+**Backlog marks — undated watched (`from_backlog = true`, `watched_at` NULL):** bulk "I've seen these" (the `bulk_mark_watched` RPC, 0015) records a `watched` row with **no known day**. `watched_at` is nullable for this. These fill the Shows→**Watched** grid but are **excluded from the Diary AND from every time-based aggregation** — `useDiary` adds `.eq('from_backlog', false)`, and any future "watched this period" / Year-in-TV stat MUST do the same (≡ `watched_at IS NULL`): **a real date is required for real signal.** Any surface that DOES include backlog rows (the Watched grid) must be null-safe on `watched_at` (it coalesces to `updated_at` for ordering). The RPC updates **status only** on conflict so re-marking a genuinely-dated row never nulls its date — see [[upsert-onconflict-overwrites-all-columns]].
+
 ## Auth model — browse free, gate per action
 
 Anonymous users browse the entire catalog. Login is prompted **per action**, not at a wall: `useRequireAuth()` returns a Promise that resolves `true` after sign-in or `false` on dismissal; callers `await` it before any write. The root `AuthGate` only redirects authed users OUT of the `(auth)` group — it never forces anonymous users in. The `LoginSheet` is mounted once at root by `RequireAuthProvider`.
@@ -181,7 +183,7 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 - Should be able to track what Im curerntly watching and hwta others are currently watching and what I and others have liked, watched
 - Should be able to specify watched/watching on not just show but also season and episode scope.
 - **Pressing:** should be able to create **lists and reviews at season/episode scope**, not just whole-show. Reviews/ratings/watch already work at all 3 scopes — episode/season-scoped **list items** are the remaining gap (see "Down the road").
-- Add a popular reviews section on home page (based on likes, comments)
+- Add a popular reviews section on home page (based on likes, comments) and be able to see somewhere in
 - Eventually more social of course like comment section and recommednations and recommending to your friends and sharing taste profile to insta
 - **Social features (liking reviews, comments) are still core, not optional.** The like button is currently a passive count display with no tap handler — schema (`review_likes`) + read path exist, mutation/interactivity deliberately deferred (see Reviews in "Down the road"). Don't treat the half-built state as the intended end state: liking/commenting/sharing are central to what makes the app social and need wiring up.
 - Should be hyper clear that you can have lists and keep track of shows across ALL 3 scopes not just show scope and eventually even including actors/characters to lists (also behind premium)
@@ -196,6 +198,81 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 6. Both return because activity now exists.}
 
 - Hooked self growth loop
+
+## Growth — Sharing / self-growth loop
+
+### The loop
+
+1. User logs a show / season / episode.
+2. App auto-generates a shareable artifact (review card, list card, taste profile, etc.).
+3. They share it (to IG story / TikTok / iMessage).
+4. A friend who sees it installs Pilot.
+5. Friend follows the sharer.
+6. Both return because activity (follows, reactions, takes) now exists.
+
+### Principles (from how Letterboxd / Spotify Wrapped / Duolingo actually grew)
+
+- **Showcase the USER, not the app.** People share artifacts that express their
+  identity/taste, not ones that advertise us. Every card = a taste statement with
+  bragging rights built into it.
+- **Engineer for OFF-platform consumption.** Growth comes from artifacts leaking
+  onto TikTok/IG/Twitter where non-users see them — not from in-app share buttons.
+  Cards must be formatted for social feeds and understandable in 3 seconds.
+- **Zero friction.** Auto-generated, one-tap share. Anything requiring the user to
+  compose or coordinate dies.
+- **Two-player mechanics multiply shares** (compatibility) — but they're socially
+  gated and only work after a graph exists.
+- **The artifact must carry Pilot's mark + an install path**, or step 4 breaks.
+- **Forward feedback loop:** logging more → better artifacts → more reason to log.
+
+### Foundation (build first, with the first card type) — THE RIVET
+
+- Share-card render pipeline: data → styled image (Pilot's visual identity, not
+  competitor poster art) → share sheet.
+- Deep link: tapping a shared card → opens the SHARER'S PROFILE with a one-tap
+  follow prompt front and center (NOT a generic home screen). This closes step 5;
+  most apps break here.
+- Every card carries a visible Pilot mark + install hook (closes step 4).
+
+### Artifacts — implementation order
+
+1. **Ranked list share card** — reuses lists/ranking/drag/resolveScope (lowest
+   cost); proven viral format; a ranked list is itself a taste statement. Builds
+   the rails. ✅ first
+2. **Review / rating share card** — ~90% shared plumbing with #1; lowest data
+   threshold (1 log → a card); episode-level = our differentiator.
+3. **Taste profile / "TV personality" card** — identity hero, purest Wrapped-style
+   artifact. Needs a handful of logs to be meaningful (real signal needs volume,
+   applied to the individual). Ties to stats infra.
+4. **Hot-take / divergence card** — DEFERRED: needs a community average to diverge
+   from; meaningless at low volume (same gate as AVG RATING stat).
+5. **Taste compatibility ("you & X are 84% compatible")** — DEFERRED: highest
+   ceiling (two-player = built-in recruitment) but needs a friend already on Pilot.
+   Build after single-player artifacts seed a graph.
+6. **Year in TV / "Pilot Wrapped"** — DEFERRED: needs ~1 year of data. Year-two.
+
+### Hooked mapping
+
+- Trigger: external (friend's shared card, "X followed you") → internal ("what do
+  I log," "did anyone react to my take").
+- Action: log/rate (low-friction scope picker).
+- Variable reward: likes, new follows, compatibility reveal, replies to a take.
+- Investment: each log improves taste profile / compatibility / future Wrapped →
+  loads the next trigger.
+
+### Cold-start sequencing (features before users are bets)
+
+- Single-player, broadcast-outward artifacts (list/review/taste cards) work with
+  ONE user reaching their existing TikTok/IG audience — this is the seed.
+- Two-player (compatibility) and density features (friends-watching shelf) only
+  work AFTER a graph exists — defer.
+
+### IP note
+
+- Share cards posted publicly at scale are a higher copyright-exposure surface for
+  TMDb poster/still art than in-app display. Design cards around Pilot's own visual
+  identity (palette, type, the score as hero); minimize/avoid poster art. Also
+  better for brand-carrying (card reads as "Pilot," not "a Netflix poster").
 
 ## App Store readiness — UGC moderation (NOT built yet; required before PUBLIC submission)
 
@@ -263,7 +340,7 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - **Show "% watched" progress** — the nav-row indicator was removed (it was hardcoded `0`). Real version: `watched episodes ÷ total episodes` from the catalog's season `episode_count` + the user's episode-scope `watched` rows. Decide edge cases (whole-show `watched` = 100%? season-scope `watched` = all its episodes?). Bring back when the episode-tracking UI is fleshed out.
 - **Activity feed** — the **Friends** feed is **built** (`/activity`, `useActivityFeed`: followees' watched/watchlist/reviews/lists merged client-side). Remaining: the **You** (your own activity) and **Incoming** (likes/follows/comments on you) tabs — add the tab bar when those exist; review likes/comments are a prerequisite for Incoming.
 - **Trending → app-activity ranking** — currently TMDb `is_popular`; switch to recency-decayed app activity once usage is real signal (keep `useTrendingShows` as the stable interface so callers don't change).
-- **Bulk mark-watched** _(retention · medium effort)_ — a Settings action to mark many shows watched at once (multi-select search → one batched `watch_status` upsert), not one search-and-tap at a time. The Serializd reviewer's #1 love: a new user's backlog is hundreds of shows, and one-at-a-time is where they bounce before the profile feels like theirs. Manual only — distinct from the MCP streaming-import item.
+- **Bulk mark-watched** — **DONE (v1)**: Settings → "Mark shows watched" (`/profile/bulk-watched`) — search-first multi-select → one `bulk_mark_watched` RPC (0015); backlog rows are `from_backlog`/undated (out of Diary + time stats). _Deferred (v2 — the real "hundreds fast"):_ v1 fixes the WRITE cost but discovery is still **serial** (one search per show). The apps that nail backlog import (TV Time, Serializd) show a browseable **popular/trending grid** you tap through — recognition, not recall. That grid is the v2 that actually delivers the promise. Still distinct from the MCP streaming-import item.
 - **Pin reviews & lists to the profile** _(parity · low effort)_ — let a user pin a few reviews/lists to the top of their profile (a `pinned` flag + profile render), the way Top-4 pins favorite shows. Curation that makes a profile feel authored — called out by name in the review.
 - **Milestone badges** _(retention · medium effort)_ — badges earned from real watch data (100 / 1,000 episodes, a finished long-runner), shown on the profile. A free engagement loop the reviewer values; computed from existing `watch_status`, no new logging. Keep it editorial, not gamified-noisy.
 - **Custom banners (profile / lists / reviews)** _(personalization · high effort)_ — let users pick their own banner image per surface (the `lib/uploadAvatar` → Storage flow is the template; the List detail already renders a `bannerUrl` seam, profile + reviews need a column + render). Free personalization is a core part of what Serializd users praise. (This is the structured version of the raw "Ultimate Customization" line further down — dedupe that when picked up.)

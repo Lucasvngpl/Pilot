@@ -90,7 +90,9 @@ export function useWatchedShows(
           ratingByShow.set(r.tmdb_show_id, r.score);
         }
         for (const r of episodesRes.data ?? []) bump(r.tmdb_show_id, r.watched_at);
-        for (const r of watchedRes.data ?? []) setAuthoritative(r.tmdb_show_id, r.watched_at);
+        // watched_at is NULL for backlog marks (undated) — fall back to updated_at
+        // (when it was marked) so they sort by mark-time instead of NaN.
+        for (const r of watchedRes.data ?? []) setAuthoritative(r.tmdb_show_id, r.watched_at ?? r.updated_at);
       } else {
         // WATCHED or WATCHING — one clean show-scope status query.
         // 'watched' sorts by the chosen watch day (updated_at as the intra-day
@@ -105,7 +107,8 @@ export function useWatchedShows(
           : base.order('updated_at', { ascending: false });
         const { data, error } = await ordered.limit(LIMIT);
         if (error) throw error;
-        for (const r of data ?? []) bump(r.tmdb_show_id, filter === 'watched' ? r.watched_at : r.updated_at);
+        // Backlog rows have NULL watched_at → fall back to updated_at (mark-time).
+        for (const r of data ?? []) bump(r.tmdb_show_id, (filter === 'watched' ? r.watched_at : r.updated_at) ?? r.updated_at);
       }
 
       const ids = [...recency.keys()]

@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { View, TextInput, Pressable, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { SearchIcon, CloseIcon } from '@/components/icons';
 import { fonts, pad, type Palette } from '@/theme';
@@ -17,21 +18,23 @@ type Props = {
 
 // Search bar: rounded field with a left search glyph and a clear (×) button that
 // appears once there's text. Not TextField — that's a labeled form input with no
-// left-icon slot.
-export function SearchInput({
+// left-icon slot. forwardRef exposes the inner TextInput so a screen can focus it
+// programmatically (e.g. the Search tab auto-focuses on open — PIL-8).
+export const SearchInput = forwardRef<TextInput, Props>(function SearchInput({
   value,
   onChangeText,
   placeholder = 'Search shows and people',
   onFocus,
   onBlur,
   style,
-}: Props) {
+}, ref) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
     <View style={[styles.wrap, style]}>
       <SearchIcon color={colors.faint} size={18} />
       <TextInput
+        ref={ref}
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
@@ -50,7 +53,7 @@ export function SearchInput({
       )}
     </View>
   );
-}
+});
 
 const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: {

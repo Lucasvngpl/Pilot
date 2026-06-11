@@ -8,6 +8,7 @@ import { useDraftReviews } from '@/api/useMyReviews';
 import { useDraftLists } from '@/api/useLists';
 import { useProfile } from '@/api/useProfile';
 import { useDeleteReview } from '@/api/useReviewMutations';
+import { useDeleteList } from '@/api/useListMutations';
 import { ReviewRow } from '@/components/ReviewRow';
 import { ListCard } from '@/components/ListCard';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
@@ -15,7 +16,7 @@ import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon } from '@/components/icons';
 import { type, pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import { formatScope, type MyReviewEntry } from '@/types';
+import { formatScope, type MyReviewEntry, type ListSummary } from '@/types';
 
 // IMPORTANT: useDraftReviews must only ever run for the SIGNED-IN user (it's
 // is_draft=true, and RLS does NOT hide drafts from others — see 0007). The row
@@ -28,7 +29,9 @@ export default function Drafts() {
   const { data: listDrafts } = useDraftLists(user?.id);
   const { data: myProfile } = useProfile(user?.id);
   const { remove } = useDeleteReview();
+  const { remove: removeList } = useDeleteList();
   const [menuDraft, setMenuDraft] = useState<MyReviewEntry | null>(null);
+  const [menuListDraft, setMenuListDraft] = useState<ListSummary | null>(null);
 
   const profile = myProfile?.profile;
   const username = profile?.username ?? user?.email?.split('@')[0] ?? 'you';
@@ -45,6 +48,25 @@ export default function Drafts() {
         onPress: async () => {
           try {
             await remove(d.id, d.tmdb_show_id);
+          } catch (e) {
+            Alert.alert("Couldn't delete", e instanceof Error ? e.message : 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
+  // Same confirm-then-delete flow for a list draft. useDeleteList cascades the
+  // list's items and (via PIL-9) invalidates ['listDrafts'] so the row vanishes.
+  const confirmDeleteList = (l: ListSummary) => {
+    Alert.alert('Delete draft?', 'This permanently deletes this draft.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeList(l.id);
           } catch (e) {
             Alert.alert("Couldn't delete", e instanceof Error ? e.message : 'Please try again.');
           }
@@ -71,7 +93,12 @@ export default function Drafts() {
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {/* List drafts — tap opens the composer (edit), not the public detail. */}
           {(listDrafts ?? []).map((l) => (
-            <ListCard key={`list:${l.id}`} list={l} onPress={() => router.push(`/list/new?edit=${l.id}` as any)} />
+            <ListCard
+              key={`list:${l.id}`}
+              list={l}
+              onPress={() => router.push(`/list/new?edit=${l.id}` as any)}
+              onMenu={() => setMenuListDraft(l)}
+            />
           ))}
           {(drafts ?? []).map((d) => (
             // Tapping the body opens the composer (continue editing) — drafts go
@@ -104,6 +131,19 @@ export default function Drafts() {
             ? [
                 { label: 'Edit draft', onPress: () => openComposer(menuDraft) },
                 { label: 'Delete draft', destructive: true, onPress: () => confirmDelete(menuDraft) },
+              ]
+            : []
+        }
+      />
+
+      <ActionMenuSheet
+        visible={!!menuListDraft}
+        onClose={() => setMenuListDraft(null)}
+        actions={
+          menuListDraft
+            ? [
+                { label: 'Edit draft', onPress: () => router.push(`/list/new?edit=${menuListDraft.id}` as any) },
+                { label: 'Delete draft', destructive: true, onPress: () => confirmDeleteList(menuListDraft) },
               ]
             : []
         }

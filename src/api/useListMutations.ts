@@ -44,7 +44,13 @@ export function useCreateList() {
       return listId;
     },
     onSuccess: () => {
-      if (user) qc.invalidateQueries({ queryKey: ['lists', user.id] });
+      if (user) {
+        qc.invalidateQueries({ queryKey: ['lists', user.id] });
+        // Save-draft writes a draft row → Profile › Drafts (useDraftLists, keyed
+        // ['listDrafts', userId]) must refresh NOW, not after its staleTime lapses.
+        // Missing this is exactly why a saved draft took minutes to appear (PIL-9).
+        qc.invalidateQueries({ queryKey: ['listDrafts', user.id] });
+      }
     },
   });
 
@@ -94,7 +100,12 @@ export function useUpdateList() {
     },
     onSuccess: (_d, { listId }) => {
       qc.invalidateQueries({ queryKey: ['list', listId] });
-      if (user) qc.invalidateQueries({ queryKey: ['lists', user.id] });
+      if (user) {
+        qc.invalidateQueries({ queryKey: ['lists', user.id] });
+        // Editing a draft (or publishing it, which removes it from Drafts) must
+        // refresh the drafts list immediately too (PIL-9).
+        qc.invalidateQueries({ queryKey: ['listDrafts', user.id] });
+      }
     },
   });
 

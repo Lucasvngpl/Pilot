@@ -1,6 +1,7 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { DotsIcon } from '@/components/icons';
 import { type, pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 import { tmdbImage } from '@/types';
@@ -9,7 +10,18 @@ import type { ListSummary } from '@/types';
 // A list row on the Lists tab: a fanned stack of up to 4 poster thumbnails +
 // title + show count. Tap → /list/[id] by default; `onPress` overrides it (the
 // Drafts page sends drafts to the composer instead of the public detail).
-export function ListCard({ list, onPress }: { list: ListSummary; onPress?: () => void }) {
+// `onMenu` (optional) adds a ⋯ button at the row's end → an action sheet; only
+// passed where the card needs row actions (e.g. delete a draft — PIL-10), so it
+// stays a dead-control-free plain row everywhere else.
+export function ListCard({
+  list,
+  onPress,
+  onMenu,
+}: {
+  list: ListSummary;
+  onPress?: () => void;
+  onMenu?: () => void;
+}) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
@@ -45,6 +57,13 @@ export function ListCard({ list, onPress }: { list: ListSummary; onPress?: () =>
           {list.countLabel}
         </Text>
       </View>
+      {/* Nested Pressable claims its own tap, so ⋯ opens the menu without also
+          triggering the row's onPress. */}
+      {onMenu && (
+        <Pressable onPress={onMenu} hitSlop={10}>
+          <DotsIcon color={colors.faint} size={16} />
+        </Pressable>
+      )}
     </Pressable>
   );
 }

@@ -14,7 +14,8 @@ import { useUpdateProfile, type ProfilePatch } from '@/api/useUpdateProfile';
 import { uploadAvatar } from '@/lib/uploadAvatar';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
-import { ChevronLeftIcon } from '@/components/icons';
+import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
+import { sendFeedback } from '@/lib/feedback';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 
@@ -22,7 +23,7 @@ const BIO_MAX = 160; // matches the DB `profiles_bio_len` check
 
 export default function Settings() {
   const styles = useThemedStyles(makeStyles);
-  const { colors, pref, setPref } = useTheme();
+  const { colors, mode, setPref } = useTheme();
   const { user, signOut } = useAuth();
   const userId = user?.id;
   const qc = useQueryClient();
@@ -192,14 +193,16 @@ export default function Settings() {
           <Button label="Update profile" onPress={onSave} disabled={!dirty} loading={isPending} />
         </View>
 
-        {/* Appearance — the explicit 3-way theme preference. 'System' follows the
-            OS; Light/Dark are manual overrides. The Profile header's sun/moon is a
-            2-way quick flip into Light/Dark; this is where you get back to System. */}
+        {/* Appearance — Light / Dark only. The 'System' option was dropped (PIL-13):
+            no need for an OS-follow choice in the picker. We highlight the EFFECTIVE
+            `mode` (not the stored pref), so a user still on the legacy 'system'
+            preference sees the right segment lit; tapping commits an explicit
+            light/dark. The Profile header sun/moon is the matching 2-way quick flip. */}
         <View style={styles.appearanceSection}>
           <Text style={styles.sectionLabel}>Appearance</Text>
           <View style={styles.segment}>
-            {(['system', 'light', 'dark'] as const).map((opt) => {
-              const active = pref === opt;
+            {(['light', 'dark'] as const).map((opt) => {
+              const active = mode === opt;
               return (
                 <Pressable
                   key={opt}
@@ -209,12 +212,30 @@ export default function Settings() {
                   {/* Active item is ink-filled → label tracks `background` to stay
                       legible after the fill inverts in dark mode. */}
                   <Text style={[styles.segmentText, { color: active ? colors.background : colors.ink }]}>
-                    {opt === 'system' ? 'System' : opt === 'light' ? 'Light' : 'Dark'}
+                    {opt === 'light' ? 'Light' : 'Dark'}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+        </View>
+
+        {/* Library — bulk actions that populate your profile. */}
+        <View style={styles.librarySection}>
+          <Text style={styles.sectionLabel}>Library</Text>
+          <Pressable style={styles.navRow} onPress={() => router.push('/profile/bulk-watched' as any)}>
+            <Text style={styles.navRowLabel}>Mark shows watched</Text>
+            <ChevronRightIcon color={colors.faint} size={20} />
+          </Pressable>
+        </View>
+
+        {/* Feedback — opens an in-app mail composer to Lucas (mailto fallback). */}
+        <View style={styles.librarySection}>
+          <Text style={styles.sectionLabel}>Feedback</Text>
+          <Pressable style={styles.navRow} onPress={sendFeedback}>
+            <Text style={styles.navRowLabel}>Send feedback</Text>
+            <ChevronRightIcon color={colors.faint} size={20} />
+          </Pressable>
         </View>
 
         <View style={styles.signOutSection}>
@@ -285,6 +306,10 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     marginTop: -8, marginBottom: 14, marginLeft: 2,
   },
   fieldError: { color: colors.red },
+
+  librarySection: { marginTop: 28 },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
+  navRowLabel: { fontFamily: fonts.medium, fontSize: 16, color: colors.ink },
 
   appearanceSection: { marginTop: 28 },
   sectionLabel: {

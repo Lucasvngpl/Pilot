@@ -237,6 +237,8 @@ export type CurrentlyWatchingCard = ShowCard & {
 // aggregated up to the show — the diary is event-level by nature).
 export type DiaryEntry = ShowCard & {
   key: string;               // unique per entry: `${showId}:${season}:${episode}:${ts}`
+  seasonNumber: number | null;  // scope of this event — drives the tap route (PIL-6)
+  episodeNumber: number | null; // and the per-scope poster (PIL-12)
   year: string | null;       // first_air_date year, e.g. "1972"
   scopeLabel: string | null; // null = whole show; "Season 2"; "Season 2 · E5"
   watchedAt: string;         // the watched_at date ("YYYY-MM-DD"), timezone-free
@@ -480,6 +482,20 @@ export function formatScope(
   if (season === null) return undefined;
   if (episode === null) return `Season ${season}`;
   return `Season ${season} · E${episode}`;
+}
+
+// The route a scoped poster/row should open. Mirrors the show-detail route tree:
+// whole-show → the show landing, season → that season's episode list, episode →
+// the episode detail. Single source of truth so every tappable scoped item
+// (Poster, Diary, lists…) navigates to the same place for the same scope (PIL-6).
+export function scopeHref(
+  showId: number,
+  season: number | null,
+  episode: number | null,
+): string {
+  if (season === null) return `/show/${showId}`;
+  if (episode === null) return `/show/${showId}/season?season=${season}`;
+  return `/show/${showId}/episode?season=${season}&episode=${episode}`;
 }
 
 // Compact scope label shared by the Log confirmation line AND the rich episode
