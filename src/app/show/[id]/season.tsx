@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useShow } from '@/api/useShow';
 import { useToggleEpisodeWatched, useMarkSeasonWatched } from '@/api/useToggleEpisodeWatched';
+import { useSetWatchStatus } from '@/api/useSetWatchStatus';
 import { EpisodeRow } from '@/components/EpisodeRow';
 import { EpisodeRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
@@ -27,18 +28,34 @@ export default function SeasonEpisodes() {
   const { data, isLoading, error } = useShow(tmdbShowId);
   const { toggle } = useToggleEpisodeWatched(tmdbShowId);
   const { markAll, isPending: markingAll } = useMarkSeasonWatched(tmdbShowId);
+  const { clearStatus } = useSetWatchStatus(tmdbShowId); // un-mark the season row
   const openScope = useScopeSheet(); // ••• / long-press an episode → its scope actions
 
   const seasons = (data?.catalog.seasons ?? []) as TmdbSeason[];
   const current = seasons.find((s) => s.season_number === seasonNumber);
   const episodes = (current?.episodes ?? []) as TmdbEpisode[];
 
+  const statuses = data?.mySocial.watch_statuses ?? [];
+
   // Watched episodes for THIS user, keyed "season:episode" — feeds each row's eye.
   const watchedKeys = new Set(
-    (data?.mySocial.watch_statuses ?? [])
+    statuses
       .filter((r) => r.season_number != null && r.episode_number != null)
       .map((r) => `${r.season_number}:${r.episode_number}`),
   );
+
+  // A season- or show-scope `watched` row means "I watched this season" without
+  // storing a row per episode. When either exists the episodes DERIVE as watched,
+  // and their eyes LOCK (filled, non-tappable) — to change one, un-mark the season
+  // (the meta-row control below). This is what keeps "Mark all watched" from
+  // flooding the Diary: one season entry, not N episode entries.
+  const seasonWatched = statuses.some(
+    (r) => r.season_number === seasonNumber && r.episode_number == null && r.status === 'watched',
+  );
+  const showWatched = statuses.some(
+    (r) => r.season_number == null && r.episode_number == null && r.status === 'watched',
+  );
+  const covered = seasonWatched || showWatched;
 
   // The user's OWN episode-scope ratings, keyed "season:episode" — each row's badge.
   const episodeRatings = new Map<string, number>(
@@ -92,26 +109,38 @@ export default function SeasonEpisodes() {
                 {episodes.length} {episodes.length === 1 ? 'episode' : 'episodes'}
                 {current.air_date && ` · ${current.air_date.slice(0, 4)}`}
               </Text>
-              <Pressable
-                hitSlop={8}
-                disabled={markingAll || episodes.length === 0}
-                onPress={() =>
-                  markAll({
-                    tmdb_show_id: tmdbShowId,
-                    season_number: current.season_number,
-                    episode_numbers: episodes.map((e) => e.episode_number),
-                  })
-                }
-              >
-                <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
-                  Mark all watched ✓
-                </Text>
-              </Pressable>
+              {/* Three states (no dead control): un-marked → "Mark all watched";
+                  season marked → "Watched ✓ · Undo" (un-marks the season row);
+                  whole show marked → a static label (manage at show scope). */}
+              {showWatched ? (
+                <Text style={[type.markAll, { color: colors.muted }]}>Whole show watched ✓</Text>
+              ) : seasonWatched ? (
+                <Pressable
+                  hitSlop={8}
+                  disabled={markingAll}
+                  onPress={() => clearStatus({ season_number: seasonNumber, episode_number: null })}
+                >
+                  <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
+                    Watched ✓ · Undo
+                  </Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  hitSlop={8}
+                  disabled={markingAll || episodes.length === 0}
+                  onPress={() => markAll({ tmdb_show_id: tmdbShowId, season_number: current.season_number })}
+                >
+                  <Text style={[type.markAll, { color: colors.purple, opacity: markingAll ? 0.5 : 1 }]}>
+                    Mark all watched ✓
+                  </Text>
+                </Pressable>
+              )}
             </View>
           }
           renderItem={({ item: ep }) => {
             const key = `${ep.season_number}:${ep.episode_number}`;
-            const watched = watchedKeys.has(key);
+            // Eye fills from the episode's own row OR a covering season/show row.
+            const watched = covered || watchedKeys.has(key);
             return (
               <EpisodeRow
                 seasonNumber={ep.season_number}
@@ -121,6 +150,8 @@ export default function SeasonEpisodes() {
                 stillPath={ep.still_path}
                 fallbackPosterPath={current.poster_path ?? data.catalog.poster_path}
                 watched={watched}
+                // Covered by a season/show mark → eye is filled + non-interactive.
+                eyeLocked={covered}
                 rating={episodeRatings.get(key) ?? null}
                 onToggleWatched={() => toggle({
                   tmdb_show_id: tmdbShowId,

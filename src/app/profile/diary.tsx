@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { SectionList, View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -10,7 +10,7 @@ import { ChevronLeftIcon, ReviewBadgeIcon } from '@/components/icons';
 import { DiaryRowsSkeleton } from '@/components/Skeletons';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import type { DiaryEntry } from '@/types';
+import { scopeHref, type DiaryEntry } from '@/types';
 
 const MONTHS = [
   'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
@@ -44,9 +44,19 @@ export default function Diary() {
   const { user } = useAuth();
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useDiary(user?.id);
 
-  // Flatten loaded pages, then group into month bands for the SectionList.
-  const entries = useMemo(() => data?.pages.flat() ?? [], [data]);
+  // Flatten each page's visible entries, then group into month bands.
+  const entries = useMemo(() => data?.pages.flatMap((p) => p.entries) ?? [], [data]);
   const sections = useMemo(() => groupByMonth(entries), [entries]);
+
+  // Subsumption can trim a whole page to a few (or zero) visible rows, leaving the
+  // list too short to scroll — which would strand more pages unfetched (onEndReached
+  // never fires). Pull the next page until we have enough on screen to scroll, or
+  // run out. Bounded by hasNextPage, so it always terminates.
+  useEffect(() => {
+    if (!isLoading && hasNextPage && !isFetchingNextPage && entries.length < 8) {
+      fetchNextPage();
+    }
+  }, [isLoading, hasNextPage, isFetchingNextPage, entries.length, fetchNextPage]);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -92,7 +102,12 @@ function DiaryRow({ entry }: { entry: DiaryEntry }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
-    <Pressable style={styles.row} onPress={() => router.push(`/show/${entry.tmdb_show_id}`)}>
+    <Pressable
+      style={styles.row}
+      // Route to the event's own scope — an episode entry opens the episode, a
+      // season entry the season, a whole-show entry the show (PIL-6).
+      onPress={() => router.push(scopeHref(entry.tmdb_show_id, entry.seasonNumber, entry.episodeNumber) as any)}
+    >
       <View style={styles.dateCell}>
         <Text style={styles.dateNum}>{entry.day}</Text>
       </View>

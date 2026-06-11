@@ -24,6 +24,10 @@ type Props = {
   // Shown in the still slot when the episode has no still — season or show art.
   fallbackPosterPath?: string | null;
   watched: boolean;
+  // When the whole season/show is marked watched, the episode eyes DERIVE as
+  // watched and lock — filled but non-interactive (you change them by un-marking
+  // the season, not one episode at a time). See the Season screen's "Lock" model.
+  eyeLocked?: boolean;
   rating?: number | null; // the user's OWN episode-scope rating; hidden when null
   onToggleWatched: () => void;
   onOpenDetail: () => void;
@@ -33,7 +37,7 @@ type Props = {
 
 export function EpisodeRow({
   seasonNumber, episodeNumber, title, airDate, stillPath, fallbackPosterPath,
-  watched, rating, onToggleWatched, onOpenDetail, onOpenSheet,
+  watched, eyeLocked = false, rating, onToggleWatched, onOpenDetail, onOpenSheet,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
@@ -71,10 +75,17 @@ export function EpisodeRow({
       {/* Stacked inline actions. Nested Pressables claim their own touches, so a
           tap here does its action only — never the row's onOpenDetail. */}
       <View style={styles.actions}>
-        <Pressable onPress={onToggleWatched} hitSlop={8} style={styles.actionBtn}>
-          {/* Distinct ON/OFF: filled purple (the app's watched accent) vs grey outline. */}
-          <EyeIcon color={watched ? colors.purple : colors.faint} size={22} filled={watched} />
-        </Pressable>
+        {eyeLocked ? (
+          // Derived-watched (the season/show is marked) → static filled eye, no tap.
+          <View style={styles.actionBtn}>
+            <EyeIcon color={colors.purple} size={22} filled />
+          </View>
+        ) : (
+          <Pressable onPress={onToggleWatched} hitSlop={8} style={styles.actionBtn}>
+            {/* Distinct ON/OFF: filled purple (the app's watched accent) vs grey outline. */}
+            <EyeIcon color={watched ? colors.purple : colors.faint} size={22} filled={watched} />
+          </Pressable>
+        )}
         <Pressable onPress={onOpenSheet} hitSlop={8} style={styles.actionBtn}>
           <DotsIcon color={colors.muted} size={20} />
         </Pressable>

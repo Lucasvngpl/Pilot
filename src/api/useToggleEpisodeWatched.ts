@@ -139,16 +139,19 @@ export function useToggleEpisodeWatched(tmdbShowId: number) {
 type MarkSeasonArgs = {
   tmdb_show_id: number;
   season_number: number;
-  episode_numbers: number[];
 };
 
 // Per-season in-flight guard (so a double-tap on "Mark all" doesn't double-fire).
 const seasonInFlight = new Set<string>();
 const seasonKeyOf = (a: MarkSeasonArgs) => `${a.tmdb_show_id}:${a.season_number}`;
 
-// One-way "Mark all watched" for a season: a SINGLE batched upsert of every
-// episode-scope row (idempotent — already-watched episodes stay watched), not N
-// toggles. Same optimistic/restore/invalidate shape as the per-episode toggle.
+// "Mark all watched" for a season — writes ONE season-scope `watched` row (a
+// single Diary entry), NOT one row per episode. The old behaviour upserted every
+// episode row, which flooded the Diary with N entries and left orphans behind when
+// you later un-marked the show. The season row is now the single source of truth
+// for "I watched this season" (the Lock model: episodes aren't tracked
+// individually underneath a watched season — the Season screen derives their eyes
+// from this row). Un-mark is a plain clearStatus on the season scope.
 export function useMarkSeasonWatched(tmdbShowId: number) {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -158,18 +161,34 @@ export function useMarkSeasonWatched(tmdbShowId: number) {
   const mutation = useMutation({
     mutationFn: async (args: MarkSeasonArgs) => {
       if (!user) throw new Error('useMarkSeasonWatched: no authenticated user');
-      if (args.episode_numbers.length === 0) return;
-      const rows = args.episode_numbers.map((ep) => ({
-        user_id: user.id,
-        tmdb_show_id: args.tmdb_show_id,
-        season_number: args.season_number,
-        episode_number: ep,
-        status: 'watched' as const,
-      }));
-      const { error } = await supabase
+
+      // Upsert the season-scope row FIRST. If the following delete fails midway,
+      // the worst case is leftover (now-hidden) episode rows — never a gap where
+      // the season ends up unwatched. Dates to today; editable via the date chip.
+      const { error: upsertErr } = await supabase.from('watch_status').upsert(
+        {
+          user_id: user.id,
+          tmdb_show_id: args.tmdb_show_id,
+          season_number: args.season_number,
+          episode_number: null,
+          status: 'watched',
+          watched_at: todayLocal(),
+        },
+        { onConflict: 'user_id,tmdb_show_id,season_number,episode_number' },
+      );
+      if (upsertErr) throw upsertErr;
+
+      // Collapse the season: delete every per-episode row for it (episode_number
+      // IS NOT NULL). `.not(col, 'is', null)` is PostgREST's "IS NOT NULL" — a
+      // plain `.eq(col, value)` can't express it.
+      const { error: delErr } = await supabase
         .from('watch_status')
-        .upsert(rows, { onConflict: 'user_id,tmdb_show_id,season_number,episode_number' });
-      if (error) throw error;
+        .delete()
+        .eq('user_id', user.id)
+        .eq('tmdb_show_id', args.tmdb_show_id)
+        .eq('season_number', args.season_number)
+        .not('episode_number', 'is', null);
+      if (delErr) throw delErr;
     },
 
     onMutate: async (args) => {
@@ -177,33 +196,37 @@ export function useMarkSeasonWatched(tmdbShowId: number) {
       const prev = qc.getQueryData<GetShowResponse>(queryKey);
       if (!prev) return { prevStatuses: null };
 
-      // Don't duplicate episodes already marked watched for this season.
-      const already = new Set(
-        prev.mySocial.watch_statuses
-          .filter((r) => r.season_number === args.season_number && r.episode_number != null)
-          .map((r) => r.episode_number),
+      // Optimistically mirror the write: drop this season's episode rows, then
+      // patch (or append) its single season-scope watched row.
+      const withoutEpisodes = prev.mySocial.watch_statuses.filter(
+        (r) => !(r.season_number === args.season_number && r.episode_number != null),
       );
-      const additions = args.episode_numbers
-        .filter((ep) => !already.has(ep))
-        .map((ep) =>
-          ({
-            id: `optimistic-${args.season_number}-${ep}-${Date.now()}`,
-            user_id: user!.id,
-            tmdb_show_id: args.tmdb_show_id,
-            season_number: args.season_number,
-            episode_number: ep,
-            status: 'watched',
-            updated_at: new Date().toISOString(),
-            watched_at: todayLocal(),
-          }) satisfies WatchStatusRow,
-        );
+      const hasSeasonRow = withoutEpisodes.some(
+        (r) => r.season_number === args.season_number && r.episode_number == null,
+      );
+      const nextStatuses = hasSeasonRow
+        ? withoutEpisodes.map((r) =>
+            r.season_number === args.season_number && r.episode_number == null
+              ? { ...r, status: 'watched' as const, watched_at: todayLocal(), updated_at: new Date().toISOString() }
+              : r,
+          )
+        : [
+            ...withoutEpisodes,
+            {
+              id: `optimistic-season-${args.season_number}-${Date.now()}`,
+              user_id: user!.id,
+              tmdb_show_id: args.tmdb_show_id,
+              season_number: args.season_number,
+              episode_number: null,
+              status: 'watched',
+              updated_at: new Date().toISOString(),
+              watched_at: todayLocal(),
+            } satisfies WatchStatusRow,
+          ];
 
       qc.setQueryData<GetShowResponse>(queryKey, {
         ...prev,
-        mySocial: {
-          ...prev.mySocial,
-          watch_statuses: [...prev.mySocial.watch_statuses, ...additions],
-        },
+        mySocial: { ...prev.mySocial, watch_statuses: nextStatuses },
       });
       return { prevStatuses: prev.mySocial.watch_statuses };
     },
@@ -221,7 +244,8 @@ export function useMarkSeasonWatched(tmdbShowId: number) {
       qc.refetchQueries({ queryKey });
       qc.invalidateQueries({ queryKey: ['watched'] });
       qc.invalidateQueries({ queryKey: ['watching'] });
-      // Each newly-watched episode is its own Diary entry — refresh it too.
+      // The season is now one Diary entry (and its old per-episode entries are
+      // gone) — refresh the Diary.
       qc.invalidateQueries({ queryKey: ['diary'] });
     },
   });
