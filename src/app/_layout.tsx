@@ -19,6 +19,7 @@ import { ScopeSheetProvider } from '@/lib/scopeSheet';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 import { SheetGestureProvider, useAnySheetOpen } from '@/lib/sheetGesture';
 import { BottomNav, type NavTab } from '@/components/BottomNav';
+import { ProfilePrefetcher } from '@/components/ProfilePrefetcher';
 
 // The persistent bottom nav lives at the root (mounted once, below the Stack)
 // so it appears on EVERY screen instead of being pasted onto each one (PIL-14).
@@ -98,6 +99,9 @@ function AuthGate() {
           with a dark hero banner mount their own <StatusBar style="light"/>, which
           overrides this while they're on top (correct over the banner in both modes). */}
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      {/* Warm the signed-in user's Profile (data + landing-tab posters) on launch
+          so opening the Profile tab is instant. Renders nothing. */}
+      <ProfilePrefetcher />
       {/* Stack fills the space ABOVE the in-flow nav; the nav (84px) sits flush at
           the bottom. Every screen that shows it uses SafeAreaView edges={['top']},
           so there's no double bottom inset. */}
