@@ -73,7 +73,13 @@ export function useDeleteList() {
       if (error) throw error;
     },
     onSuccess: (_data, listId) => {
-      if (user) qc.invalidateQueries({ queryKey: ['lists', user.id] });
+      if (user) {
+        qc.invalidateQueries({ queryKey: ['lists', user.id] });
+        // Deleting a DRAFT list from Profile › Drafts must refresh that list now —
+        // without this it lingered until a manual refresh (useDraftLists is keyed
+        // ['listDrafts', userId]).
+        qc.invalidateQueries({ queryKey: ['listDrafts', user.id] });
+      }
       qc.removeQueries({ queryKey: ['list', listId] });
     },
   });

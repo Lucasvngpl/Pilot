@@ -84,6 +84,11 @@ export function useDeleteReview() {
       qc.invalidateQueries({ queryKey: ['show', tmdbShowId] });
       qc.invalidateQueries({ queryKey: ['watched'] });
       qc.invalidateQueries({ queryKey: ['myReviews'] });
+      // Deleting a DRAFT review from Profile › Drafts must refresh that list now —
+      // without this it lingered until a manual refresh (useDraftReviews is keyed
+      // ['drafts', userId]). Also drop the deleted review's single-review cache.
+      qc.invalidateQueries({ queryKey: ['drafts'] });
+      qc.invalidateQueries({ queryKey: ['review'] });
     },
   });
 

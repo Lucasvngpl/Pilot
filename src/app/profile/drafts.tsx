@@ -57,7 +57,7 @@ export default function Drafts() {
   };
 
   // Same confirm-then-delete flow for a list draft. useDeleteList cascades the
-  // list's items and (via PIL-9) invalidates ['listDrafts'] so the row vanishes.
+  // list's items and invalidates ['listDrafts'] so this row vanishes without a refresh.
   const confirmDeleteList = (l: ListSummary) => {
     Alert.alert('Delete draft?', 'This permanently deletes this draft.', [
       { text: 'Cancel', style: 'cancel' },
