@@ -12,7 +12,6 @@ import { Poster } from '@/components/Poster';
 import { ListBanner } from '@/components/ListBanner';
 import { Skeleton } from '@/components/Skeleton';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
-import { ListBannerPicker } from '@/components/ListBannerPicker';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
 import { ListLikeBar } from '@/components/LikeBar';
 import { shareList } from '@/lib/share';
@@ -29,7 +28,6 @@ export default function ListDetailScreen() {
   const { data: list, isLoading, isError } = useList(id);
   const { remove, isPending } = useDeleteList();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bannerOpen, setBannerOpen] = useState(false);
 
   const onDelete = () => {
     if (!list) return;
@@ -176,21 +174,12 @@ export default function ListDetailScreen() {
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
         actions={[
-          { label: 'Change banner', onPress: () => setBannerOpen(true) },
+          { label: 'Change banner', onPress: () => router.push(`/list/${id}/banner` as any) },
           { label: 'Edit list', onPress: () => router.push(`/list/new?edit=${id}` as any) },
           { label: 'Delete list', destructive: true, onPress: onDelete },
         ]}
       />
 
-      {/* Backdrop banner picker (owner) — full-screen overlay over the detail. */}
-      {bannerOpen && (
-        <ListBannerPicker
-          listId={list.id}
-          items={list.items}
-          currentBackdrop={list.bannerBackdropPath}
-          onClose={() => setBannerOpen(false)}
-        />
-      )}
     </View>
   );
 }

@@ -11,7 +11,6 @@ import { usePopularReviews } from '@/api/usePopularReviews';
 import { useShowLists } from '@/api/useShowLists';
 import { Tabs } from '@/components/Tabs';
 import { ListCard } from '@/components/ListCard';
-import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
@@ -76,7 +75,6 @@ export default function ShowLists() {
         </ScrollView>
       )}
 
-      <BottomNav active="home" />
 
       <ShowActionSheet
         visible={sheetOpen}

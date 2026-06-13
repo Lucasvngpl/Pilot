@@ -1,43 +1,41 @@
-// ListBannerPicker — pick a list's banner: a TMDb BACKDROP (16:9) from a show
+// /list/[id]/banner — pick a list's banner: a TMDb BACKDROP (16:9) from a show
 // already in the list, or by searching any show; or reset to the auto-composite.
 // v1 is backdrops-only (no photo upload): we store a `backdrop_path` reference, so
 // there's no storage, no upload latency, and no user-image moderation surface.
 //
-// Full-screen overlay over the list detail (same shell as ListItemPicker): own
-// safe-area insets (absolute children ignore the parent's), suppress the native
-// route swipe-back, and a left-edge Gesture.Pan that closes the picker — so a
-// back-swipe feels native here too.
+// This is a real PUSHED ROUTE (it used to be a full-screen overlay component). As a
+// Stack screen it gets the smooth native iOS swipe-back for free — so we dropped the
+// hand-rolled Gesture.Pan + the swipe-back suppression the overlay needed.
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useList } from '@/api/useLists';
 import { useSearchShows } from '@/api/useSearchShows';
 import { useDebounce } from '@/lib/useDebounce';
-import { useSuppressBackSwipe } from '@/lib/sheetGesture';
 import { useSetListBanner } from '@/api/useListMutations';
 import { fetchShowCards } from '@/api/showCards';
 import { SearchInput } from '@/components/SearchInput';
 import { Poster } from '@/components/Poster';
 import { SearchResultRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon, CheckIcon } from '@/components/icons';
-import { tmdbImage, type ListShowItem, type SearchShowResult } from '@/types';
+import { tmdbImage, type SearchShowResult } from '@/types';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
 
-type Props = {
-  listId: string;
-  items: ListShowItem[];          // the list's rows — source of "shows in this list"
-  currentBackdrop: string | null; // the active banner backdrop path (for the check)
-  onClose: () => void;
-};
-
-export function ListBannerPicker({ listId, items, currentBackdrop, onClose }: Props) {
+export default function ListBannerScreen() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  useSuppressBackSwipe(true);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  // The list is already cached by the detail screen we pushed from — items +
+  // current backdrop come straight from it (no new fetch on the common path).
+  const { data: list } = useList(id);
   const { setBanner, isPending } = useSetListBanner();
+
+  const items = list?.items ?? [];
+  const currentBackdrop = list?.bannerBackdropPath ?? null;
 
   const [query, setQuery] = useState('');
   const debounced = useDebounce(query, 300);
@@ -54,19 +52,10 @@ export function ListBannerPicker({ listId, items, currentBackdrop, onClose }: Pr
     return true;
   });
 
-  const backSwipe = Gesture.Pan()
-    .runOnJS(true)
-    .activeOffsetX(20)
-    .failOffsetY([-12, 12])
-    .onEnd((e) => {
-      const startX = e.absoluteX - e.translationX;
-      if (startX < 40 && e.translationX > 60) onClose();
-    });
-
   const apply = async (backdropPath: string | null) => {
     try {
-      await setBanner(listId, backdropPath);
-      onClose();
+      await setBanner(id, backdropPath);
+      router.back(); // back to the detail; useSetListBanner invalidates it → fresh banner
     } catch (e) {
       Alert.alert("Couldn't update banner", e instanceof Error ? e.message : 'Please try again.');
     }
@@ -89,10 +78,9 @@ export function ListBannerPicker({ listId, items, currentBackdrop, onClose }: Pr
   };
 
   return (
-    <GestureDetector gesture={backSwipe}>
     <View style={styles.screen}>
       <View style={[styles.nav, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={onClose} hitSlop={8}>
+        <Pressable onPress={() => router.back()} hitSlop={8}>
           <ChevronLeftIcon color={colors.ink} size={24} />
         </Pressable>
         <Text style={[type.subhead, { color: colors.ink }]}>Choose banner</Text>
@@ -163,7 +151,6 @@ export function ListBannerPicker({ listId, items, currentBackdrop, onClose }: Pr
         )}
       </ScrollView>
     </View>
-    </GestureDetector>
   );
 }
 
@@ -178,7 +165,7 @@ function Check() {
 }
 
 const makeStyles = (colors: Palette) => StyleSheet.create({
-  screen: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.background },
+  screen: { flex: 1, backgroundColor: colors.background },
   nav: {
     flexDirection: 'row',
     alignItems: 'center',

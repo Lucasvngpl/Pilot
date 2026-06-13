@@ -15,7 +15,6 @@ import { useShowLists } from '@/api/useShowLists';
 import { useSetWatchStatus } from '@/api/useSetWatchStatus';
 import { Tabs } from '@/components/Tabs';
 import { Poster } from '@/components/Poster';
-import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
@@ -131,7 +130,6 @@ export default function Seasons() {
         </ScrollView>
       )}
 
-      <BottomNav active="home" />
 
       <ShowActionSheet
         visible={sheetOpen}

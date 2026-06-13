@@ -1,16 +1,16 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { fonts, pad24, type Palette } from '@/theme';
-import { useThemedStyles } from '@/lib/theme';
+import { useThemedStyles, useTheme } from '@/lib/theme';
 import { Button } from '@/components/Button';
-import { TVIllustration } from '@/components/TVIllustration';
 import { useRequireAuth } from '@/lib/requireAuth';
 
 // Auth Landing. The "Log in" button uses the same global LoginSheet that
 // per-action mutation gates open — one sheet, one code path.
 export default function AuthLanding() {
   const styles = useThemedStyles(makeStyles);
+  const { mode } = useTheme();
   const requireAuth = useRequireAuth();
 
   return (
@@ -18,8 +18,21 @@ export default function AuthLanding() {
       <View style={styles.container}>
         <Text style={styles.wordmark}>PILOT</Text>
 
+        {/* New Pilot logo (PIL-18). Two variants whose backgrounds match the
+            theme — cream for light, black for dark — so we pick by `mode`. The
+            asset bakes in its own padded background and fills the rounded well.
+            require() bundles it, so it's available instantly (no load flash). */}
         <View style={styles.illustrationWell}>
-          <TVIllustration size={140} />
+          <Image
+            source={
+              mode === 'dark'
+                ? require('../../../assets/images/logo-dark.png')
+                : require('../../../assets/images/logo-light.png')
+            }
+            style={styles.logo}
+            resizeMode="cover"
+            accessibilityLabel="Pilot logo"
+          />
         </View>
 
         {/* "show" is a real View child (not nested Text) so it can carry a
@@ -78,10 +91,11 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     marginTop: 32,
     width: 180, height: 180,
     borderRadius: 24,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
+    // Clip the square logo to the rounded well. The logo carries its own
+    // background (cream / black per theme), so there's no fill color here.
+    overflow: 'hidden',
   },
+  logo: { width: '100%', height: '100%' },
 
   headline: { marginTop: 40 },
   headlineLine: {

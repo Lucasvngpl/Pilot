@@ -15,7 +15,6 @@ import { GenreChips } from '@/components/GenreChips';
 import { ShowResultRow } from '@/components/ShowResultRow';
 import { PersonRow } from '@/components/PersonRow';
 import { ShowRowsSkeleton, PersonRowsSkeleton } from '@/components/Skeletons';
-import { BottomNav } from '@/components/BottomNav';
 import { type, pad, radius, type Palette } from '@/theme';
 import { useThemedStyles } from '@/lib/theme';
 
@@ -126,7 +125,6 @@ export default function Search() {
         {tab === 'lists' && <Text style={styles.muted}>Lists search is coming soon.</Text>}
       </ScrollView>
 
-      <BottomNav active="search" />
     </SafeAreaView>
   );
 }

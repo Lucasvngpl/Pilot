@@ -141,12 +141,20 @@ export function ScopeActions({
 
       <RatingPicker value={currentRating} onChange={(score) => rate(score, scopeArg)} />
 
+      {/* Action rows, each split off by a hairline so they read as distinct buttons
+          (PIL-16). The leading divider separates the button list from the rating
+          picker above it; the rest sit between consecutive rows. */}
+      <View style={styles.divider} />
       {/* Season-only: drill into the episode list. First action + trailing chevron
           so "you can see the episodes" is unmistakable (vs the row's own tap). */}
       {isSeason && (
-        <ActionRow Icon={EpisodesIcon} label="View all episodes" onPress={onViewAllEpisodes} chevron />
+        <>
+          <ActionRow Icon={EpisodesIcon} label="View all episodes" onPress={onViewAllEpisodes} chevron />
+          <View style={styles.divider} />
+        </>
       )}
       <ActionRow Icon={PencilSquareIcon} label="Review or log" onPress={onReviewOrLog} />
+      <View style={styles.divider} />
       <ActionRow Icon={ListPlusIcon} label="Add to lists" onPress={onAddToListPress} />
     </>
   );
@@ -188,6 +196,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 14, paddingHorizontal: pad, gap: 16,
   },
+  // Full-width hairline between action rows (PIL-16). A View divider (not a row
+  // border) because the rows are rendered inline, not mapped.
+  divider: { height: 1, backgroundColor: colors.hairline },
   // flex:1 lets the label fill the row so a trailing chevron lands at the far
   // right; visually identical for rows without one (text stays left-aligned).
   rowText: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: colors.ink },

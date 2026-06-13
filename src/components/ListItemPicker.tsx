@@ -310,7 +310,11 @@ function ShowLevel({
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
 
-  if (loading || !card) return <View style={{ flex: 1 }}><SearchResultRowsSkeleton /></View>;
+  // Pad the skeleton like the loaded rows below (which sit in a ScrollView with
+  // `styles.body`). SearchResultRowsSkeleton has NO inset of its own (it expects
+  // the host to pad), so a bare wrapper left it flush against the screen edge —
+  // PIL-17. `styles.body` gives it the same left inset + top offset as the real rows.
+  if (loading || !card) return <View style={[styles.body, { flex: 1 }]}><SearchResultRowsSkeleton /></View>;
   if (error) return <Text style={[styles.muted, { paddingHorizontal: pad }]}>Couldn&apos;t load show.</Text>;
 
   const wholeStaged = stagedKeys.has(`${card.tmdb_show_id}-x-x`);

@@ -15,7 +15,6 @@ import { useAuth } from '@/lib/auth';
 import { Poster } from '@/components/Poster';
 import { StatRow } from '@/components/StatRow';
 import { Tabs } from '@/components/Tabs';
-import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { UserRatingCard } from '@/components/UserRatingCard';
@@ -240,7 +239,6 @@ export default function ShowDetail() {
         </ScrollView>
       )}
 
-      <BottomNav active="home" />
 
       <ShowActionSheet
         visible={sheetOpen}

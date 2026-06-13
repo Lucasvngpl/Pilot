@@ -90,10 +90,12 @@ export function AddToListSheet({
         <Text style={styles.empty}>Create your first list above.</Text>
       ) : (
         <ScrollView style={{ maxHeight: 280 }}>
-          {(lists ?? []).map((l) => {
+          {(lists ?? []).map((l, i) => {
             const checked = membership.has(l.id);
             return (
-              <Pressable key={l.id} style={styles.row} onPress={() => toggle(l.id)}>
+              // Hairline between consecutive list rows (PIL-16) — the "New list"
+              // row above is already split off by its own divider.
+              <Pressable key={l.id} style={[styles.row, i > 0 && styles.rowDivider]} onPress={() => toggle(l.id)}>
                 <View style={{ flex: 1 }}>
                   <Text style={[type.reviewTitle, { color: colors.ink }]} numberOfLines={1}>{l.title}</Text>
                   <Text style={[type.filter, { color: colors.muted, marginTop: 1 }]}>
@@ -151,6 +153,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   newText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.purple },
   hairline: { height: 1, backgroundColor: colors.hairline },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: pad, paddingVertical: 12, gap: 12 },
+  rowDivider: { borderTopWidth: 1, borderTopColor: colors.hairline },
   check: {
     width: 24,
     height: 24,

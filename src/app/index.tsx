@@ -7,7 +7,6 @@ import { router } from 'expo-router';
 import { useTrendingShows } from '@/api/useTrendingShows';
 import { useActivityFeed } from '@/api/useActivityFeed';
 import { Poster } from '@/components/Poster';
-import { BottomNav } from '@/components/BottomNav';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { FAB } from '@/components/FAB';
 import { HomeSkeleton } from '@/components/Skeletons';
@@ -92,7 +91,6 @@ export default function Home() {
       </View>
 
       <FAB onPress={() => setLogMenuOpen(true)} />
-      <BottomNav active="home" />
 
       {/* Same log/list menu as the nav's "Log" tab — the FAB is a second, more
           prominent entry point on Home (kept deliberately, redundant by design).

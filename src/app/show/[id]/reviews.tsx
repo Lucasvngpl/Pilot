@@ -14,7 +14,6 @@ import { useAuth } from '@/lib/auth';
 import { Tabs } from '@/components/Tabs';
 import { ReviewRow } from '@/components/ReviewRow';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
-import { BottomNav } from '@/components/BottomNav';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
@@ -145,7 +144,6 @@ export default function ShowReviews() {
         </ScrollView>
       )}
 
-      <BottomNav active="home" />
 
       <ShowActionSheet
         visible={sheetOpen}

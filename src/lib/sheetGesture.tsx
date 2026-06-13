@@ -3,11 +3,15 @@
 //   1. Open SHEETS — sibling OVERLAYS (not Modals), so the screen underneath stays
 //      live and its edge swipe-to-go-back would otherwise steal a horizontal drag
 //      inside the sheet and pop the screen mid-gesture.
-//   2. A mounted RATING SLIDER (RatingPicker) — its stars sit only ~20px from the
-//      left, INSIDE the iOS edge-swipe zone, so a drag-to-rate starting on the
-//      leftmost stars would pop the screen. We suppress while the slider is MOUNTED
-//      (not just mid-drag): a mid-drag toggle can land too late to cancel an
-//      already-armed native recognizer.
+//   2. Screens that run their OWN left-edge back-swipe (a GestureDetector pan, e.g.
+//      the full-screen list pickers — list/new, ListItemPicker, ListBannerPicker):
+//      they suppress the native gesture so the two recognizers don't both fire.
+//
+// NOT a registrant: the RatingPicker. It uses react-native-gesture-handler and
+// claims a touch that begins on the (centered) stars, so UIKit's edge recognizer
+// never arms for it — no screen-wide suppression needed. It used to suppress here,
+// which needlessly killed swipe-back on every inline rating screen (PIL-15).
+// In-sheet pickers are covered by kind #1 (the Sheet), not the picker.
 //
 // Why a global count instead of per-screen `navigation.setOptions`: the LoginSheet
 // and the long-press ShowActionSheet mount OUTSIDE the <Stack>, where there's no

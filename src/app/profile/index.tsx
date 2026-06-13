@@ -3,7 +3,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/Button';
-import { BottomNav } from '@/components/BottomNav';
 import { ProfileView } from '@/components/ProfileView';
 import { type, pad, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -28,7 +27,6 @@ export default function Profile() {
             <Button label="Log in" onPress={() => router.push('/welcome' as any)} />
           </View>
         </View>
-        <BottomNav active="profile" />
       </SafeAreaView>
     );
   }

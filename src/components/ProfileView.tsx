@@ -16,7 +16,6 @@ import { useTopShows } from '@/api/useTopShows';
 import { useDraftReviews } from '@/api/useMyReviews';
 import { Poster } from '@/components/Poster';
 import { Skeleton } from '@/components/Skeleton';
-import { BottomNav } from '@/components/BottomNav';
 import { FollowButton } from '@/components/FollowButton';
 import { AvatarViewer } from '@/components/AvatarViewer';
 import { ListCard } from '@/components/ListCard';
@@ -113,7 +112,6 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         <View style={{ flex: 1 }}>
           <ProfileSkeleton />
         </View>
-        {isOwn && <BottomNav active="profile" />}
       </SafeAreaView>
     );
   }
@@ -252,7 +250,6 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         )}
       </ScrollView>
 
-      {isOwn && <BottomNav active="profile" />}
 
       <AvatarViewer uri={avatarUrl} visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
     </SafeAreaView>

@@ -44,13 +44,16 @@ export function ActionMenuSheet({ visible, onClose, actions }: Props) {
 
   return (
     <Sheet visible={visible} onClose={onClose} height={height}>
-      {actions.map((a) => {
+      {actions.map((a, i) => {
         const tint = a.destructive ? colors.red : colors.ink;
         const Icon = a.icon;
         return (
           <Pressable
             key={a.label}
-            style={rich ? styles.richRow : styles.row}
+            // Hairline BETWEEN options (every row but the first) so each reads as a
+            // distinct button — PIL-16. The row box is full sheet width, so the
+            // border spans edge-to-edge like a native action sheet.
+            style={[rich ? styles.richRow : styles.row, i > 0 && styles.divider]}
             onPress={() => run(a.onPress)}
           >
             {rich ? (
@@ -76,6 +79,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   // Bare mode (Edit / Delete …): centered single label.
   row: { paddingVertical: 17, paddingHorizontal: pad, alignItems: 'center' },
   label: { fontFamily: fonts.medium, fontSize: 16, color: colors.ink },
+
+  // Separator drawn on the TOP of each option after the first (see the map above).
+  divider: { borderTopWidth: 1, borderTopColor: colors.hairline },
 
   // Rich mode (log/list picker): icon + stacked title/subtitle, left-aligned.
   richRow: {

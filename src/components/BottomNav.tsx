@@ -21,7 +21,9 @@ const ITEMS: { tab: NavTab; label: string; href: string; Icon: React.ComponentTy
   { tab: 'profile',  label: 'Profile',  href: '/profile',  Icon: ProfileIcon },
 ];
 
-export function BottomNav({ active }: { active: NavTab }) {
+// `active` is nullable: detail/browse pages (Show, Episode, Diary, …) show the
+// nav with NO tab highlighted, since none of the five roots is "current".
+export function BottomNav({ active }: { active: NavTab | null }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const { session } = useAuth();

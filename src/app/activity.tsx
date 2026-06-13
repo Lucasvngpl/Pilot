@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth';
 import { useActivityFeed, type ActivityMode } from '@/api/useActivityFeed';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
-import { BottomNav } from '@/components/BottomNav';
 import { ActivityRowsSkeleton } from '@/components/Skeletons';
 import { tmdbImage } from '@/types';
 import { timeAgo } from '@/lib/timeAgo';
@@ -68,7 +67,6 @@ export default function Activity() {
         )}
       </View>
 
-      <BottomNav active="activity" />
     </SafeAreaView>
   );
 }

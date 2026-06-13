@@ -1,4 +1,5 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { View } from 'react-native';
 import { useEffect } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts, ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
@@ -17,6 +18,38 @@ import { RequireAuthProvider } from '@/lib/requireAuth';
 import { ScopeSheetProvider } from '@/lib/scopeSheet';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 import { SheetGestureProvider, useAnySheetOpen } from '@/lib/sheetGesture';
+import { BottomNav, type NavTab } from '@/components/BottomNav';
+
+// The persistent bottom nav lives at the root (mounted once, below the Stack)
+// so it appears on EVERY screen instead of being pasted onto each one (PIL-14).
+// Two route-derived questions decide how it renders:
+
+// Which of the five tab roots is the current screen? Detail/browse pages map to
+// null → the bar shows with nothing highlighted. `useSegments()` returns the
+// file-based segments (e.g. ['show','[id]','review']), so matching is stable.
+function activeTabForSegments(segments: string[]): NavTab | null {
+  if (segments.length === 0) return 'home';        // '/' (app/index.tsx)
+  if (segments[0] === 'activity') return 'activity';
+  if (segments[0] === 'search') return 'search';
+  if (segments[0] === 'profile') return 'profile'; // own profile + its sub-pages
+  return null;
+}
+
+// Routes that should NOT show the nav (confirmed with Lucas — PIL-14): the
+// logged-out auth flow, plus full-screen compose / edit / task flows that carry
+// their own bottom action button (a nav under them = a clumsy double bar / a
+// stray tap that abandons the task). Everything else — every browse + detail
+// page — shows it.
+const NAV_HIDDEN_ROUTES = new Set([
+  'show/[id]/review',     // review composer (Save / Publish)
+  'list/new',             // new + edit list (Save draft / Publish) — also hosts the "Add from show" picker
+  'list/[id]/banner',     // choose-banner picker (a focused task screen)
+  'profile/bulk-watched', // bulk mark-watched (confirm bar)
+]);
+function showNavForSegments(segments: string[]): boolean {
+  if (segments[0] === '(auth)') return false; // welcome + signup (also logged out)
+  return !NAV_HIDDEN_ROUTES.has(segments.join('/'));
+}
 
 // One-way auth gate (Letterboxd-style): anonymous users browse the catalog
 // freely; we never force them into the auth group. When a session lands while
@@ -51,6 +84,9 @@ function AuthGate() {
   // theme gate avoids a flash of the OS theme before a forced light/dark applies.
   if (loading || !hydrated) return null;
 
+  const showNav = showNavForSegments(segments);
+  const activeTab = activeTabForSegments(segments);
+
   // A native <Stack> (not <Slot>) so every pushed screen gets the iOS push/pop
   // animation AND the interactive swipe-back gesture — the gesture is a feature
   // of the native stack, which <Slot> doesn't provide. headerShown off because
@@ -62,6 +98,10 @@ function AuthGate() {
           with a dark hero banner mount their own <StatusBar style="light"/>, which
           overrides this while they're on top (correct over the banner in both modes). */}
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      {/* Stack fills the space ABOVE the in-flow nav; the nav (84px) sits flush at
+          the bottom. Every screen that shows it uses SafeAreaView edges={['top']},
+          so there's no double bottom inset. */}
+      <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -69,15 +109,16 @@ function AuthGate() {
           // fullScreenGestureEnabled (swipe from anywhere) but it's greedy: it eats
           // every horizontal drag on the screen — the drag-to-rate star slider, the
           // genre-chip / season-pill horizontal scrolls. Edge-only is the standard
-          // iOS gesture and conflicts with none of them: the RatingPicker is CENTERED
-          // (~100px in), so the ~50px left-edge zone never reaches it. That's why
+          // iOS gesture, and it coexists with the centered drag-to-rate slider
+          // because RatingPicker uses react-native-gesture-handler: a touch that
+          // begins ON the stars is claimed there, so UIKit's edge recognizer (which
+          // only arms at touch-DOWN in the left edge) never fires for it. That's why
           // EVERY pushed screen keeps swipe-back — including the rating screens
-          // (review composer, log, episode) — so any screen with a ‹ back arrow can
-          // be swiped back, no per-screen opt-outs.
+          // (review composer, log, episode) — with no per-screen opt-outs.
           //
-          // …and even the edge gesture is dropped while ANY sheet is open, so a drag
-          // inside a sheet (the rating slider) can never be stolen by a page-back —
-          // covers per-screen AND the root-mounted (long-press / login) sheets.
+          // …and the edge gesture is still dropped while ANY sheet is open, so a drag
+          // inside a sheet can never be stolen by a page-back — covers per-screen AND
+          // the root-mounted (long-press / login) sheets.
           gestureEnabled: !anySheetOpen,
         }}
       >
@@ -104,6 +145,8 @@ function AuthGate() {
             other pushed screen. No per-screen opt-outs: any ‹ back arrow can be
             swiped back (Episode → Season → Seasons, review pages, log, …). */}
       </Stack>
+      {showNav && <BottomNav active={activeTab} />}
+      </View>
     </>
   );
 }
