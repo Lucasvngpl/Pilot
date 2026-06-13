@@ -1,4 +1,7 @@
-// /list/[id] — list detail: auto-banner (posters composite) + creator identity + numbered, position-ranked rows; owner gets edit/delete via the banner ⋯.
+// /list/[id] — list detail: auto-banner (posters composite) + creator identity +
+// numbered, position-ranked rows; owner gets edit/delete via the banner ⋯. The
+// banner is the first item INSIDE the ScrollView, so it covers the top like a
+// hero on load but scrolls away with the rest of the content (PIL-19).
 import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -79,21 +82,24 @@ export default function ListDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.screen}>
-        <ListBanner posters={[]} height={bannerHeight}>{controls(undefined)}</ListBanner>
-        <View style={styles.header}>
-          <Skeleton width={200} height={26} />
-          <Skeleton width={130} height={14} style={{ marginTop: 12 }} />
-        </View>
-        {[0, 1, 2, 3, 4].map((i) => (
-          <View key={i} style={styles.rankRow}>
-            <Skeleton width={18} height={20} />
-            <Skeleton width={44} height={66} radius={radius.md} />
-            <View style={styles.rankText}>
-              <Skeleton width="60%" height={14} />
-              <Skeleton width="40%" height={12} />
-            </View>
+        <StatusBar style="light" />
+        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+          <ListBanner posters={[]} height={bannerHeight}>{controls(undefined)}</ListBanner>
+          <View style={styles.header}>
+            <Skeleton width={200} height={26} />
+            <Skeleton width={130} height={14} style={{ marginTop: 12 }} />
           </View>
-        ))}
+          {[0, 1, 2, 3, 4].map((i) => (
+            <View key={i} style={styles.rankRow}>
+              <Skeleton width={18} height={20} />
+              <Skeleton width={44} height={66} radius={radius.md} />
+              <View style={styles.rankText}>
+                <Skeleton width="60%" height={14} />
+                <Skeleton width="40%" height={12} />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -106,6 +112,7 @@ export default function ListDetailScreen() {
   if (isError || !list || draftHidden) {
     return (
       <View style={styles.screen}>
+        <StatusBar style="light" />
         <ListBanner posters={[]} height={bannerHeight}>{controls(undefined)}</ListBanner>
         <Text style={styles.muted}>List not found.</Text>
       </View>
@@ -114,18 +121,21 @@ export default function ListDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* White status-bar icons over the dark banner. The banner is fixed at the
-          top (doesn't scroll), so light content is right for the whole screen. */}
+      {/* White status-bar icons over the dark banner. The banner is the first
+          ScrollView child, so it's at the very top under the status bar on
+          load (light content is right), and scrolls away with everything
+          else below it. */}
       <StatusBar style="light" />
-      <ListBanner
-        posters={list.items.map((it) => it.poster_path)}
-        bannerUrl={list.bannerUrl}
-        height={bannerHeight}
-      >
-        {controls(list)}
-      </ListBanner>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+        <ListBanner
+          posters={list.items.map((it) => it.poster_path)}
+          bannerUrl={list.bannerUrl}
+          height={bannerHeight}
+        >
+          {controls(list)}
+        </ListBanner>
+
         <View style={styles.header}>
           <Text style={[type.compactH, { color: colors.ink }]}>{list.title}</Text>
 

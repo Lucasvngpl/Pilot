@@ -20,6 +20,10 @@ type Props = {
   // whole-show poster, the default everywhere it isn't a season/episode tile.
   seasonNumber?: number | null;
   episodeNumber?: number | null;
+  // Crossfade duration (ms) when the image loads in. Default 200. Pass 0 on
+  // surfaces where posters should SNAP in instead of fading — e.g. the
+  // currently-watching shelf, so it matches the instant feel of the Top-4 row.
+  transitionMs?: number;
 };
 
 // Pick the right TMDb image size based on render width — fetching w500 for a
@@ -38,6 +42,7 @@ export function Poster({
   pressable = true,
   seasonNumber = null,
   episodeNumber = null,
+  transitionMs = 200,
 }: Props) {
   const styles = useThemedStyles(makeStyles);
   const openSheet = useScopeSheet(); // long-press → quick actions, no navigation
@@ -45,7 +50,7 @@ export function Poster({
   const uri = tmdbImage(posterPath, sizeFor(width));
 
   const inner = uri ? (
-    <PosterImage uri={uri} width={width} height={height} />
+    <PosterImage uri={uri} width={width} height={height} transitionMs={transitionMs} />
   ) : (
     <View style={[styles.placeholder, { width, height }]}>
       <Text
@@ -79,7 +84,7 @@ export function Poster({
 // image cross-fades in. The wrapper keeps a static light fill behind it so the
 // fade lands on grey, not a white flash. `onError` also clears the skeleton so a
 // failed image doesn't pulse forever.
-function PosterImage({ uri, width, height }: { uri: string; width: number; height: number }) {
+function PosterImage({ uri, width, height, transitionMs }: { uri: string; width: number; height: number; transitionMs: number }) {
   const styles = useThemedStyles(makeStyles);
   const [loaded, setLoaded] = useState(false);
   return (
@@ -89,7 +94,7 @@ function PosterImage({ uri, width, height }: { uri: string; width: number; heigh
         source={{ uri }}
         style={{ width, height, borderRadius: radius.md }}
         contentFit="cover"
-        transition={200}
+        transition={transitionMs}
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
       />

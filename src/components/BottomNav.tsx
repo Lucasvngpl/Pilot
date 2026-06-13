@@ -46,6 +46,10 @@ export function BottomNav({ active }: { active: NavTab | null }) {
               style={styles.item}
               onPress={() => {
                 if (tab === 'log') { setLogMenuOpen(true); return; } // opens the menu, not a route
+                // Already on this tab → do nothing. router.replace() to the current
+                // route re-MOUNTS the screen (posters remount → skeleton/fade flicker),
+                // so re-tapping the active tab must be a no-op (standard tab-bar feel).
+                if (isActive) return;
                 // replace, not push: tabs are roots, so switching one shouldn't
                 // stack onto the swipe-back history (you'd "swipe back" through
                 // tabs). Detail screens still push (and gain swipe-back).

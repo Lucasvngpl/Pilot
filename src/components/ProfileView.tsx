@@ -437,7 +437,11 @@ function WatchingCard({ card }: { card: CurrentlyWatchingCard }) {
   return (
     <View style={{ width: 112 }}>
       {/* No watched-check overlay — these are in-progress, not watched. */}
-      <Poster tmdbShowId={card.tmdb_show_id} posterPath={card.poster_path} name={card.name} width={112} />
+      {/* transitionMs=0: snap in (no fade) so the shelf matches the instant Top-4 row.
+          Its w342 posters aren't memory-warm like the w185 used elsewhere, so the
+          200ms crossfade was visible here; with the prefetcher warming them on disk,
+          snapping in reads as instant. */}
+      <Poster tmdbShowId={card.tmdb_show_id} posterPath={card.poster_path} name={card.name} width={112} transitionMs={0} />
       <Text style={[type.reviewUser, { color: colors.ink, marginTop: 6 }]} numberOfLines={1}>
         {card.name}
       </Text>
