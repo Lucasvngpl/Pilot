@@ -138,6 +138,14 @@ export default function Settings() {
     }
   };
 
+  // After sign-out there's no user, so this screen would fall back to its dead
+  // `!user` placeholder with no way out. Send the user to the same /welcome
+  // landing screen BottomNav uses for anonymous users (PIL-21).
+  const onSignOut = async () => {
+    await signOut();
+    router.replace('/welcome' as any);
+  };
+
   const avatarUrl = profile?.avatar_url ?? null;
 
   return (
@@ -239,7 +247,7 @@ export default function Settings() {
         </View>
 
         <View style={styles.signOutSection}>
-          <Button label="Sign out" variant="secondary" onPress={signOut} />
+          <Button label="Sign out" variant="secondary" onPress={onSignOut} />
         </View>
       </ScrollView>
     </SafeAreaView>
