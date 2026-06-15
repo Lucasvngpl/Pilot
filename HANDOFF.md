@@ -1,73 +1,40 @@
 # HANDOFF — Pilot current state
 
-_Snapshot as of 2026-06-10. **Current state only** — durable architecture rules live in `CLAUDE.md`._
+_Snapshot as of 2026-06-15. **Current state only** — durable architecture rules live in `CLAUDE.md`._
 
 ---
 
-## ⭐ Latest session (2026-06-10) — Lists overhaul · social (likes + activity) · bulk-mark · feedback
+## ⭐ Latest session (2026-06-15) — Bug fixes (PIL-20 · PIL-21) · Growth loop Figma mocks
 
-> This block is the freshest state. Where the older sections below conflict with it
-> (e.g. "Activity is Friends-only", "review likes are passive", "migrations applied
-> manually via the SQL editor"), **this block wins.**
+> This block is the freshest state. Where the older sections below conflict with it, **this block wins.**
 
-**Shipped & committed (on `main`, through commit `ad00cb2` + two follow-ups):**
-- **Lists now hold all 3 scopes.** New search-first **add-item picker** (`ListItemPicker`):
-  tap a result = add the whole show; the `›` chevron drills **show → seasons → episodes**
-  to add at any scope. Two-state **○→✓ add indicator** (extracted to `src/components/AddIndicator.tsx`,
-  reused by bulk-mark). One picker for list **create + edit**. (Closes the long-standing
-  "episode/season-scoped list items" gap; scope columns were already in migration `0009`.)
-- **List detail rows** lead with the **show name** + a scope subtitle (was scope-only — you
-  couldn't tell which show an episode belonged to). `ListShowItem.showName` added.
-- **Custom list banner** — owner picks a TMDb **backdrop** (a show in the list or any searched
-  show) via `ListBannerPicker`; stored as `lists.banner_backdrop_path` (migration **`0012`**).
-- **List drafts** — composer has **Save draft / Publish** (`lists.is_draft`, migration **`0014`**;
-  title check relaxed so drafts can be untitled). Filtered out of every public list read
-  (`useMyLists`/`useShowLists`/activity); surfaced own-only in **Profile › Drafts** alongside
-  review drafts (`useDraftLists`). Mirrors the review-draft system.
-- **Drag-to-reorder** list-editor rows (☰ grip, `react-native-draglist`) — replaced the ↑/↓ arrows.
-- **ListCard**: scope-aware count ("5 seasons", not "5 shows" — `listCountLabel`) + fixed-width
-  poster cluster so all titles align.
-- **Likes are interactive** (reviews **and** lists) and now have a record: **Profile › My record
-  → Likes** (`/profile/likes`, own-only, `useMyLikes`). Unliking removes the row **instantly**
-  from the Likes page + the You feed (optimistic, in `useLikes`).
-- **Activity = Friends + You tabs** (`useActivityFeed('friends' | 'you')`), and the feed now
-  includes **like + follow** events (not just watched/watchlist/review/list). Migration **`0013`**
-  (reverse indexes on the like tables). _(Incoming tab still deferred.)_
-- **app-store-review skill** vendored into `.claude/skills/` (Expo/RN App Store guideline checker;
-  relevant to the UGC-moderation public-launch gate).
+**Shipped & committed (`304f821`, on `main`):**
+- **PIL-20 — Top-4 drag-to-reorder.** `src/app/profile/top-shows.tsx` fully rewritten: `ScrollView` → `react-native-draglist` (`DragList` + ☰ `GripIcon` per row). Same pattern as the list editor: `useSuppressBackSwipe` + `GestureDetector(Gesture.Pan)` restores the iOS edge-swipe-back that `DragList` swallows (PIL-7 fix). Slot numbers update live as you drag; Save writes `position` from the staged order.
+- **PIL-21 — Sign-out dead-end fixed.** `settings.tsx` Sign out now calls `onSignOut = async () => { await signOut(); router.replace('/welcome'); }` — the bare `signOut()` left the user stranded on the screen's own `!user` placeholder with no way out; now routes to the proper `/welcome` auth landing (same destination BottomNav uses for anonymous Profile-tab taps).
 
-**Built but ⏳ UNCOMMITTED + pending your on-device verification:**
-- **Bulk mark-watched** — Settings → **"Mark shows watched"** (`/profile/bulk-watched`): search-first
-  multi-select → ONE batched **`bulk_mark_watched` RPC** (migration **`0015`**). Backlog rows store
-  `from_backlog=true`, `watched_at=NULL` → they **fill the Shows→Watched grid but are excluded from
-  the Diary AND all time-based stats** (`useDiary` filters `from_backlog=false`; rule recorded in
-  CLAUDE.md). The RPC is **non-destructive** — on conflict it updates STATUS ONLY (never nulls a real
-  date). **Device checks:** (a) marked shows appear in Shows, NOT the Diary; (b) **the bug-catch case** —
-  bulk-mark a show you'd already logged with a real date → it keeps its original Diary date.
-- **Send feedback** — Settings → **"Send feedback"** → in-app composer (`expo-mail-composer`) to
-  **lucas.venugopal.dev@gmail.com** with a version/OS line; mailto → address-alert fallbacks
-  (`src/lib/feedback.ts`). **⚠️ Needs a dev-client rebuild** (`npx expo run:ios`) — the native module
-  isn't in the currently-installed build.
+**Figma — Growth Loop share card mocks (file `iXyFnk8CenyRrV9fTzdXMt`, page `136:2`):**
+New page **"Pilot — Growth Loop Share Cards"** with the first two growth-loop artifacts mocked at 1080×1920 (IG Story / TikTok format). Both use exact `theme.ts` tokens (Archivo Black + Inter, `cream` bg, `purple`/`gold`/`ink`). No TMDb poster art — only the "recreated poster" mini-card style already established in the Show Detail mockup.
+- **Card 1 — Ranked List** (node `136:3`): "MY TOP 5 CRIME DRAMAS" as the taste-statement hero. Five ranked rows, each with a coloured recreated-poster mini-card + network badge. Purple on rank #1.
+- **Card 2 — Review/Rating** (node `140:2`): The score ("4.6" at ArchivoBlack 220) is the visual hero. Gold vector stars, show title + **episode scope line** (the differentiator), secondary mini-poster, review quote block. Same header/footer rail as Card 1 (PILOT wordmark + icon mark, `@handle` + `pilot.app` install hook) — the shared rail is identical across artifact types so the render pipeline can template it.
+- **Open for your feedback before any code.** Questions to answer in Figma: copy/tone for the kicker pill ("RANKED LIST" / "EPISODE REVIEW"), row compactness on Card 1, whether to mock a dark-mode variant.
 
-**Workflow / infra:**
-- **Migrations now run via the Supabase MCP** (`apply_migration`) — NOT hand-pasted. `0012`–`0015`
-  are **applied live on the remote project**; `.sql` files are committed under `supabase/migrations/`.
-  (Connect with: `claude mcp add supabase --env SUPABASE_ACCESS_TOKEN=<PAT> -- npx -y
-  @supabase/mcp-server-supabase@latest --project-ref=hhpczdqpfbcoamayrbtx --features=database`,
-  then restart Claude Code.)
-- Stray `.DS_Store` files show as untracked → add to `.gitignore` (don't commit them).
+**Still ⏳ uncommitted from 2026-06-10 (unchanged, still pending your verification):**
+- **Bulk mark-watched** (`/profile/bulk-watched`, migration `0015`) — see "What's next" + deploy status below for the full checklist.
+- **Send feedback** — needs `npx expo run:ios` rebuild before `expo-mail-composer` works.
+
+**Workflow / infra (from 2026-06-10, still relevant):**
+- **Migrations via Supabase MCP** (`apply_migration`) — `0012`–`0015` applied live. Connection: `claude mcp add supabase --env SUPABASE_ACCESS_TOKEN=<PAT> -- npx -y @supabase/mcp-server-supabase@latest --project-ref=hhpczdqpfbcoamayrbtx --features=database`.
+- Stray `.DS_Store` files show as untracked → add to `.gitignore`.
 
 **Known blockers / env:**
-- **iOS device won't launch** ("profile not trusted"): on the phone → **Settings → General → VPN &
-  Device Management → Trust** the dev cert, then tap the app. (Free Apple accounts expire dev
-  profiles after 7 days → rebuild.)
-- The Feedback feature won't work until the dev-client rebuild above.
+- **iOS device won't launch** ("profile not trusted"): Settings → General → VPN & Device Management → Trust the dev cert. (Free Apple certs expire after 7 days → rebuild.)
+- Send Feedback won't work until `expo run:ios` rebuild.
 
-**Suggested next** (from the roadmap chat): the **sharing loop** (a shareable taste/review **card**
-+ a working public web landing — the flagged growth engine; today sharing is just a text link to a
-placeholder URL), **or Report + Block** (the App-Store 1.2 gate that also unblocks comments), **or**
-the **Incoming** activity tab. Bulk-mark v2 = a browseable **popular/trending grid** (recognition,
-not recall — what actually delivers "clear hundreds fast").
+**Suggested next:**
+1. **React to Figma mocks** — give feedback on the share cards (copy, spacing, dark variant?) before any render-pipeline code starts.
+2. **Share-card render pipeline** — once the design is locked: on-device image render (`react-native-view-shot` or Skia canvas) → share sheet. Deep link target must be the **sharer's profile with a one-tap follow CTA** (closes step 5 of the growth loop). Card 1 (Ranked List) builds the rails; Card 2 reuses ~90%.
+3. **Verify + commit bulk-mark-watched** — still pending on-device check.
+4. **Report + Block** — the App Store 1.2 gate that also unblocks comments + the Incoming activity tab.
 
 ---
 
