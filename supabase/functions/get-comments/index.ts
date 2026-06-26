@@ -43,12 +43,14 @@ Deno.serve(async (req) => {
 
     const client = userClient(req);
 
-    // Comments + commenter profile. Only one FK path from comments→profiles
-    // (comments.user_id→profiles.id), so a plain `profiles(...)` embed is
-    // unambiguous here — no need to name the constraint the way get-reviews must.
+    // Comments + commenter profile. We MUST name the FK constraint
+    // (`profiles!comments_user_id_fkey`): once comment_likes (0018) added its OWN
+    // user_id→profiles FK, PostgREST sees TWO ways to relate comments↔profiles
+    // (direct, and hopping through comment_likes), so a bare `profiles(...)` embed
+    // errors PGRST201 "more than one relationship". Same fix get-reviews needs.
     const { data, error } = await client
       .from('comments')
-      .select('id, user_id, body, created_at, profiles(username, display_name, avatar_url)')
+      .select('id, user_id, body, created_at, profiles!comments_user_id_fkey(username, display_name, avatar_url)')
       .eq('target_type', target.target_type)
       .eq('target_id', target.target_id)
       .order('created_at', { ascending: true });
@@ -64,7 +66,8 @@ Deno.serve(async (req) => {
 
     // Likes: ONE query for the whole thread (not one per comment) → no N+1.
     // comment_likes is public-SELECT, so this works anonymously — liked_by_me just
-    // stays false when there's no caller (anon key carries no user).
+    // stays false when there's no caller. Fail OPEN like the block filter: a
+    // like-read hiccup shows the thread with 0 likes, never 500s the whole load.
     const counts = new Map<string, number>();
     const mine = new Set<string>();
     const ids = visible.map((c) => c.id);
@@ -73,12 +76,14 @@ Deno.serve(async (req) => {
         .from('comment_likes')
         .select('comment_id, user_id')
         .in('comment_id', ids);
-      if (likeErr) throw likeErr;
-      const { data: auth } = await client.auth.getUser();
-      const myId = auth?.user?.id ?? null;
-      for (const r of (likeRows ?? []) as { comment_id: string; user_id: string }[]) {
-        counts.set(r.comment_id, (counts.get(r.comment_id) ?? 0) + 1);
-        if (myId && r.user_id === myId) mine.add(r.comment_id);
+      if (likeErr) {
+        console.error('get-comments: like read failed (failing open):', likeErr);
+      } else {
+        const myId = callerId(req);
+        for (const r of (likeRows ?? []) as { comment_id: string; user_id: string }[]) {
+          counts.set(r.comment_id, (counts.get(r.comment_id) ?? 0) + 1);
+          if (myId && r.user_id === myId) mine.add(r.comment_id);
+        }
       }
     }
 
@@ -126,6 +131,25 @@ async function parseTarget(
   // Cheap UUID shape check — keeps a malformed id from reaching PostgREST.
   if (!/^[0-9a-f-]{36}$/i.test(target_id)) return null;
   return { target_type, target_id };
+}
+
+// The caller's user id from the JWT `sub`, or null (anonymous / no token). DECODE
+// ONLY — we don't verify the signature here because PostgREST already verified the
+// token for the real queries above, and this value only drives the display-only
+// `liked_by_me` flag (a forged sub can mis-color one caller's own heart, nothing
+// more — comment_likes is public and writes are RLS-gated on the verified token).
+function callerId(req: Request): string | null {
+  const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const parts = jwt.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    let s = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '='; // atob needs padded base64
+    const payload = JSON.parse(atob(s));
+    return typeof payload.sub === 'string' ? payload.sub : null;
+  } catch {
+    return null;
+  }
 }
 
 function json(body: unknown, status = 200): Response {
