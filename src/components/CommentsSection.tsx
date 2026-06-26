@@ -7,11 +7,11 @@ import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useComments, usePostComment, useDeleteComment } from '@/api/useComments';
+import { useComments, usePostComment, useDeleteComment, useToggleCommentLike } from '@/api/useComments';
 import { ContentActionSheet } from '@/components/ContentActionSheet';
 import { RichTextInput } from '@/components/RichTextInput';
 import { Markdown } from '@/components/Markdown';
-import { DotsIcon } from '@/components/icons';
+import { DotsIcon, HeartIcon } from '@/components/icons';
 import { timeAgo } from '@/lib/timeAgo';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -25,6 +25,7 @@ export function CommentsSection({ targetType, targetId }: Props) {
   const { data: comments, isLoading } = useComments(targetType, targetId);
   const { post } = usePostComment(targetType, targetId);
   const { remove } = useDeleteComment(targetType, targetId);
+  const { toggleLike } = useToggleCommentLike(targetType, targetId);
   const [draft, setDraft] = useState('');
   const [posting, setPosting] = useState(false);
   const [menuComment, setMenuComment] = useState<CommentWithMeta | null>(null);
@@ -88,6 +89,7 @@ export function CommentsSection({ targetType, targetId }: Props) {
             comment={c}
             // Optimistic rows (temp-…) aren't real yet → no ⋯ until they land.
             onMenu={c.id.startsWith('temp-') ? undefined : () => setMenuComment(c)}
+            onLike={() => toggleLike(c.id)}
           />
         ))
       )}
@@ -112,7 +114,15 @@ export function CommentsSection({ targetType, targetId }: Props) {
   );
 }
 
-function CommentRow({ comment, onMenu }: { comment: CommentWithMeta; onMenu?: () => void }) {
+function CommentRow({
+  comment,
+  onMenu,
+  onLike,
+}: {
+  comment: CommentWithMeta;
+  onMenu?: () => void;
+  onLike?: () => void;
+}) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   return (
@@ -139,6 +149,17 @@ function CommentRow({ comment, onMenu }: { comment: CommentWithMeta; onMenu?: ()
         {/* Comment body is the markdown subset (same as reviews) → render it,
             don't print raw `**`/`[..](..)`. */}
         <Markdown text={comment.body} style={[type.reviewBody, { color: colors.ink, marginTop: 2 }]} />
+
+        {/* Like affordance — heart fills red once you've liked; count hidden at 0.
+            Tap is login-gated inside toggleLike (useToggleCommentLike). */}
+        <Pressable onPress={onLike} hitSlop={8} style={styles.likeRow}>
+          <HeartIcon
+            color={comment.liked_by_me ? colors.red : colors.faint}
+            size={14}
+            filled={comment.liked_by_me}
+          />
+          {comment.like_count > 0 && <Text style={styles.likeCount}>{comment.like_count}</Text>}
+        </Pressable>
       </View>
     </View>
   );
@@ -178,4 +199,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   rowBody: { flex: 1 },
   rowHead: { flexDirection: 'row', alignItems: 'center' },
   time: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint, marginLeft: 8 },
+
+  // Heart + count under a comment. alignSelf flex-start so only the heart/count is
+  // tappable, not the row width.
+  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, alignSelf: 'flex-start' },
+  likeCount: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint },
 });

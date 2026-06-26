@@ -386,6 +386,9 @@ export type CommentWithMeta = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
+  // Likes, aggregated server-side by get-comments (one query per thread, not N+1).
+  like_count: number;
+  liked_by_me: boolean;
 };
 
 export type GetCommentsResponse = {

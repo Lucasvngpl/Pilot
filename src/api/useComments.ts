@@ -66,6 +66,8 @@ export function usePostComment(targetType: CommentTargetType, targetId: string) 
         username: myProfile?.profile?.username ?? '',
         display_name: myProfile?.profile?.display_name ?? null,
         avatar_url: myProfile?.profile?.avatar_url ?? null,
+        like_count: 0,
+        liked_by_me: false,
       };
       // Oldest-first thread → append at the END.
       qc.setQueryData<CommentWithMeta[]>(key, [...(prev ?? []), optimistic]);
@@ -152,4 +154,96 @@ export function useDeleteComment(targetType: CommentTargetType, targetId: string
   };
 
   return { remove, isPending: mutation.isPending };
+}
+
+// Per-comment dedupe so a fast double-tap can't fire two inserts (the composite
+// PK would 409).
+const likeInFlight = new Set<string>();
+
+/**
+ * Toggle YOUR like on a comment. Like state lives ON each comment row
+ * (`like_count` / `liked_by_me`, aggregated by get-comments), so the optimistic
+ * update edits that comment inside the SAME `['comments', target]` cache the
+ * thread already reads — no separate per-comment query (avoids N+1). Writes go
+ * direct to the RLS-protected `comment_likes` table; gated behind the per-action
+ * login gate like every other like (useLikes).
+ */
+export function useToggleCommentLike(targetType: CommentTargetType, targetId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const requireAuth = useRequireAuth();
+  const key = commentsKey(targetType, targetId);
+
+  // Apply liked/unliked to one comment in the cached thread; returns the prior
+  // array for rollback.
+  const patch = (commentId: string, liked: boolean) => {
+    const prev = qc.getQueryData<CommentWithMeta[]>(key);
+    if (prev) {
+      qc.setQueryData<CommentWithMeta[]>(
+        key,
+        prev.map((c) =>
+          c.id === commentId
+            ? { ...c, liked_by_me: liked, like_count: Math.max(0, c.like_count + (liked ? 1 : -1)) }
+            : c,
+        ),
+      );
+    }
+    return prev;
+  };
+
+  const mutation = useMutation({
+    mutationFn: async ({ commentId, next }: { commentId: string; next: boolean }) => {
+      if (!user) throw new Error('useToggleCommentLike: no authenticated user');
+      if (next) {
+        const { error } = await supabase
+          .from('comment_likes')
+          .insert({ comment_id: commentId, user_id: user.id });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('comment_likes')
+          .delete()
+          .eq('comment_id', commentId)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      }
+    },
+
+    onMutate: async ({ commentId, next }: { commentId: string; next: boolean }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = patch(commentId, next);
+      return { prev };
+    },
+
+    onError: (err, _vars, ctx) => {
+      console.error('[useToggleCommentLike] failed:', err);
+      qc.setQueryData<CommentWithMeta[] | undefined>(key, ctx?.prev);
+    },
+
+    // Reconcile with server truth (count settles even after rapid toggles).
+    onSettled: () => {
+      qc.refetchQueries({ queryKey: key });
+    },
+  });
+
+  const toggleLike = async (commentId: string) => {
+    // Optimistic rows (temp-…) aren't real yet — nothing to like.
+    if (commentId.startsWith('temp-')) return;
+    if (likeInFlight.has(commentId)) return;
+    likeInFlight.add(commentId);
+    try {
+      // Logged out → raise the LoginSheet; bail (no fake like) if dismissed.
+      const allowed = await requireAuth();
+      if (!allowed) return;
+      // Decide insert-vs-delete from the FRESH cache value at tap time.
+      const cur = qc.getQueryData<CommentWithMeta[]>(key)?.find((c) => c.id === commentId);
+      await mutation.mutateAsync({ commentId, next: !(cur?.liked_by_me ?? false) });
+    } catch {
+      // onError already logged + rolled back.
+    } finally {
+      likeInFlight.delete(commentId);
+    }
+  };
+
+  return { toggleLike };
 }

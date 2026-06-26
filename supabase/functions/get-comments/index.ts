@@ -8,7 +8,8 @@
  * top-to-bottom), enriched with the commenter's profile:
  *
  *   { comments: [{ id, user_id, body, created_at,
- *                  username, display_name, avatar_url }] }
+ *                  username, display_name, avatar_url,
+ *                  like_count, liked_by_me }] }
  *
  * Public read — comments RLS is `select using (true)`, so anonymous works. Block
  * filtering is applied SERVER-SIDE (defense in depth): a comment authored by a
@@ -56,20 +57,42 @@ Deno.serve(async (req) => {
     const comments = (data ?? []) as unknown as EmbeddedComment[];
 
     // Drop comments by anyone the caller has blocked (one-directional; anonymous
-    // → empty set → no-op).
+    // → empty set → no-op). Filter BEFORE counting likes so the `in (...)` list
+    // only covers visible comments.
     const blocked = await blockedUserIds(client);
+    const visible = comments.filter((c) => !blocked.has(c.user_id));
 
-    const result = comments
-      .filter((c) => !blocked.has(c.user_id))
-      .map((c) => ({
-        id: c.id,
-        user_id: c.user_id,
-        body: c.body,
-        created_at: c.created_at,
-        username: c.profiles?.username ?? 'unknown',
-        display_name: c.profiles?.display_name ?? null,
-        avatar_url: c.profiles?.avatar_url ?? null,
-      }));
+    // Likes: ONE query for the whole thread (not one per comment) → no N+1.
+    // comment_likes is public-SELECT, so this works anonymously — liked_by_me just
+    // stays false when there's no caller (anon key carries no user).
+    const counts = new Map<string, number>();
+    const mine = new Set<string>();
+    const ids = visible.map((c) => c.id);
+    if (ids.length > 0) {
+      const { data: likeRows, error: likeErr } = await client
+        .from('comment_likes')
+        .select('comment_id, user_id')
+        .in('comment_id', ids);
+      if (likeErr) throw likeErr;
+      const { data: auth } = await client.auth.getUser();
+      const myId = auth?.user?.id ?? null;
+      for (const r of (likeRows ?? []) as { comment_id: string; user_id: string }[]) {
+        counts.set(r.comment_id, (counts.get(r.comment_id) ?? 0) + 1);
+        if (myId && r.user_id === myId) mine.add(r.comment_id);
+      }
+    }
+
+    const result = visible.map((c) => ({
+      id: c.id,
+      user_id: c.user_id,
+      body: c.body,
+      created_at: c.created_at,
+      username: c.profiles?.username ?? 'unknown',
+      display_name: c.profiles?.display_name ?? null,
+      avatar_url: c.profiles?.avatar_url ?? null,
+      like_count: counts.get(c.id) ?? 0,
+      liked_by_me: mine.has(c.id),
+    }));
 
     return json({ comments: result });
   } catch (err) {
