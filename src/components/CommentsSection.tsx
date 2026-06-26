@@ -4,11 +4,13 @@
 // gated behind the per-action login gate (inside usePostComment). Each comment's
 // ⋯ opens the shared ContentActionSheet (own → Delete; others → Report / Block).
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useComments, usePostComment, useDeleteComment } from '@/api/useComments';
 import { ContentActionSheet } from '@/components/ContentActionSheet';
+import { RichTextInput } from '@/components/RichTextInput';
+import { Markdown } from '@/components/Markdown';
 import { DotsIcon } from '@/components/icons';
 import { timeAgo } from '@/lib/timeAgo';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
@@ -54,17 +56,16 @@ export function CommentsSection({ targetType, targetId }: Props) {
         Comments{list.length > 0 ? ` (${list.length})` : ''}
       </Text>
 
-      {/* Composer — a plain themed TextInput for now. The PIL-22 rich-text editor
-          swaps in HERE post-merge; this block is intentionally self-contained so
-          the swap is one localized change. */}
+      {/* Composer — the PIL-22 rich-text editor drives the comment body (bold /
+          italic / indent / link, toolbar docked above the keyboard), stored as the
+          SAME markdown subset as reviews. RichTextInput is a full-width block, so
+          the Post button sits beneath it, right-aligned. */}
       <View style={styles.composer}>
-        <TextInput
-          style={styles.input}
+        <RichTextInput
           value={draft}
           onChangeText={setDraft}
           placeholder="Add a comment…"
-          placeholderTextColor={colors.faint}
-          multiline
+          minHeight={44}
         />
         <Pressable
           onPress={onPost}
@@ -135,7 +136,9 @@ function CommentRow({ comment, onMenu }: { comment: CommentWithMeta; onMenu?: ()
             </Pressable>
           )}
         </View>
-        <Text style={[type.reviewBody, { color: colors.ink, marginTop: 2 }]}>{comment.body}</Text>
+        {/* Comment body is the markdown subset (same as reviews) → render it,
+            don't print raw `**`/`[..](..)`. */}
+        <Markdown text={comment.body} style={[type.reviewBody, { color: colors.ink, marginTop: 2 }]} />
       </View>
     </View>
   );
@@ -146,24 +149,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   header: { paddingHorizontal: pad, paddingTop: 20, paddingBottom: 12 },
 
   composer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
     paddingHorizontal: pad,
     paddingBottom: 16,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    backgroundColor: colors.field,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.ink,
   },
   postBtn: {
     height: 44,
@@ -172,6 +159,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     backgroundColor: colors.purple,
     alignItems: 'center',
     justifyContent: 'center',
+    // RichTextInput is full-width above; keep Post compact and right-aligned.
+    alignSelf: 'flex-end',
   },
   postBtnDisabled: { opacity: 0.4 },
   postLabel: { fontFamily: fonts.semibold, fontSize: 15 },
