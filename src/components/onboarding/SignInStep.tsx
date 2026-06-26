@@ -50,7 +50,7 @@ export function SignInStep({ onSkip }: { onSkip: () => void }) {
     // signUp with email confirmation ON returns no session — the user must click the
     // emailed link, then come back and log in. (Off in this project's settings ⇒ a
     // session arrives immediately and the wizard advances.)
-    if ('needsConfirmation' in result && result.needsConfirmation) setConfirmSent(true);
+    if (result.needsConfirmation) setConfirmSent(true);
     // On success a session lands via onAuthStateChange; the parent wizard advances.
   };
 

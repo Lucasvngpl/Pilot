@@ -55,8 +55,9 @@ export function RecommendationsStep() {
                   width={slotW}
                   pressable={false}
                 />
-                {/* Dim + check the chosen posters so the grid reads at a glance. */}
-                {on && <View style={[styles.selectedScrim, { width: slotW, height: slotW * 1.5 }]} />}
+                {/* Selected → a purple ring + check badge (highlight, not dim) so the
+                    chosen posters read at a glance. */}
+                {on && <View style={[styles.selectedRing, { width: slotW, height: slotW * 1.5 }]} />}
                 <View style={styles.indicator}>
                   <AddIndicator added={on} />
                 </View>
@@ -82,14 +83,14 @@ const makeStyles = (colors: Palette) =>
       paddingTop: 8,
       paddingBottom: 24,
     },
-    // Semi-transparent ink wash over a selected poster (scrim token = the dim used
-    // behind sheets; reads correctly in both themes).
-    selectedScrim: {
+    // Accent ring around a chosen poster (matches the poster's radius.md corners).
+    selectedRing: {
       position: 'absolute',
       top: 0,
       left: 0,
       borderRadius: 6,
-      backgroundColor: colors.scrim,
+      borderWidth: 2.5,
+      borderColor: colors.purple,
     },
     indicator: { position: 'absolute', top: 6, right: 6 },
   });

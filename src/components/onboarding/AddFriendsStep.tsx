@@ -60,7 +60,10 @@ export function AddFriendsStep() {
         name: c.name!,
         phone: c.phoneNumbers?.[0]?.number ?? null,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => a.name.localeCompare(b.name))
+      // Cap the rendered list — these are plain rows in a ScrollView (no
+      // virtualization), and the primary path is the share link above anyway.
+      .slice(0, 100);
     setContacts(lite);
     setSync('ready');
   };
