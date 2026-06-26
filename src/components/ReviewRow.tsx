@@ -7,6 +7,7 @@ import { useThemedStyles, useTheme } from '@/lib/theme';
 import { DotsIcon } from '@/components/icons';
 import { Stars } from '@/components/Stars';
 import { Poster } from '@/components/Poster';
+import { Markdown } from '@/components/Markdown';
 import { ReviewLikeBar } from '@/components/LikeBar';
 
 // Lines of body shown in the row before the trailing "…". The full text lives on
@@ -96,12 +97,13 @@ export function ReviewRow(p: Props) {
             // "…" signals there's more — and the page shows the untruncated text.
             // Drafts route this to the composer instead.
             <Pressable onPress={p.onPress}>
-              <Text
+              {/* Clamped markdown preview — bold/italic/links render, "> " markers
+                  are dropped (indent isn't meaningful in a 4-line teaser). */}
+              <Markdown
+                text={p.body}
                 style={[type.reviewBody, { color: colors.ink, marginTop: 8 }]}
                 numberOfLines={BODY_LINES}
-              >
-                {p.body}
-              </Text>
+              />
             </Pressable>
           )}
         </View>

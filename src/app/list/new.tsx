@@ -12,6 +12,7 @@ import { useList } from '@/api/useLists';
 import { fetchShowCards } from '@/api/showCards';
 import { resolveScope } from '@/types';
 import { TextField } from '@/components/TextField';
+import { RichTextInput } from '@/components/RichTextInput';
 import { Button } from '@/components/Button';
 import { Poster } from '@/components/Poster';
 import { Skeleton } from '@/components/Skeleton';
@@ -232,12 +233,12 @@ export default function NewOrEditList() {
   const listHeader = (
     <View>
       <TextField label="Title" value={title} onChangeText={setTitle} placeholder="List title" />
-      <TextField
+      {/* Rich text description: bold/italic/indent/link via the keyboard toolbar. */}
+      <RichTextInput
         label="Description"
         value={description}
         onChangeText={setDescription}
         placeholder="Optional"
-        multiline
       />
       <View style={styles.itemsHeader}>
         <Text style={styles.sectionLabel}>Items{staged.length > 0 ? ` (${staged.length})` : ''}</Text>

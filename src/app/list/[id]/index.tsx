@@ -13,6 +13,7 @@ import { useList } from '@/api/useLists';
 import { useDeleteList } from '@/api/useListMutations';
 import { Poster } from '@/components/Poster';
 import { ListBanner } from '@/components/ListBanner';
+import { Markdown } from '@/components/Markdown';
 import { Skeleton } from '@/components/Skeleton';
 import { ActionMenuSheet } from '@/components/ActionMenuSheet';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
@@ -158,7 +159,7 @@ export default function ListDetailScreen() {
             </Pressable>
           )}
 
-          {list.description ? <Text style={styles.desc}>{list.description}</Text> : null}
+          {list.description ? <Markdown text={list.description} style={styles.desc} /> : null}
           <Text style={styles.count}>
             {list.items.length} {list.items.length === 1 ? 'show' : 'shows'} · {formatCreated(list.createdAt)}
           </Text>
