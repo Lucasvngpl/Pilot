@@ -52,3 +52,37 @@ export async function shareReview(review: {
     // Share dismissed or failed — nothing to recover.
   }
 }
+
+// ----- Friend invite (growth loop) -----------------------------------------
+
+// A personal invite link to a user's PROFILE. `?ref=invite` tells the profile
+// screen to surface a one-tap follow prompt front-and-centre (closes step 5 of the
+// growth loop — see CLAUDE.md "Sharing / self-growth loop"). The deep link resolves
+// `pilot://user/<id>?ref=invite` to /user/[id]. Repoint at the https universal-link
+// once a web landing exists (the install hook for recipients without the app yet).
+export function inviteShareUrl(userId: string): string {
+  return `pilot://user/${userId}?ref=invite`;
+}
+
+// Open the native share sheet with a personal invite. The message carries Pilot's
+// mark + an install hook so a recipient who doesn't have the app yet knows what it
+// is and where to get it (step 4). `who` = the sharer's display name / handle.
+export async function shareInvite(profile: {
+  id: string;
+  username: string;
+  display_name: string | null;
+}): Promise<void> {
+  const url = inviteShareUrl(profile.id);
+  const who = profile.display_name ?? profile.username;
+  try {
+    await Share.share({
+      message:
+        `Follow ${who} on Pilot — track, rate & review every show and episode you watch.\n` +
+        `${url}\n\n` +
+        `Don't have Pilot yet? Get it: https://pilot.app`,
+      title: 'Join me on Pilot',
+    });
+  } catch {
+    // Share dismissed or failed — nothing to recover.
+  }
+}
