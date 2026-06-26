@@ -68,6 +68,7 @@ function invalidateAfterBlockChange(qc: QueryClient) {
   const keys = [
     'blockedIds', 'blockedUsers',
     'reviews', 'reviewDetail', 'myReviews', // review reads (EF + direct)
+    'myLikes',                               // my Likes record (drop blocked authors)
     'comments',                              // comment threads
     'showLists', 'list', 'lists', 'listDrafts', // list reads
     'searchPeople',                          // people search results

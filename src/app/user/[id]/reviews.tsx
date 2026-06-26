@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMyReviews } from '@/api/useMyReviews';
 import { useProfile } from '@/api/useProfile';
+import { useIsBlocked } from '@/api/blocks';
 import { useAuth } from '@/lib/auth';
 import { ReviewRow } from '@/components/ReviewRow';
 import { ContentActionSheet } from '@/components/ContentActionSheet';
@@ -31,6 +32,9 @@ export default function UserReviews() {
   // ⋯ → Report/Block menu, except when you're looking at your OWN reviews via the
   // public route (edit/delete lives on /profile/reviews, not here).
   const isSelf = user?.id === id;
+  // Deep-link guard: if I've blocked this user, hide their reviews here too (the
+  // normal entry point — their profile — already shows the blocked gate).
+  const isBlocked = useIsBlocked(id);
   const [menuReviewId, setMenuReviewId] = useState<string | null>(null);
 
   const profile = profileData?.profile;
@@ -54,7 +58,9 @@ export default function UserReviews() {
         <View style={{ width: 24 }} />
       </View>
 
-      {isLoading ? (
+      {isBlocked ? (
+        <Text style={styles.empty}>You&apos;ve blocked this user.</Text>
+      ) : isLoading ? (
         <ReviewRowsSkeleton />
       ) : !reviews || reviews.length === 0 ? (
         <Text style={styles.empty}>No reviews yet.</Text>
