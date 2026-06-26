@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
+import { signInWithProvider, type OAuthProvider, type OAuthResult } from '@/lib/oauth';
 
 // Result envelope for sign-in / sign-up. `error` = human-readable string,
 // `needsConfirmation` = signup succeeded but Supabase is waiting on an email
@@ -15,6 +16,9 @@ type AuthState = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
+  // OAuth (Google / Apple). The session arrives via onAuthStateChange just like
+  // email auth, so callers only need the error/cancel envelope.
+  signInWithOAuth: (provider: OAuthProvider) => Promise<OAuthResult>;
   signOut: () => Promise<void>;
 };
 
@@ -62,13 +66,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { needsConfirmation: !data.session };
   };
 
+  // Thin pass-through to the OAuth helper (kept in lib/oauth.ts so the
+  // browser/redirect plumbing stays out of this provider). On success the helper
+  // calls exchangeCodeForSession, which triggers onAuthStateChange → session set.
+  const signInWithOAuth: AuthState['signInWithOAuth'] = (provider) => signInWithProvider(provider);
+
   const signOut: AuthState['signOut'] = async () => {
     await supabase.auth.signOut();
   };
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut }}
+      value={{ session, user: session?.user ?? null, loading, signIn, signUp, signInWithOAuth, signOut }}
     >
       {children}
     </AuthContext.Provider>

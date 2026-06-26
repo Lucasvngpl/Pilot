@@ -456,3 +456,41 @@ export function RedoIcon({ color = '#000', size = 22 }: Props) {
     </Svg>
   );
 }
+
+// ----- OAuth provider glyphs (sign-in buttons) ------------------------------
+
+// Apple logo — solid silhouette (leaf + body). Monochrome so it tracks the theme
+// token passed in (label color on the OAuth button), per the no-raw-hex rule.
+export function AppleIcon({ color = '#000', size = 18 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M16.4 12.7c0-2.2 1.8-3.3 1.9-3.3-1-1.5-2.6-1.7-3.2-1.7-1.4-.1-2.6.8-3.3.8-.7 0-1.7-.8-2.8-.8-1.4 0-2.8.8-3.5 2.1-1.5 2.6-.4 6.5 1.1 8.6.7 1 1.5 2.2 2.6 2.2 1 0 1.4-.7 2.7-.7 1.2 0 1.6.7 2.7.6 1.1 0 1.8-1 2.5-2.1.8-1.2 1.1-2.3 1.1-2.4-.1 0-2.1-.8-2.1-3.1Z" />
+      <Path d="M14.3 6.3c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 1.9-.5 2.5-1.2Z" />
+    </Svg>
+  );
+}
+
+// Google "G" — monochrome single-path glyph (the multicolour mark needs four raw
+// brand hexes, which would break the no-raw-hex rule; the label text disambiguates).
+export function GoogleIcon({ color = '#000', size = 18 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.1c-.2 1.2-.9 2.2-1.9 2.9v2.4h3.1c1.8-1.7 2.7-4.1 2.7-7.1Z"
+        fill={color}
+      />
+      <Path
+        d="M12 21c2.4 0 4.5-.8 6-2.2l-3.1-2.4c-.8.6-1.9.9-2.9.9-2.3 0-4.2-1.5-4.9-3.6H3.9v2.5C5.4 19 8.5 21 12 21Z"
+        fill={color}
+      />
+      <Path
+        d="M7.1 13.7c-.2-.6-.3-1.1-.3-1.7s.1-1.2.3-1.7V7.8H3.9C3.3 9 3 10.4 3 12s.3 3 .9 4.2l3.2-2.5Z"
+        fill={color}
+      />
+      <Path
+        d="M12 6.7c1.3 0 2.5.5 3.4 1.3l2.6-2.6C16.5 3.9 14.4 3 12 3 8.5 3 5.4 5 3.9 7.8l3.2 2.5C7.8 8.2 9.7 6.7 12 6.7Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}

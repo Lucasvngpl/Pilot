@@ -5,6 +5,7 @@ import { useThemedStyles } from '@/lib/theme';
 import { Sheet } from '@/components/Sheet';
 import { TextField } from '@/components/TextField';
 import { Button } from '@/components/Button';
+import { OAuthButtons } from '@/components/OAuthButtons';
 import { useAuth } from '@/lib/auth';
 
 type Props = { visible: boolean; onClose: () => void };
@@ -42,10 +43,21 @@ export function LoginSheet({ visible, onClose }: Props) {
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} height={440}>
+    <Sheet visible={visible} onClose={onClose} height={600}>
       <Text style={styles.sheetTitle}>Log in to Pilot</Text>
 
       <View style={styles.sheetBody}>
+        {/* OAuth-primary: Apple / Google sit ABOVE the email form. On success the
+            session arrives via onAuthStateChange and RequireAuthProvider dismisses
+            this sheet, so we only need to surface errors here. */}
+        <OAuthButtons onResult={(r) => { if (r.error) setError(r.error); }} disabled={loading} />
+
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
         <TextField
           label="Email"
           value={email}
@@ -72,9 +84,6 @@ export function LoginSheet({ visible, onClose }: Props) {
         <View style={{ marginTop: 8 }}>
           <Button label="Log in" onPress={onLogin} disabled={!canSubmit} loading={loading} />
         </View>
-        {/* No "or" divider / third-party auth: "Continue with Apple" is
-            future-only (spec), and shipping any third-party auth triggers the
-            App Store's sign-in-with-Apple requirement. */}
       </View>
     </Sheet>
   );
@@ -89,6 +98,9 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     marginBottom: 24,
   },
   sheetBody: { paddingHorizontal: pad24 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 18 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.hairline },
+  dividerText: { fontFamily: fonts.medium, fontSize: 13, color: colors.faint },
   forgot: { fontFamily: fonts.semibold, fontSize: 13, color: colors.purple },
   error: {
     fontFamily: fonts.regular,

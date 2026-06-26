@@ -44,7 +44,13 @@
           "photosPermission": "Pilot needs photo access to set your avatar."
         }
       ],
-      "expo-mail-composer"
+      "expo-mail-composer",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Pilot uses your contacts to help you find and invite friends."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
