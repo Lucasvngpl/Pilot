@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMyReviews } from '@/api/useMyReviews';
 import { useProfile } from '@/api/useProfile';
+import { useAuth } from '@/lib/auth';
 import { ReviewRow } from '@/components/ReviewRow';
+import { ContentActionSheet } from '@/components/ContentActionSheet';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
 import { type, pad, type Palette } from '@/theme';
@@ -23,6 +26,12 @@ export default function UserReviews() {
 
   const { data: reviews, isLoading } = useMyReviews(id);
   const { data: profileData } = useProfile(id);
+  const { user } = useAuth();
+  // Every review on this page has the same author (the profile user `id`). Show a
+  // ⋯ → Report/Block menu, except when you're looking at your OWN reviews via the
+  // public route (edit/delete lives on /profile/reviews, not here).
+  const isSelf = user?.id === id;
+  const [menuReviewId, setMenuReviewId] = useState<string | null>(null);
 
   const profile = profileData?.profile;
   // Friendly name (display_name ?? username) for the row identity + header. No
@@ -68,11 +77,19 @@ export default function UserReviews() {
               posterPath={r.posterPath}
               posterPressable
               onPress={() => router.push(`/review/${r.id}` as any)}
-              // No onMenu → no edit/delete: these aren't yours.
+              // ⋯ → Report/Block (others' reviews only; never on your own page).
+              onMenu={isSelf ? undefined : () => setMenuReviewId(r.id)}
             />
           ))}
         </ScrollView>
       )}
+
+      {/* All rows share one author (the profile user) → one retargetable menu. */}
+      <ContentActionSheet
+        visible={!!menuReviewId}
+        onClose={() => setMenuReviewId(null)}
+        target={{ type: 'review', id: menuReviewId ?? '', userId: id }}
+      />
     </SafeAreaView>
   );
 }
