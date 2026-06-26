@@ -47,14 +47,15 @@ export function Tabs({ showId, active, counts }: Props) {
                 isActive ? type.tabActive : type.tabInactive,
                 { color: isActive ? colors.ink : colors.muted },
               ]}>{label}</Text>
-              {typeof count === 'number' && (
-                <View style={[
-                  styles.chip,
-                  { backgroundColor: isActive ? colors.purple : colors.hairline },
-                ]}>
-                  <Text style={[type.chipText, { color: isActive ? colors.white : colors.muted }]}>
-                    {count}
-                  </Text>
+              {/* Count chip shows ONLY on the tab you're currently on (PIL-24). The
+                  inactive tabs used to each carry their count, so the Overview
+                  landing was cluttered with reviews/seasons/lists numbers before
+                  you'd ever opened them. Gating on `isActive` means the number
+                  appears once you open that tab — and on Overview (which passes no
+                  count for itself) no chips show at all. */}
+              {isActive && typeof count === 'number' && (
+                <View style={[styles.chip, { backgroundColor: colors.purple }]}>
+                  <Text style={[type.chipText, { color: colors.white }]}>{count}</Text>
                 </View>
               )}
               {isActive && <View style={styles.underline} />}

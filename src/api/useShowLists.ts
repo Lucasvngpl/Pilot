@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { fetchShowCards } from '@/api/showCards';
+import { fetchBlockedIds } from '@/api/blocks';
 import { listCountLabel } from '@/types';
 import type { ListSummary } from '@/types';
 
-type ListRow = { id: string; title: string; description: string | null };
+type ListRow = { id: string; title: string; description: string | null; user_id: string };
 type ItemRow = {
   list_id: string;
   tmdb_show_id: number;
@@ -25,8 +27,12 @@ type ItemRow = {
  * show page (same idea as filtering drafts out of public review reads).
  */
 export function useShowLists(tmdbShowId: number | undefined) {
+  const { user } = useAuth();
+  const myId = user?.id;
   return useQuery<ListSummary[]>({
-    queryKey: ['showLists', tmdbShowId],
+    // Keyed by viewer too: the block filter is per-caller, so a blocked author's
+    // list must not be served from a cache entry built for a different viewer.
+    queryKey: ['showLists', tmdbShowId, myId],
     enabled: typeof tmdbShowId === 'number' && tmdbShowId > 0,
     queryFn: async () => {
       // 1. Which lists contain this show? (membership rows only)
@@ -42,13 +48,16 @@ export function useShowLists(tmdbShowId: number | undefined) {
       //    what keeps a private list off the public show page.
       const { data: lists, error: lErr } = await supabase
         .from('lists')
-        .select('id, title, description, created_at')
+        .select('id, title, description, created_at, user_id')
         .in('id', listIds)
         .eq('is_public', true)
         .eq('is_draft', false) // never surface an unpublished draft on the public show page
         .order('created_at', { ascending: false });
       if (lErr) throw lErr;
-      const rows = (lists ?? []) as ListRow[];
+      // Drop lists authored by anyone I've blocked (block hides their content
+      // everywhere — here, off the public show page). Empty set when anonymous.
+      const blocked = await fetchBlockedIds(myId);
+      const rows = ((lists ?? []) as ListRow[]).filter((l) => !blocked.has(l.user_id));
       if (rows.length === 0) return [];
 
       // 3. Poster previews — every item of the public lists, ordered for a STABLE

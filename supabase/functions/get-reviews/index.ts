@@ -16,6 +16,7 @@
 
 import { corsHeaders } from '../_shared/cors.ts';
 import { userClient } from '../_shared/clients.ts';
+import { blockedUserIds } from '../_shared/blocks.ts';
 
 type EmbeddedReview = {
   id: string;
@@ -66,7 +67,11 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: false });
     if (error) throw error;
 
-    const reviews = (data ?? []) as EmbeddedReview[];
+    // Hide reviews authored by anyone the CALLER has blocked (one-directional;
+    // anonymous → empty set → no-op). Applied server-side so a blocked user's
+    // review never leaves the server — defense in depth for the 1.2 block.
+    const blocked = await blockedUserIds(client);
+    const reviews = ((data ?? []) as EmbeddedReview[]).filter((r) => !blocked.has(r.user_id));
 
     // Rating merge happens IN JS, never via a SQL join.
     // `ratings` has no FK to `reviews`, and a join on

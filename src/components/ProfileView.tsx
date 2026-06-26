@@ -14,7 +14,10 @@ import { useWatchlist } from '@/api/useWatchlist';
 import { useMyLists, useDraftLists } from '@/api/useLists';
 import { useTopShows } from '@/api/useTopShows';
 import { useDraftReviews } from '@/api/useMyReviews';
+import { useIsBlocked, useUnblockUser } from '@/api/blocks';
+import { ContentActionSheet } from '@/components/ContentActionSheet';
 import { Poster } from '@/components/Poster';
+import { Markdown } from '@/components/Markdown';
 import { Skeleton } from '@/components/Skeleton';
 import { FollowButton } from '@/components/FollowButton';
 import { AvatarViewer } from '@/components/AvatarViewer';
@@ -25,7 +28,7 @@ import { DashedSlot } from '@/components/DashedSlot';
 import { ProfileSkeleton, PosterGridSkeleton, ListCardsSkeleton } from '@/components/Skeletons';
 import {
   ShareIcon, GearIcon, ChevronLeftIcon, ChevronRightIcon, CheckIcon,
-  CalendarIcon, ReviewBadgeIcon, DraftIcon, HeartIcon, SunIcon, MoonIcon,
+  CalendarIcon, ReviewBadgeIcon, DraftIcon, HeartIcon, SunIcon, MoonIcon, DotsIcon,
 } from '@/components/icons';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
@@ -64,6 +67,14 @@ export function ProfileView({
   const [tab, setTab] = useState<ProfileTabKey>('profile');
   const [showsFilter, setShowsFilter] = useShowsFilter(); // Shows-tab segment, persisted
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false); // moderation ⋯ (other profiles)
+
+  // Have I blocked this person? (Only meaningful on another user's profile.) When
+  // true, we hide their content entirely behind a "blocked" screen — block means
+  // "no interaction", so we don't render their reviews/lists/follow button at all.
+  const isOtherUser = variant === 'other' && myId !== userId;
+  const isBlocked = useIsBlocked(isOtherUser ? userId : undefined);
+  const { unblock } = useUnblockUser();
 
   const { data: profileData, isLoading: profileLoading } = useProfile(userId);
   const { data: watching } = useCurrentlyWatching(userId);
@@ -145,6 +156,30 @@ export function ProfileView({
     );
   }
 
+  // Blocked → a terminal "you've blocked this user" screen with an Unblock action,
+  // instead of their profile. (After Unblock, useBlockedIds refetches → isBlocked
+  // flips false → the normal profile renders.)
+  if (isOtherUser && isBlocked) {
+    return (
+      <SafeAreaView style={styles.screen} edges={['top']}>
+        <View style={styles.actionRow}>
+          <Pressable hitSlop={8} onPress={() => router.back()}>
+            <ChevronLeftIcon color={colors.ink} size={24} />
+          </Pressable>
+          <View />
+        </View>
+        <View style={styles.centerBody}>
+          <Text style={[type.reviewBody, { color: colors.muted, textAlign: 'center' }]}>
+            You&apos;ve blocked this user. Their reviews, lists, and comments are hidden from you.
+          </Text>
+          <Pressable style={styles.unblockBtn} onPress={() => unblock(userId)}>
+            <Text style={[type.reviewTitle, { color: colors.purple }]}>Unblock</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const username =
     profileData?.profile?.username ??
     (isOwn ? user?.email?.split('@')[0] : undefined) ??
@@ -183,8 +218,17 @@ export function ProfileView({
               <Pressable hitSlop={8} onPress={() => router.back()}>
                 <ChevronLeftIcon color={colors.ink} size={24} />
               </Pressable>
-              {/* No follow-yourself button. */}
-              {myId !== userId ? <FollowButton followeeId={userId} /> : <View />}
+              {/* No follow-yourself button / no ⋯ on your own public profile. */}
+              {myId !== userId ? (
+                <View style={styles.otherActions}>
+                  <FollowButton followeeId={userId} />
+                  <Pressable hitSlop={8} onPress={() => setMenuOpen(true)}>
+                    <DotsIcon color={colors.ink} size={22} />
+                  </Pressable>
+                </View>
+              ) : (
+                <View />
+              )}
             </>
           )}
         </View>
@@ -229,7 +273,7 @@ export function ProfileView({
         </View>
 
         {profileData?.profile?.bio ? (
-          <Text style={styles.bio}>{profileData.profile.bio}</Text>
+          <Markdown text={profileData.profile.bio} style={styles.bio} />
         ) : null}
 
         {/* Invite landing: someone shared their profile to recruit you. Put a
@@ -286,6 +330,16 @@ export function ProfileView({
 
 
       <AvatarViewer uri={avatarUrl} visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
+
+      {/* Profile ⋯ → Report user / Block user (other profiles only). After a block,
+          the screen re-renders into the blocked gate above (isBlocked flips). */}
+      {isOtherUser && (
+        <ContentActionSheet
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          target={{ type: 'profile', id: userId, userId }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -706,6 +760,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
 
   sheetBody: { paddingHorizontal: pad },
   centerBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: pad },
+  otherActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  unblockBtn: { marginTop: 16, paddingVertical: 10, paddingHorizontal: 20 },
   newListRow: {
     paddingHorizontal: pad,
     paddingVertical: 14,

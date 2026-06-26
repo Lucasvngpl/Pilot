@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { fetchShowCards } from '@/api/showCards';
+import { fetchBlockedIds } from '@/api/blocks';
 import { resolveScope, tmdbImage, listCountLabel } from '@/types';
 import type { ListSummary, ListDetail } from '@/types';
 
@@ -99,8 +101,12 @@ export function useDraftLists(userId: string | undefined) {
  * owner's handle. Public read — works for anyone's list. Returns null if missing.
  */
 export function useList(listId: string | undefined) {
+  const { user } = useAuth();
+  const myId = user?.id;
   return useQuery<ListDetail | null>({
-    queryKey: ['list', listId],
+    // Viewer in the key: a blocked author's list resolves to null for me but is
+    // visible to others, so the result can't be shared across callers.
+    queryKey: ['list', listId, myId],
     enabled: !!listId,
     queryFn: async () => {
       const { data: list, error } = await supabase
@@ -114,6 +120,12 @@ export function useList(listId: string | undefined) {
         id: string; user_id: string; title: string; description: string | null;
         is_ranked: boolean; is_draft: boolean; created_at: string; banner_backdrop_path: string | null;
       };
+
+      // Blocked author → treat the list as not-found (the detail screen renders
+      // "List not found", same as a missing/draft list). Belt-and-suspenders: a
+      // blocked user's list has no normal entry point, but a stale deep link could.
+      const blocked = await fetchBlockedIds(myId);
+      if (blocked.has(row.user_id)) return null;
 
       const [itemsRes, ownerRes] = await Promise.all([
         supabase

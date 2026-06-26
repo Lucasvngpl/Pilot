@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchShowCards } from '@/api/showCards';
+import { fetchBlockedIds } from '@/api/blocks';
 import { resolveScope, formatScope, listCountLabel } from '@/types';
 import type { MyLikeEntry, LikedReview, ListSummary } from '@/types';
 
@@ -54,17 +55,21 @@ export function useMyLikes(userId: string | undefined) {
               .in('id', reviewIds).eq('is_draft', false)
           : Promise.resolve({ data: [], error: null }),
         listIds.length
-          ? supabase.from('lists').select('id, title, description').in('id', listIds)
+          ? supabase.from('lists').select('id, title, description, user_id').in('id', listIds)
           : Promise.resolve({ data: [], error: null }),
       ]);
       if (revRes.error) throw revRes.error;
       if (listRes.error) throw listRes.error;
-      const reviews = (revRes.data ?? []) as {
+      // A review/list I liked but whose author I've since blocked drops out — block
+      // hides their content everywhere, including from my own Likes record.
+      const blocked = await fetchBlockedIds(me);
+      const reviews = ((revRes.data ?? []) as {
         id: string; user_id: string; tmdb_show_id: number;
         season_number: number | null; episode_number: number | null;
         body: string; contains_spoilers: boolean;
-      }[];
-      const lists = (listRes.data ?? []) as { id: string; title: string; description: string | null }[];
+      }[]).filter((r) => !blocked.has(r.user_id));
+      const lists = ((listRes.data ?? []) as { id: string; title: string; description: string | null; user_id: string }[])
+        .filter((l) => !blocked.has(l.user_id));
 
       // 3. List items (for posters + the scope-aware count), ordered for a stable preview.
       const itemsByList = new Map<string, { tmdb_show_id: number; season_number: number | null; episode_number: number | null }[]>();

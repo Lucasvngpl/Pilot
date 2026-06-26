@@ -17,7 +17,7 @@ import { useRequireAuth } from '@/lib/requireAuth';
 import { RatingPicker } from '@/components/RatingPicker';
 import { DatePickerRow } from '@/components/DatePickerRow';
 import { SeasonPills } from '@/components/SeasonPills';
-import { TextField } from '@/components/TextField';
+import { RichTextInput } from '@/components/RichTextInput';
 import { Skeleton } from '@/components/Skeleton';
 import { Button } from '@/components/Button';
 import { ChevronLeftIcon, CheckIcon } from '@/components/icons';
@@ -344,12 +344,13 @@ export default function ReviewComposer() {
 
               <RatingPicker value={score} onChange={setScore} />
 
-              <TextField
+              {/* Rich text: bold/italic/indent/link via the keyboard toolbar,
+                  stored as the markdown subset (see RichTextInput / lib/markdown). */}
+              <RichTextInput
                 label={showDraftActions ? 'Review (optional)' : 'Review'}
                 value={body}
                 onChangeText={setBody}
                 placeholder="What did you think?"
-                multiline
               />
 
               <Pressable style={styles.spoilerRow} onPress={() => setSpoilers((s) => !s)}>

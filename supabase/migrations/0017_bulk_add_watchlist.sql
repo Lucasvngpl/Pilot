@@ -1,4 +1,5 @@
--- 0016_bulk_add_watchlist.sql — batched "add these to my watchlist" RPC.
+-- 0017_bulk_add_watchlist.sql — batched "add these to my watchlist" RPC.
+-- (Renumbered 0016 -> 0017 at merge: PIL-24's comments/reports/blocks took 0016.)
 --
 -- Mirror of bulk_mark_watched (0015): the onboarding "starter recommendations"
 -- step lets a new user tap several shows to watch later, and we flush them in ONE
