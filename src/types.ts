@@ -370,6 +370,77 @@ export type ReviewDetail = {
   backdropPath: string | null;
 };
 
+// ----- Comments ------------------------------------------------------------
+// Flat (non-threaded) comments on a review or a list. The polymorphic target is
+// (target_type, target_id) — same nullable-scope discipline the social tables use,
+// but here both columns are NOT NULL since a comment always points at exactly one
+// thing. Enriched server-side (get-comments) with the commenter's profile.
+
+export type CommentTargetType = 'review' | 'list';
+
+export type CommentWithMeta = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
+export type GetCommentsResponse = {
+  comments: CommentWithMeta[];
+};
+
+// ----- Moderation (report + block) -----------------------------------------
+// The App Store Guideline 1.2 pair that lets comments ship. A report flags any
+// piece of others' UGC for the manual admin-removal queue; a block globally hides
+// a user's content from the blocker and tears down the follow edges both ways.
+
+export type ReportTargetType = 'review' | 'list' | 'comment' | 'profile';
+
+// The canned reasons shown in the report sheet (a free-text "other" could be added
+// later; the report→remove loop is what 1.2 actually gates on).
+export type ReportReason =
+  | 'Spam'
+  | 'Harassment or hate'
+  | 'Inappropriate content'
+  | 'Spoilers'
+  | 'Other';
+
+// A user the signed-in user has blocked — rendered in Settings › Blocked users.
+export type BlockedUser = {
+  id: string;
+  username: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  blocked_at: string;
+};
+
+// ----- Incoming activity (the "Incoming" lane) -----------------------------
+// Actions OTHERS took on YOUR content — the in-app notification surface. A
+// discriminated union, like ActivityItem, but oriented around "you" as the
+// recipient ("X commented on your review", "X liked your list", "X followed you").
+type IncomingBase = { key: string; actor: ActivityActor; at: string };
+
+export type IncomingItem =
+  | (IncomingBase & {
+      type: 'comment';
+      target: 'review' | 'list';
+      reviewId?: string;          // present when target === 'review'
+      listId?: string;            // present when target === 'list'
+      objectLabel: string;        // e.g. "your review of Severance" / "your list Top Crime"
+      body: string;               // the comment text (snippet)
+    })
+  | (IncomingBase & {
+      type: 'liked';
+      target: 'review' | 'list';
+      reviewId?: string;
+      listId?: string;
+      objectLabel: string;
+    })
+  | (IncomingBase & { type: 'followed' });
+
 // ----- Likes ---------------------------------------------------------------
 
 // The like state for ONE target (a review or a list), read together in a single
