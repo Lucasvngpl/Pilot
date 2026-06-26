@@ -64,24 +64,26 @@ export function inviteShareUrl(userId: string): string {
   return `pilot://user/${userId}?ref=invite`;
 }
 
-// Open the native share sheet with a personal invite. The message carries Pilot's
-// mark + an install hook so a recipient who doesn't have the app yet knows what it
-// is and where to get it (step 4). `who` = the sharer's display name / handle.
-export async function shareInvite(profile: {
-  id: string;
-  username: string;
-  display_name: string | null;
-}): Promise<void> {
-  const url = inviteShareUrl(profile.id);
+type InviteProfile = { id: string; username: string; display_name: string | null };
+
+// The invite copy, in one place so the share sheet AND the per-contact SMS path
+// (onboarding AddFriendsStep) send the identical message. Carries Pilot's mark +
+// an install hook so a recipient without the app knows what it is and where to get
+// it (closes step 4 of the growth loop).
+export function inviteMessage(profile: InviteProfile): string {
   const who = profile.display_name ?? profile.username;
+  return (
+    `Follow ${who} on Pilot — track, rate & review every show and episode you watch.\n` +
+    `${inviteShareUrl(profile.id)}\n\n` +
+    `Don't have Pilot yet? Get it: https://pilot.app`
+  );
+}
+
+// Open the native share sheet with a personal invite (socials / DMs — the user
+// picks the app). `who` = the sharer's display name / handle.
+export async function shareInvite(profile: InviteProfile): Promise<void> {
   try {
-    await Share.share({
-      message:
-        `Follow ${who} on Pilot — track, rate & review every show and episode you watch.\n` +
-        `${url}\n\n` +
-        `Don't have Pilot yet? Get it: https://pilot.app`,
-      title: 'Join me on Pilot',
-    });
+    await Share.share({ message: inviteMessage(profile), title: 'Join me on Pilot' });
   } catch {
     // Share dismissed or failed — nothing to recover.
   }

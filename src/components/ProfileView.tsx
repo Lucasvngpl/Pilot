@@ -29,6 +29,7 @@ import {
 } from '@/components/icons';
 import { type, pad, fonts, radius, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
+import { shareInvite } from '@/lib/share';
 import type { CurrentlyWatchingCard, ShowCard, ListSummary } from '@/types';
 
 const TOP_N = 4; // four favorites fit one row with no horizontal scroll
@@ -41,8 +42,19 @@ type Variant = 'own' | 'other';
  * hooks already take a `userId`, so only the chrome differs by `variant`:
  *  - own:   share + gear → sign-out sheet, BottomNav, Diary link, no Follow button.
  *  - other: back button, Follow button (when not yourself), no sheet/nav/Diary.
+ *
+ * `invite` = arrived via a shared invite deep link (/user/[id]?ref=invite). Surfaces
+ * a prominent follow prompt on the sharer's profile (closes growth-loop step 5).
  */
-export function ProfileView({ userId, variant }: { userId: string; variant: Variant }) {
+export function ProfileView({
+  userId,
+  variant,
+  invite = false,
+}: {
+  userId: string;
+  variant: Variant;
+  invite?: boolean;
+}) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -148,7 +160,14 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         <View style={styles.actionRow}>
           {isOwn ? (
             <>
-              <Pressable hitSlop={8}>
+              {/* Share = invite a friend: a personal deep link to THIS profile +
+                  Pilot mark + install hook (the growth loop). Was previously inert. */}
+              <Pressable
+                hitSlop={8}
+                onPress={() =>
+                  shareInvite({ id: userId, username, display_name: displayName })
+                }
+              >
                 <ShareIcon color={colors.ink} size={22} />
               </Pressable>
               {/* Right cluster: theme toggle sits just LEFT of the gear. */}
@@ -212,6 +231,21 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         {profileData?.profile?.bio ? (
           <Text style={styles.bio}>{profileData.profile.bio}</Text>
         ) : null}
+
+        {/* Invite landing: someone shared their profile to recruit you. Put a
+            follow CTA front-and-centre (the action-row Follow is small/easy to
+            miss). Only on another user's profile, never your own. */}
+        {invite && !isOwn && myId !== userId && (
+          <View style={styles.inviteBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.inviteTitle} numberOfLines={1}>
+                {name} invited you to Pilot
+              </Text>
+              <Text style={styles.inviteSub}>Follow to see their reviews, diary & watchlist.</Text>
+            </View>
+            <FollowButton followeeId={userId} />
+          </View>
+        )}
 
         {/* No count chips on the tab labels — they read as clutter (PIL-5).
             `watchedCount` is still used below for the "Your record" summary. */}
@@ -653,6 +687,22 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingHorizontal: pad,
     paddingTop: 12,
   },
+
+  // Invite-landing banner: subtle purple-tinted card with the follow CTA.
+  inviteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: pad,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  inviteTitle: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
+  inviteSub: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, marginTop: 2 },
 
   sheetBody: { paddingHorizontal: pad },
   centerBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: pad },
