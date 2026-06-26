@@ -15,7 +15,8 @@ import { Poster } from '@/components/Poster';
 import { ListBanner } from '@/components/ListBanner';
 import { Markdown } from '@/components/Markdown';
 import { Skeleton } from '@/components/Skeleton';
-import { ActionMenuSheet } from '@/components/ActionMenuSheet';
+import { ContentActionSheet } from '@/components/ContentActionSheet';
+import { CommentsSection } from '@/components/CommentsSection';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
 import { ListLikeBar } from '@/components/LikeBar';
 import { shareList } from '@/lib/share';
@@ -53,10 +54,10 @@ export default function ListDetailScreen() {
   };
 
   // White controls over the banner — back (always), Share (anyone, once the list
-  // loads), and ⋯ (owner only → Edit/Delete). Padded below the notch since the
+  // loads), and ⋯ (once loaded → owner: Change banner/Edit/Delete; others:
+  // Report/Block — ContentActionSheet decides). Padded below the notch since the
   // banner is full-bleed under the status bar.
   const controls = (l: ListDetail | null | undefined) => {
-    const owner = !!user && !!l && l.user_id === user.id;
     return (
       <View style={[styles.controls, { paddingTop: insets.top + 6 }]}>
         <Pressable onPress={() => router.back()} hitSlop={10} style={styles.controlBtn}>
@@ -68,7 +69,7 @@ export default function ListDetailScreen() {
               <ShareIcon color={colors.white} size={22} />
             </Pressable>
           )}
-          {owner && (
+          {l && (
             <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} style={styles.controlBtn} disabled={isPending}>
               <DotsIcon color={colors.white} size={22} />
             </Pressable>
@@ -128,7 +129,12 @@ export default function ListDetailScreen() {
           else below it. */}
       <StatusBar style="light" />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+        keyboardShouldPersistTaps="handled"
+        // iOS: lift content above the keyboard so the comment composer isn't covered.
+        automaticallyAdjustKeyboardInsets
+      >
         <ListBanner
           posters={list.items.map((it) => it.poster_path)}
           bannerUrl={list.bannerUrl}
@@ -178,17 +184,23 @@ export default function ListDetailScreen() {
           // so the rank is just the row's 1-based index — stable across reloads.
           list.items.map((item, i) => <RankedRow key={item.scopeKey} rank={i + 1} item={item} />)
         )}
+
+        {/* Flat comment thread + composer (public read, login-gated post). */}
+        <CommentsSection targetType="list" targetId={list.id} />
       </ScrollView>
 
-      {/* Owner-only menu, opened from the banner ⋯. */}
-      <ActionMenuSheet
+      {/* Banner ⋯ menu. Owner → Change banner / Edit / Delete; others →
+          Report list / Block user. After a block, leave the page (now hidden). */}
+      <ContentActionSheet
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
-        actions={[
+        target={{ type: 'list', id: list.id, userId: list.user_id }}
+        ownActions={[
           { label: 'Change banner', onPress: () => router.push(`/list/${id}/banner` as any) },
           { label: 'Edit list', onPress: () => router.push(`/list/new?edit=${id}` as any) },
           { label: 'Delete list', destructive: true, onPress: onDelete },
         ]}
+        onBlocked={() => router.back()}
       />
 
     </View>

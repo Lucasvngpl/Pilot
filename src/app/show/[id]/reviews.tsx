@@ -13,7 +13,7 @@ import { useProfile } from '@/api/useProfile';
 import { useAuth } from '@/lib/auth';
 import { Tabs } from '@/components/Tabs';
 import { ReviewRow } from '@/components/ReviewRow';
-import { ActionMenuSheet } from '@/components/ActionMenuSheet';
+import { ContentActionSheet } from '@/components/ContentActionSheet';
 import { ShowNavRow } from '@/components/ShowNavRow';
 import { ShowActionSheet } from '@/components/ShowActionSheet';
 import { ShowCompactHeader } from '@/components/ShowCompactHeader';
@@ -137,7 +137,9 @@ export default function ShowReviews() {
                   showCard,
                 ).posterPath}
                 onPress={() => router.push(`/review/${r.id}` as any)}
-                onMenu={user && r.user_id === user.id ? () => setMenuReview(r) : undefined}
+                // ⋯ on EVERY review now: own → Edit/Delete, others → Report/Block
+                // (ContentActionSheet picks by ownership).
+                onMenu={() => setMenuReview(r)}
               />
             ))
           )}
@@ -153,12 +155,13 @@ export default function ShowReviews() {
         currentRating={showScopeRating}
       />
 
-      {/* Owner-only Edit/Delete for the tapped review. Edit reuses the composer
-          (review.tsx?reviewId=) with the scope locked. */}
-      <ActionMenuSheet
+      {/* ⋯ for the tapped review. Own → Edit/Delete (edit reuses the composer with
+          the scope locked); others → Report/Block. */}
+      <ContentActionSheet
         visible={!!menuReview}
         onClose={() => setMenuReview(null)}
-        actions={
+        target={{ type: 'review', id: menuReview?.id ?? '', userId: menuReview?.user_id ?? '' }}
+        ownActions={
           menuReview
             ? [
                 {

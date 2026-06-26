@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { fetchBlockedIds } from '@/api/blocks';
 import type { PersonResult } from '@/types';
 
 /**
@@ -21,7 +22,9 @@ export function useShowViewers(tmdbShowId: number | undefined) {
         .eq('tmdb_show_id', tmdbShowId)
         .in('status', ['watched', 'watching']);
       if (error) throw error;
-      const ids = [...new Set((ws ?? []).map((w) => w.user_id as string))];
+      // Drop viewers I've blocked — they shouldn't surface as a follow suggestion.
+      const blocked = await fetchBlockedIds(myId);
+      const ids = [...new Set((ws ?? []).map((w) => w.user_id as string))].filter((id) => !blocked.has(id));
       if (ids.length === 0) return [];
 
       const { data: profiles, error: pErr } = await supabase

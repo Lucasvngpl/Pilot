@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth';
-import { useActivityFeed, type ActivityMode } from '@/api/useActivityFeed';
+import { useActivityFeed } from '@/api/useActivityFeed';
+import { useIncomingFeed } from '@/api/useIncomingFeed';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { Markdown } from '@/components/Markdown';
@@ -13,22 +14,40 @@ import { tmdbImage } from '@/types';
 import { timeAgo } from '@/lib/timeAgo';
 import { type, pad, fonts, type Palette } from '@/theme';
 import { useThemedStyles, useTheme } from '@/lib/theme';
-import type { ActivityActor, ActivityItem } from '@/types';
+import type { ActivityActor, ActivityItem, IncomingItem } from '@/types';
 
-// Activity → two tabs: Friends (what the people you follow did) and You (your own
-// activity). Each is the same time-ordered stream — watched / watchlist / review /
-// list / like / follow — for a different actor set.
+type Tab = 'friends' | 'you' | 'incoming';
+
+// Activity → three tabs: Friends (what people you follow did), You (your own
+// activity), and Incoming (what others did to YOUR content — comments, likes,
+// follows; PIL-24's in-app notification lane). Friends/You share one time-ordered
+// stream; Incoming is its own recipient-oriented feed.
 export default function Activity() {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const { user } = useAuth();
-  const [tab, setTab] = useState<ActivityMode>('friends');
-  const { data: items, isLoading } = useActivityFeed(tab);
+  const [tab, setTab] = useState<Tab>('friends');
 
+  // Friends/You use one builder; Incoming its own. Both hooks run (TanStack caches
+  // + dedupes), so switching tabs is instant.
+  const { data: streamItems, isLoading: streamLoading } = useActivityFeed(tab === 'you' ? 'you' : 'friends');
+  const { data: incomingItems, isLoading: incomingLoading } = useIncomingFeed();
+
+  const isLoading = tab === 'incoming' ? incomingLoading : streamLoading;
+  const isEmpty =
+    tab === 'incoming' ? !incomingItems || incomingItems.length === 0 : !streamItems || streamItems.length === 0;
   const empty =
     tab === 'friends'
       ? 'Follow people to see their activity here.'
-      : 'Your activity will show up here.';
+      : tab === 'you'
+        ? 'Your activity will show up here.'
+        : 'Comments, likes, and follows on your stuff show up here.';
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'friends', label: 'Friends' },
+    { key: 'you', label: 'You' },
+    { key: 'incoming', label: 'Incoming' },
+  ];
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -36,14 +55,14 @@ export default function Activity() {
         <Text style={[type.subhead, { color: colors.ink }]}>Activity</Text>
       </View>
 
-      {/* Friends / You tab bar (underline, like the profile tabs). */}
+      {/* Tab bar (underline, like the profile tabs). */}
       <View style={styles.tabs}>
-        {(['friends', 'you'] as const).map((t) => {
-          const active = tab === t;
+        {TABS.map((t) => {
+          const active = tab === t.key;
           return (
-            <Pressable key={t} onPress={() => setTab(t)} style={styles.tab} hitSlop={6}>
+            <Pressable key={t.key} onPress={() => setTab(t.key)} style={styles.tab} hitSlop={6}>
               <Text style={[styles.tabLabel, { color: active ? colors.ink : colors.muted }]}>
-                {t === 'friends' ? 'Friends' : 'You'}
+                {t.label}
               </Text>
               <View style={[styles.tabUnderline, { backgroundColor: active ? colors.ink : 'transparent' }]} />
             </Pressable>
@@ -57,13 +76,13 @@ export default function Activity() {
           <Text style={styles.empty}>Log in to see activity.</Text>
         ) : isLoading ? (
           <ActivityRowsSkeleton />
-        ) : !items || items.length === 0 ? (
+        ) : isEmpty ? (
           <Text style={styles.empty}>{empty}</Text>
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
-            {items.map((item) => (
-              <ActivityRow key={item.key} item={item} viewerId={user.id} />
-            ))}
+            {tab === 'incoming'
+              ? (incomingItems ?? []).map((item) => <IncomingRow key={item.key} item={item} />)
+              : (streamItems ?? []).map((item) => <ActivityRow key={item.key} item={item} viewerId={user.id} />)}
           </ScrollView>
         )}
       </View>
@@ -221,6 +240,45 @@ function ActivityRow({ item, viewerId }: { item: ActivityItem; viewerId: string 
         </FeedRow>
       );
   }
+}
+
+// ----- Incoming rows --------------------------------------------------------
+
+// One Incoming item — what someone did to YOUR content. The header line reads
+// "{actor} {verb} {objectLabel}" (objectLabel already says "your review of X" /
+// "your list Y" / — for a follow — "you"). Comments add a body snippet line.
+function IncomingRow({ item }: { item: IncomingItem }) {
+  const styles = useThemedStyles(makeStyles);
+
+  if (item.type === 'followed') {
+    return (
+      <FeedRow onPress={() => router.push(`/user/${item.actor.id}` as any)}>
+        <Avatar actor={item.actor} />
+        <View style={styles.body}>
+          <HeaderLine isYou={false} actor={item.actor} verb="followed" object="you" at={item.at} />
+        </View>
+      </FeedRow>
+    );
+  }
+
+  // comment / liked both point at a review or a list.
+  const onPress = () =>
+    item.target === 'review'
+      ? router.push(`/review/${item.reviewId}` as any)
+      : router.push(`/list/${item.listId}` as any);
+  const verb = item.type === 'comment' ? 'commented on' : 'liked';
+
+  return (
+    <FeedRow onPress={onPress}>
+      <Avatar actor={item.actor} />
+      <View style={styles.body}>
+        <HeaderLine isYou={false} actor={item.actor} verb={verb} object={item.objectLabel} at={item.at} />
+        {item.type === 'comment' && (
+          <Text style={[styles.reviewBody, { marginTop: 4 }]} numberOfLines={2}>{item.body}</Text>
+        )}
+      </View>
+    </FeedRow>
+  );
 }
 
 function FeedRow({ onPress, children }: { onPress: () => void; children: React.ReactNode }) {

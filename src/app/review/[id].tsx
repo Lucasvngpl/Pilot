@@ -9,14 +9,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@/lib/auth';
 import { useReviewDetail } from '@/api/useReviewDetail';
 import { useDeleteReview } from '@/api/useReviewMutations';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
 import { Markdown } from '@/components/Markdown';
 import { Skeleton } from '@/components/Skeleton';
-import { ActionMenuSheet } from '@/components/ActionMenuSheet';
+import { ContentActionSheet } from '@/components/ContentActionSheet';
+import { CommentsSection } from '@/components/CommentsSection';
 import { ChevronLeftIcon, DotsIcon, ShareIcon } from '@/components/icons';
 import { ReviewLikeBar } from '@/components/LikeBar';
 import { shareReview } from '@/lib/share';
@@ -31,13 +31,11 @@ export default function ReviewScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const { data: review, isLoading } = useReviewDetail(id);
   const { remove } = useDeleteReview();
   const [menuOpen, setMenuOpen] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  const isOwn = !!user && !!review && review.user_id === user.id;
   const heroHeight = HERO_H + insets.top;
   // Scope line ("Season 3" / "Season 2 · E5"), or undefined for a whole-show review.
   const scopeLine = review ? formatScope(review.season_number, review.episode_number) : undefined;
@@ -62,10 +60,10 @@ export default function ReviewScreen() {
   };
 
   // White controls over the dark banner: back (always), a centered "Review"
-  // title, and on the right Share (anyone, once loaded) + ⋯ (own review only →
-  // Edit/Delete; no dead ⋯ on others'). The title is absolutely positioned so it
-  // stays centered no matter how many buttons flank it. Padded below the notch
-  // since the banner is full-bleed under the status bar.
+  // title, and on the right Share (anyone, once loaded) + ⋯ (once loaded → own
+  // review: Edit/Delete; others' review: Report/Block — ContentActionSheet picks).
+  // The title is absolutely positioned so it stays centered no matter how many
+  // buttons flank it. Padded below the notch since the banner is full-bleed.
   const controls = (
     <View style={[styles.controls, { paddingTop: insets.top + 6 }]}>
       {/* pointerEvents none → taps fall through to the buttons beneath. */}
@@ -83,7 +81,7 @@ export default function ReviewScreen() {
             <ShareIcon color={colors.white} size={22} />
           </Pressable>
         )}
-        {isOwn && (
+        {review && (
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} style={styles.controlBtn}>
             <DotsIcon color={colors.white} size={22} />
           </Pressable>
@@ -117,7 +115,13 @@ export default function ReviewScreen() {
       ) : !review ? (
         <Text style={styles.notFound}>Review not found.</Text>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          keyboardShouldPersistTaps="handled"
+          // iOS: lift content above the keyboard so the comment composer near the
+          // bottom isn't covered while typing.
+          automaticallyAdjustKeyboardInsets
+        >
           <View style={styles.topBlock}>
             <View style={styles.topText}>
               {/* Reviewer identity */}
@@ -183,27 +187,31 @@ export default function ReviewScreen() {
               <ReviewLikeBar reviewId={review.id} initialCount={review.likes} size={15} />
             </View>
           </View>
+
+          {/* Flat comment thread + composer (public read, login-gated post). */}
+          <CommentsSection targetType="review" targetId={review.id} />
         </ScrollView>
       )}
 
-      {/* Own-review Edit/Delete, opened from the banner ⋯. Edit reuses the show's
-          composer with the scope locked (same as Profile › Reviews). */}
-      <ActionMenuSheet
-        visible={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        actions={
-          review
-            ? [
-                {
-                  label: 'Edit review',
-                  onPress: () =>
-                    router.push(`/show/${review.tmdb_show_id}/review?reviewId=${review.id}` as any),
-                },
-                { label: 'Delete review', destructive: true, onPress: onDelete },
-              ]
-            : []
-        }
-      />
+      {/* Banner ⋯ menu. Own review → Edit/Delete (edit reuses the composer with
+          the scope locked); others' review → Report/Block. After a block, leave
+          the page — the review is now hidden for you. */}
+      {review && (
+        <ContentActionSheet
+          visible={menuOpen}
+          onClose={() => setMenuOpen(false)}
+          target={{ type: 'review', id: review.id, userId: review.user_id }}
+          ownActions={[
+            {
+              label: 'Edit review',
+              onPress: () =>
+                router.push(`/show/${review.tmdb_show_id}/review?reviewId=${review.id}` as any),
+            },
+            { label: 'Delete review', destructive: true, onPress: onDelete },
+          ]}
+          onBlocked={() => router.back()}
+        />
+      )}
     </View>
   );
 }

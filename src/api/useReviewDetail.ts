@@ -4,7 +4,9 @@
 // scope, and the show card (name + poster + backdrop for the hero banner).
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import { fetchShowCards } from '@/api/showCards';
+import { fetchBlockedIds } from '@/api/blocks';
 import { resolveScope } from '@/types';
 import type { ReviewDetail } from '@/types';
 
@@ -28,8 +30,11 @@ type EmbeddedReview = {
 };
 
 export function useReviewDetail(reviewId: string | undefined) {
+  const { user } = useAuth();
+  const myId = user?.id;
   return useQuery<ReviewDetail | null>({
-    queryKey: ['reviewDetail', reviewId],
+    // Viewer in the key: a blocked author's review resolves to null for me only.
+    queryKey: ['reviewDetail', reviewId, myId],
     enabled: !!reviewId,
     queryFn: async () => {
       // PUBLISHED only. `is_draft=false` keeps this public page from ever
@@ -51,6 +56,11 @@ export function useReviewDetail(reviewId: string | undefined) {
       // supabase-js can't infer the embedded relations precisely from the select
       // string, so cast through unknown to the shape we know it returns.
       const r = data as unknown as EmbeddedReview;
+
+      // Blocked author → null (the page renders "Review not found"). Block hides
+      // their content everywhere; a stale deep link is the path this guards.
+      const blocked = await fetchBlockedIds(myId);
+      if (blocked.has(r.user_id)) return null;
 
       // The reviewer's rating for this EXACT scope. Nullable scope → .is(null),
       // else .eq(n) — never match scope with SQL NULL≠NULL (CLAUDE.md rule).

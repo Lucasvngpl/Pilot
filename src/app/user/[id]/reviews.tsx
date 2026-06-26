@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { ScrollView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMyReviews } from '@/api/useMyReviews';
 import { useProfile } from '@/api/useProfile';
+import { useIsBlocked } from '@/api/blocks';
+import { useAuth } from '@/lib/auth';
 import { ReviewRow } from '@/components/ReviewRow';
+import { ContentActionSheet } from '@/components/ContentActionSheet';
 import { ReviewRowsSkeleton } from '@/components/Skeletons';
 import { ChevronLeftIcon } from '@/components/icons';
 import { type, pad, type Palette } from '@/theme';
@@ -23,6 +27,15 @@ export default function UserReviews() {
 
   const { data: reviews, isLoading } = useMyReviews(id);
   const { data: profileData } = useProfile(id);
+  const { user } = useAuth();
+  // Every review on this page has the same author (the profile user `id`). Show a
+  // ⋯ → Report/Block menu, except when you're looking at your OWN reviews via the
+  // public route (edit/delete lives on /profile/reviews, not here).
+  const isSelf = user?.id === id;
+  // Deep-link guard: if I've blocked this user, hide their reviews here too (the
+  // normal entry point — their profile — already shows the blocked gate).
+  const isBlocked = useIsBlocked(id);
+  const [menuReviewId, setMenuReviewId] = useState<string | null>(null);
 
   const profile = profileData?.profile;
   // Friendly name (display_name ?? username) for the row identity + header. No
@@ -45,7 +58,9 @@ export default function UserReviews() {
         <View style={{ width: 24 }} />
       </View>
 
-      {isLoading ? (
+      {isBlocked ? (
+        <Text style={styles.empty}>You&apos;ve blocked this user.</Text>
+      ) : isLoading ? (
         <ReviewRowsSkeleton />
       ) : !reviews || reviews.length === 0 ? (
         <Text style={styles.empty}>No reviews yet.</Text>
@@ -68,11 +83,19 @@ export default function UserReviews() {
               posterPath={r.posterPath}
               posterPressable
               onPress={() => router.push(`/review/${r.id}` as any)}
-              // No onMenu → no edit/delete: these aren't yours.
+              // ⋯ → Report/Block (others' reviews only; never on your own page).
+              onMenu={isSelf ? undefined : () => setMenuReviewId(r.id)}
             />
           ))}
         </ScrollView>
       )}
+
+      {/* All rows share one author (the profile user) → one retargetable menu. */}
+      <ContentActionSheet
+        visible={!!menuReviewId}
+        onClose={() => setMenuReviewId(null)}
+        target={{ type: 'review', id: menuReviewId ?? '', userId: id }}
+      />
     </SafeAreaView>
   );
 }
