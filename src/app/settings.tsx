@@ -237,6 +237,16 @@ export default function Settings() {
           </Pressable>
         </View>
 
+        {/* Privacy — block management (the App Store 1.2 moderation pair; reporting
+            is a per-item action, blocking is managed here). */}
+        <View style={styles.librarySection}>
+          <Text style={styles.sectionLabel}>Privacy</Text>
+          <Pressable style={styles.navRow} onPress={() => router.push('/profile/blocked' as any)}>
+            <Text style={styles.navRowLabel}>Blocked users</Text>
+            <ChevronRightIcon color={colors.faint} size={20} />
+          </Pressable>
+        </View>
+
         {/* Feedback — opens an in-app mail composer to Lucas (mailto fallback). */}
         <View style={styles.librarySection}>
           <Text style={styles.sectionLabel}>Feedback</Text>
