@@ -13,6 +13,7 @@ import { useReviewDetail } from '@/api/useReviewDetail';
 import { useDeleteReview } from '@/api/useReviewMutations';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
+import { Markdown } from '@/components/Markdown';
 import { Skeleton } from '@/components/Skeleton';
 import { ContentActionSheet } from '@/components/ContentActionSheet';
 import { CommentsSection } from '@/components/CommentsSection';
@@ -176,7 +177,8 @@ export default function ReviewScreen() {
                 </Text>
               </Pressable>
             ) : (
-              <Text style={[type.reviewBody, styles.body]}>{review.body}</Text>
+              // Full markdown render (block mode: paragraphs + indented quotes).
+              <Markdown text={review.body} style={[type.reviewBody, styles.body]} />
             )}
 
             {/* Interactive like bar — tap the heart to toggle; shows liker

@@ -8,6 +8,7 @@ import { useActivityFeed } from '@/api/useActivityFeed';
 import { useIncomingFeed } from '@/api/useIncomingFeed';
 import { Poster } from '@/components/Poster';
 import { Stars } from '@/components/Stars';
+import { Markdown } from '@/components/Markdown';
 import { ActivityRowsSkeleton } from '@/components/Skeletons';
 import { tmdbImage } from '@/types';
 import { timeAgo } from '@/lib/timeAgo';
@@ -145,9 +146,12 @@ function ActivityRow({ item, viewerId }: { item: ActivityItem; viewerId: string 
               <Poster tmdbShowId={item.show.tmdb_show_id} posterPath={item.show.poster_path} name={item.show.name} width={48} pressable={false} />
               <View style={styles.posterMeta}>
                 {item.rating != null && <Stars value={item.rating} size={12} color={colors.gold} />}
-                <Text style={styles.reviewBody} numberOfLines={2}>
-                  {item.containsSpoilers ? 'Contains spoilers' : item.body}
-                </Text>
+                {item.containsSpoilers ? (
+                  <Text style={styles.reviewBody} numberOfLines={2}>Contains spoilers</Text>
+                ) : (
+                  // Clamped markdown so feed snippets don't show raw ** / [..](..).
+                  <Markdown text={item.body} style={styles.reviewBody} numberOfLines={2} />
+                )}
               </View>
             </View>
           </View>

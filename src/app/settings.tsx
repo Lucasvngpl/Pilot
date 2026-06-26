@@ -13,6 +13,7 @@ import { useProfile, type ProfileData } from '@/api/useProfile';
 import { useUpdateProfile, type ProfilePatch } from '@/api/useUpdateProfile';
 import { uploadAvatar } from '@/lib/uploadAvatar';
 import { TextField } from '@/components/TextField';
+import { RichTextInput } from '@/components/RichTextInput';
 import { Button } from '@/components/Button';
 import { ChevronLeftIcon, ChevronRightIcon } from '@/components/icons';
 import { sendFeedback } from '@/lib/feedback';
@@ -187,13 +188,15 @@ export default function Settings() {
           onChangeText={setDisplayName}
           placeholder="Your name"
         />
-        <TextField
+        {/* Rich text bio: bold/italic/indent/link via the keyboard toolbar
+            (stored as the markdown subset). Keeps the 160-char cap + counter. */}
+        <RichTextInput
           label="Bio"
           value={bio}
           onChangeText={(t) => setBio(t.slice(0, BIO_MAX))}
           placeholder="A little about you"
-          multiline
           maxLength={BIO_MAX}
+          minHeight={90}
           rightAccessory={<Text style={styles.helper}>{bio.length}/{BIO_MAX}</Text>}
         />
 

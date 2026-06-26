@@ -395,3 +395,64 @@ export function CloseIcon({ color = '#000', size = 16 }: Props) {
     </Svg>
   );
 }
+
+// ----- Rich-text toolbar (PIL-22) -------------------------------------------
+
+// Indent / blockquote — three text lines with a small right-chevron, reading as
+// "shift text in". Maps to our "> " blockquote toggle.
+export function IndentIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M10 6 H20 M10 12 H20 M10 18 H20" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M3 9 L6 12 L3 15" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// Link — two interlocking chain links (the standard hyperlink glyph).
+export function LinkIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M10 14 A4 4 0 0 1 10 8 L12.5 5.5 A4 4 0 0 1 18.5 11 L17 12.5"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M14 10 A4 4 0 0 1 14 16 L11.5 18.5 A4 4 0 0 1 5.5 13 L7 11.5"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// Undo — a counter-clockwise arrow curving back to the left.
+export function UndoIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 7 L4 11 L9 15"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M4 11 H14 A5 5 0 0 1 14 21 H11"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+// Redo — the mirror of undo (clockwise, curving back to the right).
+export function RedoIcon({ color = '#000', size = 22 }: Props) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 7 L20 11 L15 15"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+      <Path
+        d="M20 11 H10 A5 5 0 0 0 10 21 H13"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
