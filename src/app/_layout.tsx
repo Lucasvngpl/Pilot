@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { RequireAuthProvider } from '@/lib/requireAuth';
 import { ScopeSheetProvider } from '@/lib/scopeSheet';
 import { ThemeProvider, useTheme } from '@/lib/theme';
@@ -49,6 +50,7 @@ const NAV_HIDDEN_ROUTES = new Set([
 ]);
 function showNavForSegments(segments: string[]): boolean {
   if (segments[0] === '(auth)') return false; // welcome + signup (also logged out)
+  if (segments[0] === 'onboarding') return false; // first-run flow has its own footer
   return !NAV_HIDDEN_ROUTES.has(segments.join('/'));
 }
 
@@ -70,20 +72,31 @@ function showNavForSegments(segments: string[]): boolean {
 function AuthGate() {
   const { session, loading } = useAuth();
   const { mode, hydrated } = useTheme();
+  const { seen } = useOnboarding();
   const anySheetOpen = useAnySheetOpen();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || seen === null) return;
     const inAuthGroup = segments[0] === '(auth)';
-    if (session && inAuthGroup) router.replace('/');
-  }, [session, loading, segments]);
+    const onOnboarding = segments[0] === 'onboarding';
+    // Signed in but stranded in the auth group → Home (unchanged behaviour).
+    if (session && inAuthGroup) { router.replace('/'); return; }
+    // FIRST RUN ONLY: a brand-new install (no session, hasn't seen onboarding) is
+    // sent to /onboarding ONCE. After they finish or skip, `seen` flips true and we
+    // never redirect again — so a RETURNING anonymous browser is NOT force-walled
+    // (browse-free preserved). We never redirect from inside the auth group either,
+    // so /welcome → /signup still works.
+    if (!session && !seen && !inAuthGroup && !onOnboarding) {
+      router.replace('/onboarding' as any);
+    }
+  }, [session, loading, seen, segments]);
 
-  // Hold the UI until BOTH the session and the theme preference hydrate from
-  // AsyncStorage: the session gate avoids a flash of the signed-out view; the
-  // theme gate avoids a flash of the OS theme before a forced light/dark applies.
-  if (loading || !hydrated) return null;
+  // Hold the UI until the session, theme preference, AND onboarding flag hydrate
+  // from AsyncStorage: each gate avoids a flash of the wrong screen before its
+  // persisted value lands (signed-out view / OS theme / Home-before-onboarding).
+  if (loading || !hydrated || seen === null) return null;
 
   const showNav = showNavForSegments(segments);
   const activeTab = activeTabForSegments(segments);
@@ -131,6 +144,9 @@ function AuthGate() {
             not like pushing forward; pushed detail screens keep the default slide
             + swipe-back. */}
         <Stack.Screen name="index" options={{ animation: 'none' }} />
+        {/* First-run onboarding: no slide, and swipe-back disabled so the gate
+            can't be dismissed by an edge swipe (it's a root after replace()). */}
+        <Stack.Screen name="onboarding" options={{ animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="activity" options={{ animation: 'none' }} />
         <Stack.Screen name="search" options={{ animation: 'none' }} />
         <Stack.Screen name="profile/index" options={{ animation: 'none' }} />
@@ -178,6 +194,11 @@ export default function RootLayout() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
+            {/* Owns the first-run "seen" flag + the in-progress onboarding picks,
+                and flushes them once a session lands. Inside AuthProvider +
+                QueryClientProvider (reads the session, invalidates Profile queries);
+                wraps AuthGate, which reads `seen` to decide the first-run redirect. */}
+            <OnboardingProvider>
             {/* Above ALL sheets (incl. the root-mounted LoginSheet / long-press
                 ShowActionSheet) AND the Stack, so any open sheet can drop the Stack's
                 back-swipe — AuthGate reads the count. */}
@@ -191,6 +212,7 @@ export default function RootLayout() {
                 </ScopeSheetProvider>
               </RequireAuthProvider>
             </SheetGestureProvider>
+            </OnboardingProvider>
           </AuthProvider>
         </QueryClientProvider>
       </ThemeProvider>
