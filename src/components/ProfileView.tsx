@@ -15,6 +15,7 @@ import { useMyLists, useDraftLists } from '@/api/useLists';
 import { useTopShows } from '@/api/useTopShows';
 import { useDraftReviews } from '@/api/useMyReviews';
 import { Poster } from '@/components/Poster';
+import { Markdown } from '@/components/Markdown';
 import { Skeleton } from '@/components/Skeleton';
 import { FollowButton } from '@/components/FollowButton';
 import { AvatarViewer } from '@/components/AvatarViewer';
@@ -210,7 +211,7 @@ export function ProfileView({ userId, variant }: { userId: string; variant: Vari
         </View>
 
         {profileData?.profile?.bio ? (
-          <Text style={styles.bio}>{profileData.profile.bio}</Text>
+          <Markdown text={profileData.profile.bio} style={styles.bio} />
         ) : null}
 
         {/* No count chips on the tab labels — they read as clutter (PIL-5).
