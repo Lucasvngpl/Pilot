@@ -2,7 +2,7 @@
 // "Report" affordance (PIL-24), reused for any reportable target (review / list /
 // comment / profile). Renders as Pilot's Sheet overlay (not a Modal) so it can
 // stack over the ⋯ action menu and the LoginSheet the auth gate may raise.
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { Sheet } from '@/components/Sheet';
 import { useReport } from '@/api/useReport';
 import { REPORT_REASONS, type ReportReason, type ReportTargetType } from '@/types';
