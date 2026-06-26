@@ -127,40 +127,42 @@ function CommentRow({
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
-      <Pressable onPress={() => router.push(`/user/${comment.user_id}` as any)} hitSlop={4}>
-        {comment.avatar_url ? (
-          <Image source={{ uri: comment.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, { backgroundColor: colors.hairline }]} />
-        )}
-      </Pressable>
-      <View style={styles.rowBody}>
-        <View style={styles.rowHead}>
-          <Text style={[type.reviewUser, { color: colors.ink, flex: 1 }]} numberOfLines={1}>
-            {comment.display_name ?? comment.username}
-          </Text>
-          <Text style={styles.time}>{timeAgo(comment.created_at)}</Text>
-          {onMenu && (
-            <Pressable onPress={onMenu} hitSlop={8} style={{ marginLeft: 10 }}>
-              <DotsIcon color={colors.faint} size={16} />
-            </Pressable>
+      {/* Top row: avatar + name on the left, time + ⋯ on the right (Serializd-style
+          header). The body and like row BELOW span the full width — they're not
+          indented into the avatar's column the way a chat bubble would be. */}
+      <View style={styles.rowHead}>
+        <Pressable onPress={() => router.push(`/user/${comment.user_id}` as any)} hitSlop={4}>
+          {comment.avatar_url ? (
+            <Image source={{ uri: comment.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: colors.hairline }]} />
           )}
-        </View>
-        {/* Comment body is the markdown subset (same as reviews) → render it,
-            don't print raw `**`/`[..](..)`. */}
-        <Markdown text={comment.body} style={[type.reviewBody, { color: colors.ink, marginTop: 2 }]} />
-
-        {/* Like affordance — heart fills red once you've liked; count hidden at 0.
-            Tap is login-gated inside toggleLike (useToggleCommentLike). */}
-        <Pressable onPress={onLike} hitSlop={8} style={styles.likeRow}>
-          <HeartIcon
-            color={comment.liked_by_me ? colors.red : colors.faint}
-            size={14}
-            filled={comment.liked_by_me}
-          />
-          {comment.like_count > 0 && <Text style={styles.likeCount}>{comment.like_count}</Text>}
         </Pressable>
+        <Text style={[type.reviewUser, { color: colors.ink, flex: 1, marginLeft: 10 }]} numberOfLines={1}>
+          {comment.display_name ?? comment.username}
+        </Text>
+        <Text style={styles.time}>{timeAgo(comment.created_at)}</Text>
+        {onMenu && (
+          <Pressable onPress={onMenu} hitSlop={8} style={{ marginLeft: 10 }}>
+            <DotsIcon color={colors.faint} size={16} />
+          </Pressable>
+        )}
       </View>
+
+      {/* Body — full width, left-aligned to the row (markdown subset → render it,
+          don't print raw `**`/`[..](..)`). */}
+      <Markdown text={comment.body} style={[type.reviewBody, styles.body]} />
+
+      {/* Like row — heart + count at the bottom-left. Count hidden at 0; tap is
+          login-gated inside toggleLike (useToggleCommentLike). */}
+      <Pressable onPress={onLike} hitSlop={8} style={styles.likeRow}>
+        <HeartIcon
+          color={comment.liked_by_me ? colors.red : colors.faint}
+          size={16}
+          filled={comment.liked_by_me}
+        />
+        {comment.like_count > 0 && <Text style={styles.likeCount}>{comment.like_count}</Text>}
+      </Pressable>
     </View>
   );
 }
@@ -194,14 +196,18 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     paddingVertical: 8,
   },
 
-  row: { flexDirection: 'row', gap: 10, paddingHorizontal: pad, paddingVertical: 10 },
-  avatar: { width: 28, height: 28, borderRadius: 14 },
-  rowBody: { flex: 1 },
+  // A comment is a vertical stack now (header / body / likes), each spanning full
+  // width — the avatar only flanks the NAME, not the whole comment.
+  row: { paddingHorizontal: pad, paddingVertical: 12 },
+  avatar: { width: 32, height: 32, borderRadius: 16 },
   rowHead: { flexDirection: 'row', alignItems: 'center' },
   time: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint, marginLeft: 8 },
 
-  // Heart + count under a comment. alignSelf flex-start so only the heart/count is
-  // tappable, not the row width.
-  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, alignSelf: 'flex-start' },
-  likeCount: { fontFamily: fonts.regular, fontSize: 12, color: colors.faint },
+  // Body sits under the header at full width (left-aligned to the row padding).
+  body: { color: colors.ink, marginTop: 8 },
+
+  // Heart + count at the bottom-left. alignSelf flex-start so only the heart/count
+  // is tappable, not the row width.
+  likeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, alignSelf: 'flex-start' },
+  likeCount: { fontFamily: fonts.regular, fontSize: 13, color: colors.faint },
 });
