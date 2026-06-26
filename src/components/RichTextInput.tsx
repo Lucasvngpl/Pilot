@@ -16,7 +16,7 @@
 //    which is the classic cause of Android cursor-jump.
 //  - the history stack gives the toolbar's Undo/Redo. Typing coalesces into one
 //    entry per ~burst; each toolbar action is its own discrete step.
-import { useEffect, useId, useRef, useState, useReducer, useCallback } from 'react';
+import { useEffect, useId, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, StyleSheet, Platform, InputAccessoryView,
   type NativeSyntheticEvent, type TextInputSelectionChangeEventData,
@@ -75,16 +75,17 @@ export function RichTextInput({
     lastKind: 'init',
     lastAt: 0,
   });
-  // The history lives in a ref (mutable, no churn), but canUndo/canRedo must
-  // re-render the toolbar — bump a counter on every history change.
-  const [, bump] = useReducer((n: number) => n + 1, 0);
+  // The history lives in a ref (mutable, no churn). canUndo/canRedo are mirrored
+  // into STATE — derived from the ref at mutation time, not read during render —
+  // so the toolbar re-renders when they change without touching ref.current mid-render.
+  const [{ canUndo, canRedo }, setUndoState] = useState({ canUndo: false, canRedo: false });
+  const syncUndoState = useCallback(() => {
+    const hist = history.current;
+    setUndoState({ canUndo: hist.index > 0, canRedo: hist.index < hist.entries.length - 1 });
+  }, []);
   // Mirrors the value we last drove ourselves, to tell our own edits apart from
   // an EXTERNAL value change (e.g. a composer seeding an edit) — see the effect.
   const lastKnownRef = useRef(value);
-
-  const h = history.current;
-  const canUndo = h.index > 0;
-  const canRedo = h.index < h.entries.length - 1;
 
   const commit = useCallback((edit: Edit, kind: 'type' | 'cmd') => {
     const hist = history.current;
@@ -103,8 +104,8 @@ export function RichTextInput({
     }
     hist.lastKind = kind;
     hist.lastAt = now;
-    bump();
-  }, []);
+    syncUndoState();
+  }, [syncUndoState]);
 
   // Push a programmatic edit into the field: remember it as ours, move the caret,
   // and notify the parent.
@@ -128,9 +129,9 @@ export function RichTextInput({
         lastKind: 'init',
         lastAt: 0,
       };
-      bump();
+      syncUndoState();
     }
-  }, [value]);
+  }, [value, syncUndoState]);
 
   const onSelectionChange = (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
     selectionRef.current = e.nativeEvent.selection;
@@ -176,7 +177,7 @@ export function RichTextInput({
     hist.index -= 1;
     applyEdit(hist.entries[hist.index]);
     hist.lastKind = 'cmd';
-    bump();
+    syncUndoState();
   };
   const onRedo = () => {
     const hist = history.current;
@@ -184,7 +185,7 @@ export function RichTextInput({
     hist.index += 1;
     applyEdit(hist.entries[hist.index]);
     hist.lastKind = 'cmd';
-    bump();
+    syncUndoState();
   };
 
   const toolbar = (

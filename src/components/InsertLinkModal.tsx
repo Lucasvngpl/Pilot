@@ -6,7 +6,7 @@
 // This dialog opens over a plain pushed SCREEN, not over another Modal, so the
 // standard centered-dialog tool is fine — and Modal gives us a portal above the
 // keyboard plus its own keyboard handling for the two fields.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Modal, View, Text, Pressable, TextInput, StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
@@ -31,13 +31,17 @@ export function InsertLinkModal({ visible, initialTitle = '', onCancel, onSubmit
   const [url, setUrl] = useState('');
 
   // Re-seed the fields each time the dialog opens (the selected text may differ
-  // between openings; a stale title from a previous open would be wrong).
-  useEffect(() => {
+  // between openings; a stale title from a previous open would be wrong). This is
+  // React's "adjust state when a prop changes" pattern — a setState during render
+  // off a tracked previous value — which avoids the extra render an effect costs.
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
     if (visible) {
       setTitle(initialTitle);
       setUrl('');
     }
-  }, [visible, initialTitle]);
+  }
 
   // Add is enabled once there's a URL; if the user gives no title we fall back to
   // showing the URL itself as the link text.
