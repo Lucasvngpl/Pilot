@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { fetchShowCards } from '@/api/showCards';
+import { fetchBlockedIds } from '@/api/blocks';
 import { formatScope, resolveScope } from '@/types';
 import type { ActivityActor, ActivityItem } from '@/types';
 
@@ -45,6 +46,14 @@ export function useActivityFeed(mode: ActivityMode = 'friends') {
         actorIds = (edges ?? []).map((e) => (e as { followee_id: string }).followee_id);
         if (actorIds.length === 0) return [];
       }
+
+      // Block filter: anyone I've blocked is dropped from the feed everywhere —
+      // as the actor of a row, as the target of a follow, or as the OWNER of a
+      // liked review/list ("X liked [blocked]'s review"). In 'friends' mode a
+      // blocked user is no longer a followee (block_user removed the edge), so
+      // they can't be an actor anyway; these checks cover the indirect surfaces
+      // (a followee liking/following a blocked user). Empty set when anonymous.
+      const blocked = await fetchBlockedIds(me);
 
       // 1. Newest activity from each source (parallel). Watched/Watchlist are
       //    show-scope only (no episode/season — keeps the feed digestible).
@@ -231,6 +240,7 @@ export function useActivityFeed(mode: ActivityMode = 'friends') {
       for (const lk of reviewLikes) {
         const rev = likedReviewById.get(lk.review_id);
         if (!rev) continue; // draft/deleted → no row to point at
+        if (blocked.has(rev.user_id)) continue; // owner blocked → hide the liked-review row
         const scoped = resolveScope(
           { tmdb_show_id: rev.tmdb_show_id, season_number: rev.season_number, episode_number: rev.episode_number },
           cards.get(rev.tmdb_show_id),
@@ -248,6 +258,7 @@ export function useActivityFeed(mode: ActivityMode = 'friends') {
       for (const lk of listLikes) {
         const lst = likedListById.get(lk.list_id);
         if (!lst) continue;
+        if (blocked.has(lst.user_id)) continue; // list owner blocked → hide the row
         items.push({
           type: 'liked', target: 'list',
           key: `llike:${lk.user_id}:${lk.list_id}:${lk.created_at}`,
@@ -256,6 +267,7 @@ export function useActivityFeed(mode: ActivityMode = 'friends') {
         });
       }
       for (const f of follows) {
+        if (blocked.has(f.followee_id)) continue; // hide "X followed [blocked]"
         items.push({
           type: 'followed',
           key: `follow:${f.follower_id}:${f.followee_id}:${f.created_at}`,
@@ -265,6 +277,7 @@ export function useActivityFeed(mode: ActivityMode = 'friends') {
       }
 
       return items
+        .filter((it) => !blocked.has(it.actor.id)) // defensive: never a blocked actor
         .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
         .slice(0, FEED_LIMIT);
     },
