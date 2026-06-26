@@ -408,6 +408,16 @@ export type ReportReason =
   | 'Spoilers'
   | 'Other';
 
+// The reasons in display order, for the report sheet. A runtime array next to the
+// type so the picker can `.map` it (a TS union has no value to iterate).
+export const REPORT_REASONS: ReportReason[] = [
+  'Spam',
+  'Harassment or hate',
+  'Inappropriate content',
+  'Spoilers',
+  'Other',
+];
+
 // A user the signed-in user has blocked — rendered in Settings › Blocked users.
 export type BlockedUser = {
   id: string;
