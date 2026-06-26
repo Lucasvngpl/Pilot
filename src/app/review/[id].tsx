@@ -59,30 +59,46 @@ export default function ReviewScreen() {
     ]);
   };
 
-  // White controls over the dark banner: back (always), a centered "Review"
-  // title, and on the right Share (anyone, once loaded) + ⋯ (once loaded → own
-  // review: Edit/Delete; others' review: Report/Block — ContentActionSheet picks).
-  // The title is absolutely positioned so it stays centered no matter how many
-  // buttons flank it. Padded below the notch since the banner is full-bleed.
-  const controls = (
-    <View style={[styles.controls, { paddingTop: insets.top + 6 }]}>
-      {/* pointerEvents none → taps fall through to the buttons beneath. */}
+  // The hero banner — full-bleed show backdrop (solid-ink fallback), scrim, and the
+  // centered "Review" title. It's now the FIRST child of the ScrollView (below), so
+  // it covers the top on load but SCROLLS AWAY with the page (parity with the
+  // list-detail banner). The title rides WITH the banner; only the buttons pin.
+  const heroEl = (
+    <View style={[styles.hero, { height: heroHeight }]}>
+      {review?.backdropPath && (
+        <Image
+          source={{ uri: tmdbImage(review.backdropPath, 'w780')! }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={200}
+        />
+      )}
+      <View style={styles.scrim} />
       <View pointerEvents="none" style={[styles.titleWrap, { top: insets.top + 6 }]}>
         <Text style={[type.subhead, styles.controlTitle]}>Review</Text>
       </View>
+    </View>
+  );
 
-      <Pressable onPress={() => router.back()} hitSlop={10} style={styles.controlBtn}>
+  // Nav buttons — PINNED as an absolute overlay (NOT inside the ScrollView), so
+  // back/share/⋯ never scroll away. Each sits on a translucent scrim chip so the
+  // white icon stays legible over the banner AND, once scrolled, over the page
+  // background. `box-none` lets taps fall through the empty middle to the content.
+  // Back shows always; Share/⋯ once the review loads.
+  const controlsOverlay = (
+    <View pointerEvents="box-none" style={[styles.controlsOverlay, { paddingTop: insets.top + 6 }]}>
+      <Pressable onPress={() => router.back()} hitSlop={10} style={styles.controlChip}>
         <ChevronLeftIcon color={colors.white} size={26} />
       </Pressable>
 
       <View style={styles.controlsRight}>
         {review && (
-          <Pressable onPress={() => shareReview(review)} hitSlop={10} style={styles.controlBtn}>
+          <Pressable onPress={() => shareReview(review)} hitSlop={10} style={styles.controlChip}>
             <ShareIcon color={colors.white} size={22} />
           </Pressable>
         )}
         {review && (
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} style={styles.controlBtn}>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} style={styles.controlChip}>
             <DotsIcon color={colors.white} size={22} />
           </Pressable>
         )}
@@ -95,33 +111,27 @@ export default function ReviewScreen() {
       {/* Light status-bar icons over the dark banner. */}
       <StatusBar style="light" />
 
-      {/* Backdrop hero. Falls back to a solid ink block when the show has no
-          backdrop, so white controls stay legible and the layout doesn't jump. */}
-      <View style={[styles.hero, { height: heroHeight }]}>
-        {review?.backdropPath && (
-          <Image
-            source={{ uri: tmdbImage(review.backdropPath, 'w780')! }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            transition={200}
-          />
-        )}
-        <View style={styles.scrim} />
-        {controls}
-      </View>
-
       {isLoading ? (
-        <LoadingBody />
+        <>
+          {heroEl}
+          <LoadingBody />
+        </>
       ) : !review ? (
-        <Text style={styles.notFound}>Review not found.</Text>
+        <>
+          {heroEl}
+          <Text style={styles.notFound}>Review not found.</Text>
+        </>
       ) : (
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
           keyboardShouldPersistTaps="handled"
           // iOS: lift content above the keyboard so the comment composer near the
           // bottom isn't covered while typing.
           automaticallyAdjustKeyboardInsets
         >
+          {/* Banner is the first scroll child → scrolls away with the page. */}
+          {heroEl}
           <View style={styles.topBlock}>
             <View style={styles.topText}>
               {/* Reviewer identity */}
@@ -193,6 +203,10 @@ export default function ReviewScreen() {
         </ScrollView>
       )}
 
+      {/* Pinned nav buttons — rendered LAST so they layer above the scroll content
+          and stay put while the banner scrolls off. */}
+      {controlsOverlay}
+
       {/* Banner ⋯ menu. Own review → Edit/Delete (edit reuses the composer with
           the scope locked); others' review → Report/Block. After a block, leave
           the page — the review is now hidden for you. */}
@@ -253,18 +267,35 @@ function formatReviewed(iso: string): string {
 const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
 
+  scroll: { flex: 1 },
+
   // `bannerInk` (FIXED dark), not `ink`: the hero stays a dark photo area with
   // light controls in BOTH modes — see the same choice in ListBanner.
   hero: { width: '100%', backgroundColor: colors.bannerInk, overflow: 'hidden' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.scrim },
-  controls: {
+
+  // Pinned across the very top; rendered last so it layers above the ScrollView.
+  controlsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: pad,
   },
-  controlBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  controlsRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  // Translucent scrim disc behind each white icon → legible over the banner OR,
+  // once the banner scrolls off, over the page background.
+  controlChip: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.scrim,
+  },
+  controlsRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   // Spans the controls row; centers the title over the flanking buttons.
   titleWrap: { position: 'absolute', left: 0, right: 0, height: 40, alignItems: 'center', justifyContent: 'center' },
   controlTitle: { color: colors.white },
