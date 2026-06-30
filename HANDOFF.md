@@ -1,12 +1,36 @@
 # HANDOFF — Pilot current state
 
-_Snapshot as of 2026-06-15. **Current state only** — durable architecture rules live in `CLAUDE.md`._
+_Snapshot as of 2026-06-30. **Current state only** — durable architecture rules live in `CLAUDE.md`._
 
 ---
 
-## ⭐ Latest session (2026-06-15) — Bug fixes (PIL-20 · PIL-21) · Growth loop Figma mocks
+## ⭐ Latest session (2026-06-30) — Synced 3 merged PRs to local; OAuth + onboarding + comments/moderation now on `main`
 
 > This block is the freshest state. Where the older sections below conflict with it, **this block wins.**
+
+**What happened:** local `main` had drifted **32 commits behind `origin/main`** — three feature PRs were built + merged on GitHub (2026-06-26) but never pulled down. `git pull --ff-only` fast-forwarded `425c49b → 4ea2532`. The work below is now local.
+
+**Merged & on `main` (built by the linear-backlog agent, 2026-06-26):**
+- **PIL-22 — Rich-text toolbar** (PR #1). Bold / italic / indent / link + undo/redo above the keyboard on text composers (`RichTextInput`/`RichTextToolbar`/`InsertLinkModal`/`Markdown.tsx`/`lib/markdown.ts`). Reviews/lists store + render lightweight markdown.
+- **PIL-24 — Comments + moderation** (PR #2). **Comments** on reviews + lists (`CommentsSection`, `useComments`, `get-comments` Edge Function v6, `comment_likes` likeable). **Report + Block** (`ReportSheet`/`useReport`, `blocks.ts`/`profile/blocked.tsx`, `ContentActionSheet`) — the App-Store-1.2 moderation pair. Tab number-badges fixed (count shows only inside the tab). Migration `0016_comments_reports_blocks` + `0018_comment_likes`.
+- **PIL-29 — First-run onboarding + Google/Apple OAuth** (PR #3) — _the "Google/Apple auth as one thing" you remembered._ A 4-step `/onboarding` flow (bulk-add watched → starter recs→watchlist → **sign-in gate** → find friends), picks collected locally while anonymous and flushed via `bulk_mark_watched`/`bulk_add_watchlist` the instant a session lands. **OAuth is PKCE over a system browser** (`lib/oauth.ts`, `OAuthButtons`, redirect `pilot://auth-callback`); email is the fallback. **"Force sign-in" is soft** — "Maybe later" still drops you into the app anonymously (browse-free preserved). `AuthGate` routes a brand-new install to `/onboarding` ONCE (`pilot.onboarding.seen.v1`). Migration `0017_bulk_add_watchlist`.
+
+**Verified by me (2026-06-30):** all three migrations' tables + RPCs exist on the remote DB (`comments`/`reports`/`blocks`/`comment_likes`, `bulk_add_watchlist`/`bulk_mark_watched`); `get-comments` (v6) + `get-reviews` (v6) deployed ACTIVE; `app.json` scheme = `pilot`; AuthGate first-run redirect wired. Typecheck not yet re-run post-pull.
+
+**OAuth provider config (2026-06-30):**
+- **Google — DONE.** Web-application OAuth client created in Google Cloud (project `pilot-501016`), redirect URI = `https://hhpczdqpfbcoamayrbtx.supabase.co/auth/v1/callback`; Client ID + Secret pasted into Supabase → Authentication → Providers → Google (Enabled). `pilot://auth-callback` added to Supabase Redirect URLs allowlist. _(Confirm the paste actually saved if a Google sign-in errors.)_
+- **Apple — DEFERRED → PIL-34 (High).** Blocked on a paid Apple Developer Program ($99/yr). Code is done (web PKCE flow handles both providers); pure console/dashboard config remains. The "Continue with Apple" button renders on iOS and will error until PIL-34 is completed — that's expected, not a regression.
+
+**⚠️ Still on-device only (can't verify from here):**
+1. **OAuth needs a dev/standalone build, NOT Expo Go.** Expo Go's deep-link scheme is `exp://`, so `pilot://auth-callback` won't match the redirect → the flow can't complete. Test via `npx expo run:ios` (same rebuild the iOS-device + Send-Feedback blockers already need).
+2. The full onboarding → Google OAuth → pick-flush → friends round-trip.
+3. Comments + Report/Block (PIL-24).
+
+**Suggested next (this session):** verify the OAuth/onboarding flow end-to-end (checklist below), then resume the **share-card render pipeline** (the growth-loop rivet; Figma mocks already locked).
+
+---
+
+## ⭐ Prior session (2026-06-15) — Bug fixes (PIL-20 · PIL-21) · Growth loop Figma mocks
 
 **Shipped & committed (`304f821`, on `main`):**
 - **PIL-20 — Top-4 drag-to-reorder.** `src/app/profile/top-shows.tsx` fully rewritten: `ScrollView` → `react-native-draglist` (`DragList` + ☰ `GripIcon` per row). Same pattern as the list editor: `useSuppressBackSwipe` + `GestureDetector(Gesture.Pan)` restores the iOS edge-swipe-back that `DragList` swallows (PIL-7 fix). Slot numbers update live as you drag; Save writes `position` from the staged order.

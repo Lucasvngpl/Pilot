@@ -350,6 +350,15 @@ Features parked **deliberately** so essentials ship first — not bugs, not over
 - Be able to change to a different poster of the show like they rcently added on Letterboxd for free
 - can also add which series are nominated for popular awards - GGlobes, Emmy’s etc.
 - Steal letterboxd's premium subscription features, the following are premium featrues
+- **Letterboxd Pro ($3.99/mo) parity cross-check (added 2026-07-01).** Their Pro list, mapped to where each stands for us (TV-adapted: films→shows). Tag = status, so we don't double-note:
+  - _Watchlist → streaming-availability notifications_ (email/push when a watchlisted title lands on one of your services) — **📝 already noted** above ("Watchlist Notifications"). Premium-tier for us too.
+  - _Pin content to profile (e.g. top 2 reviews)_ — **📝 already noted** ("Pin reviews & lists to the profile", Down the road). Cheap curation — could ship FREE; decide free-vs-premium when built.
+  - _Change your username_ — **✅ we already have this, FREE** (Settings › Edit Profile). Not a gate for us.
+  - _Clone your own or another member's list_ — **✨ NEW** — copy any public list into your own (reuses list-create + `list_items`). Strong premium candidate; pairs with ranked lists.
+  - _Per-film preferred poster, visible to you + to others per their settings_ — **📝 overlaps** "Poster swap" (which we flagged FREE) + "Ultimate Customization". The new nuance to capture: visible-to-others, gated by each viewer's own preference.
+  - _Per-surface preferred poster (a favorite / a diary entry / a review / shows within one list)_ — **📝 granular version** of "Ultimate Customization" + the Custom-banners note (same `lib/uploadAvatar`→Storage template).
+  - _Per-film + per-surface preferred backdrop (diary / reviews / lists / profile)_ — **📝 overlaps** "Ultimate Customization" backdrops + Custom banners.
+  - _Advanced stats components_: shows you rated higher/lower than the **community average**, most-watched Themes/Nanogenres (≈ our genres/TMDb keywords), highest-rated-per-year among the members you **follow** — **📝 extends** "Advanced Statistics". Caveat: the community-average comparison needs real usage volume to mean anything (same gate as the hot-take / divergence share card) — defer until activity is real signal.
 - Connect to streaming services by mcp so it shows when youve watched the show?
 - Notif when friends pushed out new review
 - Popular reviews section on home
