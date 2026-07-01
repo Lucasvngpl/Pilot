@@ -29,13 +29,20 @@ export type OAuthProvider = 'google' | 'apple';
 // cancel — see the onboarding sign-in step).
 export type OAuthResult = { error?: string; cancelled?: boolean };
 
-// The deep link the provider redirects back to. Linking.createURL builds it from
-// the app's `scheme` (app.json → "pilot"), so in a dev/standalone build this is
-// `pilot://auth-callback`. This EXACT url must be added to Supabase dashboard →
-// Authentication → URL Configuration → Redirect URLs, or the provider rejects it.
-// (Equivalent to expo-auth-session's makeRedirectUri; we use expo-linking to avoid
-// pulling in another native module — expo-web-browser + expo-linking are enough.)
-const redirectTo = Linking.createURL('auth-callback');
+// The deep link the provider redirects back to. We HARDCODE the app-scheme URL
+// (app.json → scheme "pilot") instead of Linking.createURL('auth-callback') on
+// purpose:
+//   • This exact string must match Supabase → Authentication → URL Configuration →
+//     Redirect URLs. If it doesn't, GoTrue silently falls back to the Site URL
+//     (default http://localhost:3000) — which is the "Safari can't connect to
+//     localhost" dead-end we hit.
+//   • createURL() is environment-dependent: in a dev client it returns a Metro-host
+//     URL like exp://172.20.0.109:8081/--/auth-callback (the LAN IP even changes
+//     between networks), so it can never be reliably allowlisted.
+//   • OAuth only works in a dev/standalone build anyway (Expo Go's scheme is exp://,
+//     which can't receive a pilot:// redirect), and both dev + standalone register
+//     the "pilot" scheme — so a fixed pilot:// URL is correct everywhere OAuth runs.
+const redirectTo = 'pilot://auth-callback';
 
 export async function signInWithProvider(provider: OAuthProvider): Promise<OAuthResult> {
   try {

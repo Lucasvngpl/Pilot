@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { RequireAuthProvider } from '@/lib/requireAuth';
 import { ScopeSheetProvider } from '@/lib/scopeSheet';
+import { ToastProvider } from '@/lib/toast';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 import { SheetGestureProvider, useAnySheetOpen } from '@/lib/sheetGesture';
 import { BottomNav, type NavTab } from '@/components/BottomNav';
@@ -89,7 +90,7 @@ function AuthGate() {
     // (browse-free preserved). We never redirect from inside the auth group either,
     // so /welcome → /signup still works.
     if (!session && !seen && !inAuthGroup && !onOnboarding) {
-      router.replace('/onboarding' as any);
+      router.replace('/onboarding');
     }
   }, [session, loading, seen, segments]);
 
@@ -204,12 +205,17 @@ export default function RootLayout() {
                 back-swipe — AuthGate reads the count. */}
             <SheetGestureProvider>
               <RequireAuthProvider>
+                {/* Toast wraps the ScopeSheetProvider subtree (which renders the
+                    Stack + BottomNav), so the toast bar — its LAST child — paints
+                    ABOVE the nav. Inside ThemeProvider so it can read the palette. */}
+                <ToastProvider>
                 {/* One global scoped action sheet, opened by long-pressing any
                     poster (show scope) or episode row (episode scope). Inside
                     RequireAuthProvider so its write actions can gate auth. */}
                 <ScopeSheetProvider>
                   <AuthGate />
                 </ScopeSheetProvider>
+                </ToastProvider>
               </RequireAuthProvider>
             </SheetGestureProvider>
             </OnboardingProvider>

@@ -21,16 +21,29 @@ import { useAuth } from '@/lib/auth';
 
 const SEEN_KEY = 'pilot.onboarding.seen.v1';
 
+// A minimal show shape stored per pick so the UI can show WHAT you selected
+// (poster + name) even after the search that surfaced it is cleared, or you nav
+// back a step. The flush still only needs the id (the Map key) — these extra
+// fields are purely for display.
+export type OnboardingShow = {
+  tmdb_show_id: number;
+  name: string;
+  poster_path: string | null;
+  first_air_date?: string | null;
+};
+
 type OnboardingState = {
   // null while the AsyncStorage read is in flight — AuthGate holds the UI until
   // it resolves so it doesn't flash the wrong screen (same discipline as theme).
   seen: boolean | null;
   // Step 1: shows the user has already watched → bulk_mark_watched (backlog, undated).
-  watched: Set<number>;
+  // Keyed by tmdb id (fast has/size/dedupe, exactly like the old Set) with the
+  // show's display fields as the value.
+  watched: Map<number, OnboardingShow>;
   // Step 2: recommended shows the user wants to watch → bulk_add_watchlist.
-  watchlist: Set<number>;
-  toggleWatched: (id: number) => void;
-  toggleWatchlist: (id: number) => void;
+  watchlist: Map<number, OnboardingShow>;
+  toggleWatched: (show: OnboardingShow) => void;
+  toggleWatchlist: (show: OnboardingShow) => void;
   // True while the post-sign-in flush is writing — the sign-in step shows a brief
   // "Setting things up…" state and waits for this to clear before leaving.
   flushing: boolean;
@@ -46,8 +59,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const qc = useQueryClient();
 
   const [seen, setSeen] = useState<boolean | null>(null);
-  const [watched, setWatched] = useState<Set<number>>(new Set());
-  const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
+  const [watched, setWatched] = useState<Map<number, OnboardingShow>>(new Map());
+  const [watchlist, setWatchlist] = useState<Map<number, OnboardingShow>>(new Map());
   const [flushing, setFlushing] = useState(false);
 
   // Mirror the selection sets into refs so the flush effect can read the LATEST
@@ -73,25 +86,29 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     AsyncStorage.setItem(SEEN_KEY, '1').catch(() => {}); // best-effort; UI already flipped
   }, []);
 
-  const toggleWatched = useCallback((id: number) => {
+  const toggleWatched = useCallback((show: OnboardingShow) => {
     setWatched((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      const next = new Map(prev);
+      next.has(show.tmdb_show_id)
+        ? next.delete(show.tmdb_show_id)
+        : next.set(show.tmdb_show_id, show);
       return next;
     });
   }, []);
 
-  const toggleWatchlist = useCallback((id: number) => {
+  const toggleWatchlist = useCallback((show: OnboardingShow) => {
     setWatchlist((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      const next = new Map(prev);
+      next.has(show.tmdb_show_id)
+        ? next.delete(show.tmdb_show_id)
+        : next.set(show.tmdb_show_id, show);
       return next;
     });
   }, []);
 
   const skip = useCallback(() => {
-    setWatched(new Set());
-    setWatchlist(new Set());
+    setWatched(new Map());
+    setWatchlist(new Map());
     flushedRef.current = true; // nothing to flush; block the effect from acting
     persistSeen();
   }, [persistSeen]);
@@ -103,8 +120,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     persistSeen(); // signing in (anywhere) means they've effectively onboarded
     if (flushedRef.current) return;
 
-    const watchedIds = [...watchedRef.current];
-    const watchlistIds = [...watchlistRef.current];
+    const watchedIds = [...watchedRef.current.keys()];
+    const watchlistIds = [...watchlistRef.current.keys()];
     if (watchedIds.length === 0 && watchlistIds.length === 0) {
       flushedRef.current = true;
       return;
@@ -129,8 +146,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         // means an empty Profile they can fill manually. Log, don't block.
         console.error('[onboarding] selection flush failed:', e);
       } finally {
-        setWatched(new Set());
-        setWatchlist(new Set());
+        setWatched(new Map());
+        setWatchlist(new Map());
         setFlushing(false);
       }
     })();

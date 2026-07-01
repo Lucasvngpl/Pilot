@@ -186,7 +186,7 @@ export default function ListDetailScreen() {
         )}
 
         {/* Flat comment thread + composer (public read, login-gated post). */}
-        <CommentsSection targetType="list" targetId={list.id} />
+        <CommentsSection targetType="list" targetId={list.id} authorId={list.user_id} />
       </ScrollView>
 
       {/* Banner ⋯ menu. Owner → Change banner / Edit / Delete; others →

@@ -33,6 +33,18 @@ export function reviewShareUrl(reviewId: string): string {
   return `pilot://review/${reviewId}`;
 }
 
+// Deep link to a specific COMMENT on a review or list. Resolves to the parent
+// thread's route (pilot://review/<id> or pilot://list/<id>) with ?comment=<cid>
+// so a future handler can scroll to it (scroll-to is deferred — the link already
+// opens the right thread today). Same repoint-once discipline as the others.
+export function commentShareUrl(
+  targetType: 'review' | 'list',
+  targetId: string,
+  commentId: string,
+): string {
+  return `pilot://${targetType}/${targetId}?comment=${commentId}`;
+}
+
 // Share a review via the native sheet — "{who}'s review of {show} on Pilot" + the
 // link. Not owner-gated; any published review is public, so anyone can share it.
 export async function shareReview(review: {

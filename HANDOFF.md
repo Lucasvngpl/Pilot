@@ -1,12 +1,45 @@
 # HANDOFF — Pilot current state
 
-_Snapshot as of 2026-06-30. **Current state only** — durable architecture rules live in `CLAUDE.md`._
+_Snapshot as of 2026-07-02. **Current state only.** Durable architecture rules live in `CLAUDE.md`._
 
 ---
 
-## ⭐ Latest session (2026-06-30) — Synced 3 merged PRs to local; OAuth + onboarding + comments/moderation now on `main`
+## ⭐ Latest session (2026-07-02) — OAuth/onboarding fixes + Comments redesign Phase 1 (built, some UNVERIFIED)
 
-> This block is the freshest state. Where the older sections below conflict with it, **this block wins.**
+> This block is the freshest state. Where older sections conflict, **this block wins.**
+
+**Committed this session by Claude. Some is verified, some is PENDING Lucas's on-device check (called out below).**
+
+### OAuth + onboarding fixes (a verify-before-build pass on the 3 merged PRs)
+- **OAuth was broken in every build.** Two code fixes:
+  1. `src/lib/supabase.ts`: added `flowType: 'pkce'`. The client defaulted to `implicit`, so `exchangeCodeForSession` never fired and Google sign-in silently failed.
+  2. `src/lib/oauth.ts`: redirect is now a hardcoded `pilot://auth-callback` (was `Linking.createURL('auth-callback')`, which returns a Metro-host `exp://...:8081/...` URL in a dev client that can never be allowlisted).
+- **The real blocker was Supabase config (CORRECTS the 2026-06-30 note).** The earlier claim that `pilot://auth-callback` was in the Redirect URLs allowlist was WRONG: the allowlist was EMPTY and Site URL was still `http://localhost:3000`, so every OAuth callback 302'd to localhost ("Safari can't connect"). Fix lives in the dashboard, **Authentication > URL Configuration**: add `pilot://auth-callback` (plus `pilot://**`) to Redirect URLs and set Site URL off localhost. **CONFIRM these were saved.** A Google account (`lucas.venugopal.dev`) did successfully sign in and post a comment, so it appears to work.
+- OAuth requires the **dev build** (`npx expo run:ios`), never Expo Go (scheme is `exp://`). The dev build is installed on the iPhone 16 Plus simulator.
+- **Report was a silent no-op on 3 surfaces (App Store 1.2 gap), now fixed.** `src/components/ContentActionSheet.tsx`: Report inserted an empty `target_id` (into a `uuid NOT NULL` column) from the show-Reviews tab, user-reviews, and comments, because the menu closed (nulling the id) before the ReportSheet read it. Fixed by snapshotting the target the instant Report is tapped.
+- **Onboarding pick-strip.** `src/lib/onboarding.tsx` picks are now a `Map<id, show>` (was `Set<id>`) so `BulkAddStep` renders a persistent selected-shows poster strip. Fixes: a selected show vanished the moment you cleared the search box. Survives step-1 to step-0 back-nav (details live in context now).
+- Onboarding route typecheck error fixed (regenerated `.expo/types`, dropped the `as any` in `_layout.tsx`).
+
+### Comments redesign, Phase 1 (Record Club-style) — BUILT, NOT YET VERIFIED by Lucas
+Decisions (locked with Lucas): **comments are plain text** (no markdown toolbar), **replies are flat + @mention** (no threading). Result: **zero schema migrations.**
+- **Plain-text composer** in a new full-screen `src/components/CommentComposerSheet.tsx` (Cancel / Comment / Submit), opened from a "Comment as {you}" bar in `CommentsSection`. Kills the raw `**` problem (no B/I toolbar). `src/components/Sheet.tsx` gained a `liftOnKeyboard` opt-out so the tall composer's header is not pushed off-screen by the keyboard.
+- **Toast infra** (`src/lib/toast.tsx`, `ToastProvider` mounted at root in `_layout.tsx`, painting above the nav): "Comment posted." on post, "Link copied" on copy.
+- **AUTHOR badge** on comments by the review/list author (`authorId` prop plumbed from `review/[id]` and `list/[id]`).
+- **Reply** prefills `@username` into the composer. **Copy link** on a comment's ⋯ (`expo-clipboard` + `commentShareUrl` in `lib/share.ts`).
+- **Layout deviation to resolve:** the "Comment as" bar sits at the END of the thread (scrolls with the page), not viewport-PINNED like Record Club. Pinning = a per-screen restructure. Lucas to decide.
+
+### What to verify (before this ships)
+1. **OAuth end-to-end** in the dev build: Google sign-in returns to the app (no localhost dead-end), onboarding advances, picks flush onto the profile. Confirm the Supabase URL Configuration was saved.
+2. **Comments Phase 1** (scroll to any review/list thread): composer sheet opens + posts + toast; plain text (no `**`); anonymous post raises login and keeps typed text; AUTHOR badge only on the author's comment; Reply @mention; Like toggle (regression); ⋯ Copy link / Report / Block / Delete. Full 8-point checklist was given in chat.
+
+### What's next
+- **Comments Phase 2** (needs a `get-reviews` redeploy, Claude handles it): comment count per review via a grouped query (`target_type='review'`, NOT a PostgREST FK embed) + a tappable "💬 N comments" on `ReviewRow` that opens the review detail.
+- Deferred: pin the "Comment as" bar; scroll-to-comment when a `?comment=<cid>` link opens; comment counts on list rows; linkify `@username`.
+- Optional polish: silence the benign boot "Invalid Refresh Token" LogBox error (supabase-js clearing a stale session on launch, harmless).
+
+---
+
+## Prior session (2026-06-30) — Synced 3 merged PRs to local; OAuth + onboarding + comments/moderation now on `main`
 
 **What happened:** local `main` had drifted **32 commits behind `origin/main`** — three feature PRs were built + merged on GitHub (2026-06-26) but never pulled down. `git pull --ff-only` fast-forwarded `425c49b → 4ea2532`. The work below is now local.
 

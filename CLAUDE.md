@@ -184,6 +184,7 @@ The live snapshot — what's built, what's mocked, what's next, and known issues
 - Should be able to specify watched/watching on not just show but also season and episode scope.
 - **Pressing:** should be able to create **lists and reviews at season/episode scope**, not just whole-show. Reviews/ratings/watch already work at all 3 scopes — episode/season-scoped **list items** are the remaining gap (see "Down the road").
 - this imagery/idea of the pilot episode
+  no em dashes
 - Add a popular reviews section on home page (based on likes, comments) and be able to see somewhere in
 - Eventually more social of course like comment section and recommednations and recommending to your friends and sharing taste profile to insta
 - **Social features (liking reviews, comments) are still core, not optional.** The like button is currently a passive count display with no tap handler — schema (`review_likes`) + read path exist, mutation/interactivity deliberately deferred (see Reviews in "Down the road"). Don't treat the half-built state as the intended end state: liking/commenting/sharing are central to what makes the app social and need wiring up.

@@ -19,6 +19,13 @@ export const supabase = createClient(
       persistSession: true,
       // No URL bar in RN, so the deep-link session detection doesn't apply.
       detectSessionInUrl: false,
+      // PKCE (not the library default 'implicit'): the OAuth flow in lib/oauth.ts
+      // gets a one-time `?code=` on the redirect and trades it via
+      // exchangeCodeForSession(). That exchange needs the matching code verifier
+      // this option makes the client stash in AsyncStorage. Without it the client
+      // uses implicit flow (tokens in the URL fragment, no `?code=`), so the
+      // exchange never fires and Google/Apple sign-in silently fails.
+      flowType: 'pkce',
     },
   },
 );

@@ -28,6 +28,11 @@ type Props = {
   // Fired after a successful block, so a caller can react (e.g. navigate away
   // from the now-hidden user's profile).
   onBlocked?: () => void;
+  // When present, a "Copy link" action is prepended to the menu (own AND others').
+  // The handler runs synchronously on tap, so it reads a valid target even though
+  // the menu closes first — unlike the Report reason-pick, which reads later and
+  // needs the reportTarget snapshot above.
+  onCopyLink?: () => void;
 };
 
 // "review" → "Report review"; profile reports read "Report user".
@@ -38,10 +43,20 @@ const REPORT_LABEL: Record<ReportTargetType, string> = {
   profile: 'Report user',
 };
 
-export function ContentActionSheet({ visible, onClose, target, ownActions, onBlocked }: Props) {
+export function ContentActionSheet({ visible, onClose, target, ownActions, onBlocked, onCopyLink }: Props) {
   const { user } = useAuth();
   const { block } = useBlockUser();
   const [reportOpen, setReportOpen] = useState(false);
+  // Snapshot of WHAT we're reporting, captured the instant "Report" is tapped.
+  // Why snapshot instead of reading the `target` prop inside <ReportSheet>:
+  // ActionMenuSheet closes the menu BEFORE running the action (close-then-act),
+  // and most callers derive `target` from the same state their onClose nulls
+  // (e.g. `menuReview`). So by the time the user picks a reason, the live
+  // `target.id` has collapsed to '' — which hits the `reports.target_id`
+  // uuid NOT NULL column and the whole report silently fails. Capturing here,
+  // synchronously while `target` is still valid, keeps the real id alive.
+  // (Block doesn't need this: confirmBlock reads target.userId synchronously.)
+  const [reportTarget, setReportTarget] = useState<{ type: ReportTargetType; id: string } | null>(null);
 
   const isOwn = !!user && user.id === target.userId;
 
@@ -66,10 +81,19 @@ export function ContentActionSheet({ visible, onClose, target, ownActions, onBlo
   // Own content shows the caller's edit/delete; others' shows Report + Block.
   // (A blank menu can't happen in practice — callers only open this with either
   // ownActions present or on others' content.)
+  // "Copy link" is available on your OWN and others' content alike (prepended).
+  const copyAction: MenuAction[] = onCopyLink ? [{ label: 'Copy link', onPress: onCopyLink }] : [];
   const actions: MenuAction[] = isOwn
-    ? (ownActions ?? [])
+    ? [...copyAction, ...(ownActions ?? [])]
     : [
-        { label: REPORT_LABEL[target.type], onPress: () => setReportOpen(true) },
+        ...copyAction,
+        {
+          label: REPORT_LABEL[target.type],
+          onPress: () => {
+            setReportTarget({ type: target.type, id: target.id });
+            setReportOpen(true);
+          },
+        },
         { label: 'Block user', destructive: true, onPress: confirmBlock },
       ];
 
@@ -81,7 +105,9 @@ export function ContentActionSheet({ visible, onClose, target, ownActions, onBlo
       <ReportSheet
         visible={reportOpen}
         onClose={() => setReportOpen(false)}
-        target={{ type: target.type, id: target.id }}
+        // Use the snapshot taken when Report was tapped. The `??` is just a
+        // non-null fallback for the first render, when the sheet is hidden anyway.
+        target={reportTarget ?? { type: target.type, id: target.id }}
       />
     </>
   );

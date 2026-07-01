@@ -44,6 +44,40 @@ export function BulkAddStep() {
         />
       </View>
 
+      {/* Your running picks, pinned under the search so they DON'T vanish when you
+          clear the query to search for the next one (the whole point: the result
+          rows are the only other place selection shows, and they disappear with
+          the search). A horizontal strip of posters composited straight into the
+          layout — tap any to remove it (the ✕ badge is the affordance). */}
+      {watched.size > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          style={styles.selectedStrip}
+          contentContainerStyle={styles.selectedStripInner}
+        >
+          {[...watched.values()].map((s) => (
+            <Pressable
+              key={s.tmdb_show_id}
+              onPress={() => toggleWatched(s)}
+              hitSlop={6}
+            >
+              <Poster
+                tmdbShowId={s.tmdb_show_id}
+                posterPath={s.poster_path}
+                name={s.name}
+                width={52}
+                pressable={false}
+              />
+              <View style={styles.removeBadge}>
+                <Text style={styles.removeX}>✕</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.body}
@@ -65,7 +99,14 @@ export function BulkAddStep() {
               <Pressable
                 key={r.tmdb_show_id}
                 style={styles.row}
-                onPress={() => toggleWatched(r.tmdb_show_id)}
+                onPress={() =>
+                  toggleWatched({
+                    tmdb_show_id: r.tmdb_show_id,
+                    name: r.name,
+                    poster_path: r.poster_path,
+                    first_air_date: r.first_air_date,
+                  })
+                }
               >
                 <Poster
                   tmdbShowId={r.tmdb_show_id}
@@ -95,6 +136,26 @@ const makeStyles = (colors: Palette) =>
     header: { paddingHorizontal: pad, paddingTop: 4, paddingBottom: 12 },
     title: { fontFamily: fonts.display, fontSize: 26, color: colors.ink, letterSpacing: -0.5 },
     subtitle: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, marginTop: 8, lineHeight: 21 },
+    // flexGrow:0 so the horizontal strip hugs its row height instead of stretching
+    // to fill the column (a bare ScrollView greedily takes all vertical space).
+    selectedStrip: { flexGrow: 0, marginTop: 14 },
+    selectedStripInner: { paddingHorizontal: pad, gap: 10, paddingTop: 6, paddingRight: pad + 6 },
+    // Small circular ✕, ringed in the screen bg so it reads off the poster corner.
+    // Uses ink→background (not fixed colors) so it inverts correctly in dark mode.
+    removeBadge: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: colors.ink,
+      borderWidth: 2,
+      borderColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    removeX: { color: colors.background, fontSize: 10, fontFamily: fonts.semibold, textAlign: 'center' },
     body: { paddingHorizontal: pad, paddingTop: 8, paddingBottom: 24 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
     rowText: { flex: 1 },

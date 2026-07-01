@@ -199,7 +199,7 @@ export default function ReviewScreen() {
           </View>
 
           {/* Flat comment thread + composer (public read, login-gated post). */}
-          <CommentsSection targetType="review" targetId={review.id} />
+          <CommentsSection targetType="review" targetId={review.id} authorId={review.user_id} />
         </ScrollView>
       )}
 

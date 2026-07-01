@@ -43,7 +43,13 @@ export function RecommendationsStep() {
             return (
               <Pressable
                 key={s.tmdb_show_id}
-                onPress={() => toggleWatchlist(s.tmdb_show_id)}
+                onPress={() =>
+                  toggleWatchlist({
+                    tmdb_show_id: s.tmdb_show_id,
+                    name: s.name,
+                    poster_path: s.poster_path,
+                  })
+                }
                 style={{ width: slotW }}
               >
                 {/* pressable=false so the tap toggles selection instead of routing

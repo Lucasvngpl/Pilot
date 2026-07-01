@@ -12,6 +12,13 @@ type Props = {
   onClose: () => void;
   children: React.ReactNode;
   height?: number;
+  // Whether the sheet rides UP with the keyboard. True (default) is right for the
+  // short bottom sheets (login, action menus) where the inputs sit near the sheet
+  // bottom. A NEAR-FULL-HEIGHT sheet (the comment composer) must set this FALSE:
+  // translating a tall sheet up by the keyboard height would push its top (and its
+  // Cancel/Submit header) off the screen. With it off, the keyboard just covers the
+  // lower, empty part of the sheet — the header stays pinned and text starts at top.
+  liftOnKeyboard?: boolean;
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -28,7 +35,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // Scrim + sheet are SIBLINGS: a tap on the sheet never bubbles to the scrim,
 // so no responder hack is needed and child drags (RatingPicker) claim touches
 // normally — fixing the old inner-Pressable interception.
-export function Sheet({ visible, onClose, children, height = 560 }: Props) {
+export function Sheet({ visible, onClose, children, height = 560, liftOnKeyboard = true }: Props) {
   const styles = useThemedStyles(makeStyles);
   // Count this sheet as open so the Stack drops back-swipe while it's up.
   useRegisterSheet(visible);
@@ -98,8 +105,15 @@ export function Sheet({ visible, onClose, children, height = 560 }: Props) {
         style={[
           styles.sheet,
           // Two stacked translates: the open/close slide, then the keyboard lift
-          // (negative = upward). Both run on the native driver.
-          { height, transform: [{ translateY }, { translateY: Animated.multiply(keyboardOffset, -1) }] },
+          // (negative = upward). Both run on the native driver. The lift is dropped
+          // for tall sheets (see liftOnKeyboard) so their header can't slide off-top.
+          {
+            height,
+            transform: [
+              { translateY },
+              ...(liftOnKeyboard ? [{ translateY: Animated.multiply(keyboardOffset, -1) }] : []),
+            ],
+          },
         ]}
       >
         <View style={styles.grabber} />
